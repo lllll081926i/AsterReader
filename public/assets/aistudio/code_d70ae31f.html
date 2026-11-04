@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>隐私与安全设置 - Aster Reader</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "annotation-pink": "#F6C8D6",
+            "surface-container-high": "#e2eae4",
+            "paper-warm": "#F3EAD8",
+            "secondary": "#506359",
+            "secondary-container": "#d2e8db",
+            "on-tertiary-fixed": "#001f28",
+            "vault-secure-tint": "#284D3D",
+            "inverse-on-surface": "#ebf3ec",
+            "on-secondary-fixed-variant": "#384b41",
+            "on-surface": "#161d1a",
+            "outline": "#717974",
+            "surface-variant": "#dce4de",
+            "annotation-yellow": "#F7E69C",
+            "tertiary-fixed": "#c1e9f8",
+            "on-secondary-fixed": "#0d1f17",
+            "ink-warm": "#2D261C",
+            "annotation-green": "#C4E8C2",
+            "surface-tint": "#436557",
+            "on-tertiary": "#ffffff",
+            "annotation-blue": "#C0DCF5",
+            "surface-container-highest": "#dce4de",
+            "primary-container": "#436557",
+            "error-container": "#ffdad6",
+            "on-error": "#ffffff",
+            "secondary-fixed": "#d2e8db",
+            "surface-container-low": "#eef6ef",
+            "on-primary-fixed-variant": "#2c4d40",
+            "paper-light": "#FBF9F5",
+            "on-surface-variant": "#414844",
+            "on-primary-fixed": "#002116",
+            "on-tertiary-fixed-variant": "#254c58",
+            "secondary-fixed-dim": "#b7cbbf",
+            "background": "#f3fbf5",
+            "ink-dark": "#E1E3DF",
+            "primary-fixed": "#c5ebd9",
+            "ink-light": "#191C1B",
+            "error": "#ba1a1a",
+            "inverse-surface": "#2a322e",
+            "tertiary-container": "#3d6370",
+            "on-primary-container": "#bbe1cf",
+            "inverse-primary": "#aacfbd",
+            "surface-container-lowest": "#ffffff",
+            "tertiary": "#244b58",
+            "on-secondary-container": "#56695e",
+            "on-tertiary-container": "#b6deed",
+            "on-primary": "#ffffff",
+            "paper-oled-black": "#000000",
+            "surface-bright": "#f3fbf5",
+            "paper-dark-gray": "#1F2021",
+            "tertiary-fixed-dim": "#a5cddc",
+            "surface": "#f3fbf5",
+            "surface-container": "#e8f0ea",
+            "on-background": "#161d1a",
+            "on-secondary": "#ffffff",
+            "primary": "#2b4d40",
+            "on-error-container": "#93000a",
+            "surface-dim": "#d4dcd6",
+            "primary-fixed-dim": "#aacfbd",
+            "outline-variant": "#c1c8c3"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem",
+            "3xl": "1.5rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xl": "2rem",
+            "margin-medium": "1.5rem",
+            "space-xs": "0.25rem",
+            "margin": "1rem",
+            "gutter": "0.75rem",
+            "space-md": "1rem",
+            "gutter-expanded": "1rem",
+            "space-lg": "1.5rem",
+            "space-sm": "0.5rem",
+            "margin-expanded": "2rem"
+          },
+          "fontFamily": {
+            "title-sm": ["Roboto Flex"],
+            "body-lg": ["Roboto Flex"],
+            "title-lg": ["Roboto Flex"],
+            "body-sm": ["Roboto Flex"],
+            "label-lg": ["Roboto Flex"],
+            "headline-lg-mobile": ["Roboto Flex"],
+            "headline-sm": ["Roboto Flex"],
+            "headline-lg": ["Roboto Flex"],
+            "body-md": ["Roboto Flex"],
+            "title-md": ["Roboto Flex"],
+            "label-md": ["Roboto Flex"],
+            "label-sm": ["Roboto Flex"]
+          },
+          "fontSize": {
+            "title-sm": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400" }],
+            "title-lg": ["22px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.4px", "fontWeight": "400" }],
+            "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "400" }],
+            "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400" }],
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "500" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      user-select: none;
+    }
+    .material-symbols-outlined.fill-active {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    /* Smooth toggle animation without external libraries */
+    .switch-checkbox:checked + .switch-track {
+      background-color: #2b4d40;
+    }
+    .switch-checkbox:checked + .switch-track .switch-thumb {
+      transform: translateX(20px);
+      background-color: #ffffff;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface antialiased h-full min-h-screen selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- Main View Container: Optimized for focused sub-page task with safe-margin structure -->
+<div class="min-h-screen flex flex-col max-w-2xl mx-auto w-full pb-16">
+<!-- Top App Bar (Task-focused sub-page: Back action, Title, Trailing Help) -->
+<header class="sticky top-0 z-40 bg-surface/90 backdrop-blur-md px-margin md:px-margin-medium h-14 flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<button aria-label="返回上一页" class="w-12 h-12 -ml-2 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container active:scale-95 transition-all duration-150" type="button">
+<span class="material-symbols-outlined text-[24px]">arrow_back</span>
+</button>
+<h1 class="text-title-lg font-title-lg font-medium text-on-surface tracking-tight">隐私与安全</h1>
+</div>
+<div class="flex items-center">
+<button aria-label="帮助与规范说明" class="w-12 h-12 -mr-2 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all duration-150" type="button">
+<span class="material-symbols-outlined text-[24px]">help_outline</span>
+</button>
+</div>
+</header>
+<!-- Main Content Stream -->
+<main class="flex-1 px-margin md:px-margin-medium space-y-6 pt-2">
+<!-- Status Banner: Hardware Backed Cryptography Badge -->
+<section class="rounded-3xl bg-surface-container-low p-4 flex items-start gap-3.5">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-primary flex items-center justify-center shrink-0 mt-0.5">
+<span class="material-symbols-outlined text-[22px]" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2">
+<span class="text-title-sm font-title-sm text-on-surface">本地端到端隔离保护</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-primary-fixed text-on-primary-fixed">硬件密钥链</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5 leading-relaxed">
+            所有加密图书均采用 AES-256-GCM 密文保存在本地沙盒，主密钥交由系统硬件 Keystore 保护，不向任何网络服务器回传。
+          </p>
+</div>
+</section>
+<!-- Group 1:「应用锁 (App Lock)」 -->
+<section class="space-y-2">
+<div class="px-2">
+<h2 class="text-label-lg font-label-lg text-primary font-medium tracking-wide">应用锁 (App Lock)</h2>
+</div>
+<div class="rounded-3xl bg-surface-container-low overflow-hidden">
+<!-- Switch Item: 启用应用锁 -->
+<div class="px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4">
+<div class="flex-1 select-none">
+<label class="text-title-md font-title-md text-on-surface block cursor-pointer" for="toggle-app-lock">启用应用锁</label>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">进入应用时需要通过安全身份验证</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer shrink-0">
+<input checked="" class="sr-only switch-checkbox peer" id="toggle-app-lock" type="checkbox"/>
+<div class="w-[52px] h-8 bg-surface-container-highest rounded-full switch-track peer-focus:outline-none transition-colors duration-200">
+<div class="switch-thumb absolute top-[4px] left-[4px] bg-outline w-6 h-6 rounded-full transition-transform duration-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-primary">check</span>
+</div>
+</div>
+</label>
+</div>
+<div class="h-[0.5px] bg-outline-variant/50 mx-4"></div>
+<!-- Select Item: 解锁方式 -->
+<button class="w-full px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4 text-left hover:bg-surface-container transition-colors duration-150" type="button">
+<div class="flex-1">
+<span class="text-title-md font-title-md text-on-surface block">解锁方式</span>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">指纹、面容或系统安全屏障</p>
+</div>
+<div class="flex items-center gap-1.5 shrink-0 text-on-surface-variant">
+<span class="text-body-md font-body-md text-on-surface-variant">系统屏锁 / 生物识别</span>
+<span class="material-symbols-outlined text-[20px] text-outline">chevron_right</span>
+</div>
+</button>
+<div class="h-[0.5px] bg-outline-variant/50 mx-4"></div>
+<!-- Select Item: 自动锁定策略 -->
+<button class="w-full px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4 text-left hover:bg-surface-container transition-colors duration-150" type="button">
+<div class="flex-1">
+<span class="text-title-md font-title-md text-on-surface block">自动锁定策略</span>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">切换后台时的超时计时缓冲</p>
+</div>
+<div class="flex items-center gap-1.5 shrink-0 text-on-surface-variant">
+<span class="text-body-md font-body-md text-primary font-medium">立即 (离开即锁)</span>
+<span class="material-symbols-outlined text-[20px] text-outline">chevron_right</span>
+</div>
+</button>
+<div class="h-[0.5px] bg-outline-variant/50 mx-4"></div>
+<!-- Switch Item: 屏幕关闭时立即锁定 -->
+<div class="px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4">
+<div class="flex-1 select-none">
+<label class="text-title-md font-title-md text-on-surface block cursor-pointer" for="toggle-screen-off">屏幕关闭时立即锁定</label>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">物理电源键息屏即刻撤销会话权限</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer shrink-0">
+<input checked="" class="sr-only switch-checkbox peer" id="toggle-screen-off" type="checkbox"/>
+<div class="w-[52px] h-8 bg-surface-container-highest rounded-full switch-track peer-focus:outline-none transition-colors duration-200">
+<div class="switch-thumb absolute top-[4px] left-[4px] bg-outline w-6 h-6 rounded-full transition-transform duration-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-primary">check</span>
+</div>
+</div>
+</label>
+</div>
+</div>
+</section>
+<!-- Group 2:「受保护内容与保险库 (Vault & Privacy Controls)」 -->
+<section class="space-y-2">
+<div class="px-2">
+<h2 class="text-label-lg font-label-lg text-primary font-medium tracking-wide">受保护内容与保险库 (Vault &amp; Privacy Controls)</h2>
+</div>
+<div class="rounded-3xl bg-surface-container-low overflow-hidden">
+<!-- Switch Item: 进入加密内容时二次验证 -->
+<div class="px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4">
+<div class="flex-1 select-none">
+<label class="text-title-md font-title-md text-on-surface block cursor-pointer" for="toggle-secondary-auth">进入加密内容时二次验证</label>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">访问受保护书架或私密书籍时独立鉴权</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer shrink-0">
+<input checked="" class="sr-only switch-checkbox peer" id="toggle-secondary-auth" type="checkbox"/>
+<div class="w-[52px] h-8 bg-surface-container-highest rounded-full switch-track peer-focus:outline-none transition-colors duration-200">
+<div class="switch-thumb absolute top-[4px] left-[4px] bg-outline w-6 h-6 rounded-full transition-transform duration-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-primary">check</span>
+</div>
+</div>
+</label>
+</div>
+<div class="h-[0.5px] bg-outline-variant/50 mx-4"></div>
+<!-- Switch Item: 受保护内容禁止截屏 (FLAG_SECURE) -->
+<div class="px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4">
+<div class="flex-1 select-none">
+<div class="flex items-center gap-1.5">
+<label class="text-title-md font-title-md text-on-surface block cursor-pointer" for="toggle-flag-secure">受保护内容禁止截屏</label>
+<span class="text-label-sm font-label-sm text-secondary bg-surface-container px-1.5 py-0.5 rounded">FLAG_SECURE</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">防止系统截图及最近任务缓存泄露敏感内容</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer shrink-0">
+<input checked="" class="sr-only switch-checkbox peer" id="toggle-flag-secure" type="checkbox"/>
+<div class="w-[52px] h-8 bg-surface-container-highest rounded-full switch-track peer-focus:outline-none transition-colors duration-200">
+<div class="switch-thumb absolute top-[4px] left-[4px] bg-outline w-6 h-6 rounded-full transition-transform duration-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-primary">check</span>
+</div>
+</div>
+</label>
+</div>
+<div class="h-[0.5px] bg-outline-variant/50 mx-4"></div>
+<!-- Switch Item: 在最近任务中隐藏界面预览 (强制生效) -->
+<div class="px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4">
+<div class="flex-1 select-none">
+<div class="flex items-center gap-1.5">
+<label class="text-title-md font-title-md text-on-surface block cursor-pointer" for="toggle-hide-recents">在最近任务中隐藏界面预览</label>
+<span class="text-label-sm font-label-sm text-primary font-medium bg-secondary-container px-1.5 py-0.5 rounded-full">强制生效</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">切换任务卡片时显示单色纯净屏蔽层</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer shrink-0">
+<input checked="" class="sr-only switch-checkbox peer" id="toggle-hide-recents" type="checkbox"/>
+<div class="w-[52px] h-8 bg-surface-container-highest rounded-full switch-track peer-focus:outline-none transition-colors duration-200">
+<div class="switch-thumb absolute top-[4px] left-[4px] bg-outline w-6 h-6 rounded-full transition-transform duration-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-primary">check</span>
+</div>
+</div>
+</label>
+</div>
+<div class="h-[0.5px] bg-outline-variant/50 mx-4"></div>
+<!-- Switch Item: 未解锁时隐蔽元数据 (强制开启) -->
+<div class="px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4">
+<div class="flex-1 select-none">
+<div class="flex items-center gap-1.5">
+<label class="text-title-md font-title-md text-on-surface block cursor-pointer" for="toggle-hide-metadata">未解锁时隐蔽元数据</label>
+<span class="text-label-sm font-label-sm text-primary font-medium bg-secondary-container px-1.5 py-0.5 rounded-full">强制开</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">不展示书名、封面缩略图与阅读记录</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer shrink-0">
+<input checked="" class="sr-only switch-checkbox peer" id="toggle-hide-metadata" type="checkbox"/>
+<div class="w-[52px] h-8 bg-surface-container-highest rounded-full switch-track peer-focus:outline-none transition-colors duration-200">
+<div class="switch-thumb absolute top-[4px] left-[4px] bg-outline w-6 h-6 rounded-full transition-transform duration-200 flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-primary">check</span>
+</div>
+</div>
+</label>
+</div>
+</div>
+</section>
+<!-- Group 3:「保险库与应急恢复 (Vault Management & Keys)」 -->
+<section class="space-y-2">
+<div class="px-2">
+<h2 class="text-label-lg font-label-lg text-primary font-medium tracking-wide">保险库与应急恢复 (Vault Management &amp; Keys)</h2>
+</div>
+<div class="rounded-3xl bg-surface-container-low overflow-hidden">
+<!-- Row: 保险库健康检查与完整性校验 -->
+<button class="w-full px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4 text-left hover:bg-surface-container transition-colors duration-150" type="button">
+<div class="flex-1">
+<span class="text-title-md font-title-md text-on-surface block">保险库健康检查与完整性校验</span>
+<p class="text-body-sm font-body-sm text-secondary mt-0.5">已加密 1 项作品 · 密文完整</p>
+</div>
+<div class="flex items-center gap-1.5 shrink-0 text-primary">
+<span class="material-symbols-outlined text-[24px] text-primary" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+</div>
+</button>
+<div class="h-[0.5px] bg-outline-variant/50 mx-4"></div>
+<!-- Row: 配置与测试恢复密码 -->
+<button class="w-full px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4 text-left hover:bg-surface-container transition-colors duration-150" type="button">
+<div class="flex-1">
+<span class="text-title-md font-title-md text-on-surface block">配置与测试恢复密码</span>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">上次验证: 3天前</p>
+</div>
+<div class="flex items-center gap-1.5 shrink-0 text-on-surface-variant">
+<span class="text-body-md font-body-md text-outline">已配置</span>
+<span class="material-symbols-outlined text-[20px] text-outline">chevron_right</span>
+</div>
+</button>
+<div class="h-[0.5px] bg-outline-variant/50 mx-4"></div>
+<!-- Row (Danger/Notice): 解密导出与解除保护向导 -->
+<button class="w-full px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-4 text-left hover:bg-error-container/30 transition-colors duration-150" type="button">
+<div class="flex-1">
+<span class="text-title-md font-title-md text-error block font-medium">解密导出与解除保护向导</span>
+<p class="text-body-sm font-body-sm text-on-surface-variant mt-0.5">将密文副本以明文导出至指定 SAF 目录</p>
+</div>
+<div class="flex items-center shrink-0 text-error">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</div>
+</button>
+</div>
+</section>
+<!-- Security Guidance Card / Footer Footnote -->
+<div class="pt-4 pb-8 px-2 text-center">
+<p class="text-body-sm font-body-sm text-outline leading-relaxed max-w-md mx-auto">
+          若忘记主身份凭证且未保存应急恢复密钥，受加密书架保护的数据将无法复原。Aster Reader 严格遵循离线零知识准则。
+        </p>
+</div>
+</main>
+</div>
+</body></html>

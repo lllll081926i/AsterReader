@@ -1,0 +1,12 @@
+flowchart TB
+    DK[Android Keystore Device KEK\nNon-exportable] --> W1[Device Key Slot]
+    PW[Recovery Password] --> KDF[Memory-hard / calibrated KDF]
+    KDF --> W2[Recovery Key Slot]
+    W1 --> MS[Vault Master Secret]
+    W2 --> MS
+    MS --> F1[Wrapped File DEK A]
+    MS --> F2[Wrapped File DEK B]
+    MS --> F3[Wrapped File DEK N]
+    F1 --> C1[Encrypted ASV1 chunks]
+    F2 --> C2[Encrypted ASV1 chunks]
+    F3 --> C3[Encrypted ASV1 chunks]

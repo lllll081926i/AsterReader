@@ -1,0 +1,11 @@
+flowchart TD
+  A[Select source] --> B[List candidates]
+  B --> C[Probe signature]
+  C --> D[Quick fingerprint]
+  D --> E[Parse lightweight metadata]
+  E --> F[Stage scan results]
+  F --> G{User preview needed?}
+  G -- yes --> H[Review grouping rules]
+  G -- no --> I[Commit transaction]
+  H --> I
+  I --> J[Async cover/index workers]

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>Aster Reader - 漫画阅读器 (R-01 / R-02)</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Roboto Flex -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-variant": "#dce4de",
+            "background": "#f3fbf5",
+            "secondary-container": "#d2e8db",
+            "on-secondary-fixed": "#0d1f17",
+            "ink-light": "#191C1B",
+            "inverse-primary": "#aacfbd",
+            "on-surface-variant": "#414844",
+            "annotation-green": "#C4E8C2",
+            "on-primary-container": "#bbe1cf",
+            "outline-variant": "#c1c8c3",
+            "surface": "#f3fbf5",
+            "error-container": "#ffdad6",
+            "on-tertiary": "#ffffff",
+            "paper-light": "#FBF9F5",
+            "secondary-fixed-dim": "#b7cbbf",
+            "tertiary": "#244b58",
+            "surface-dim": "#d4dcd6",
+            "surface-container-lowest": "#ffffff",
+            "outline": "#717974",
+            "on-background": "#161d1a",
+            "paper-oled-black": "#000000",
+            "on-secondary-fixed-variant": "#384b41",
+            "annotation-blue": "#C0DCF5",
+            "vault-secure-tint": "#284D3D",
+            "inverse-on-surface": "#ebf3ec",
+            "on-primary-fixed": "#002116",
+            "paper-warm": "#F3EAD8",
+            "primary-fixed": "#c5ebd9",
+            "surface-container-highest": "#dce4de",
+            "tertiary-container": "#3d6370",
+            "tertiary-fixed": "#c1e9f8",
+            "surface-container-high": "#e2eae4",
+            "surface-container": "#e8f0ea",
+            "on-tertiary-fixed": "#001f28",
+            "surface-bright": "#f3fbf5",
+            "paper-dark-gray": "#1F2021",
+            "annotation-pink": "#F6C8D6",
+            "on-primary-fixed-variant": "#2c4d40",
+            "primary-container": "#436557",
+            "error": "#ba1a1a",
+            "on-secondary-container": "#56695e",
+            "secondary": "#506359",
+            "on-surface": "#161d1a",
+            "ink-dark": "#E1E3DF",
+            "on-error": "#ffffff",
+            "on-error-container": "#93000a",
+            "ink-warm": "#2D261C",
+            "annotation-yellow": "#F7E69C",
+            "secondary-fixed": "#d2e8db",
+            "primary-fixed-dim": "#aacfbd",
+            "on-tertiary-container": "#b6deed",
+            "on-secondary": "#ffffff",
+            "on-tertiary-fixed-variant": "#254c58",
+            "on-primary": "#ffffff",
+            "tertiary-fixed-dim": "#a5cddc",
+            "primary": "#2b4d40",
+            "surface-container-low": "#eef6ef",
+            "surface-tint": "#436557",
+            "inverse-surface": "#2a322e"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "margin-expanded": "2rem",
+            "space-lg": "1.5rem",
+            "margin": "1rem",
+            "margin-medium": "1.5rem",
+            "gutter-expanded": "1rem",
+            "gutter": "0.75rem",
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "space-xl": "2rem"
+          },
+          "fontFamily": {
+            "title-md": ["Roboto Flex"],
+            "body-lg": ["Roboto Flex"],
+            "label-lg": ["Roboto Flex"],
+            "label-md": ["Roboto Flex"],
+            "headline-lg-mobile": ["Roboto Flex"],
+            "headline-lg": ["Roboto Flex"],
+            "body-md": ["Roboto Flex"],
+            "title-sm": ["Roboto Flex"],
+            "title-lg": ["Roboto Flex"],
+            "label-sm": ["Roboto Flex"],
+            "headline-sm": ["Roboto Flex"],
+            "body-sm": ["Roboto Flex"]
+          },
+          "fontSize": {
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "500" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400" }],
+            "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400" }],
+            "title-sm": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "title-lg": ["22px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.4px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      font-size: 24px;
+      line-height: 1;
+      display: inline-block;
+      user-select: none;
+    }
+    .material-symbols-outlined.fill-1 {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    /* Edge gestures buffer hint */
+    .edge-buffer {
+      width: 24px;
+    }
+    /* Hide scrollbars */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-paper-dark-gray text-ink-dark antialiased h-screen w-screen overflow-hidden select-none flex flex-col justify-between relative font-body-md text-body-md">
+<!-- ========================================== -->
+<!-- 1. MANGA READING CANVAS (R-02)             -->
+<!-- ========================================== -->
+<main class="absolute inset-0 z-0 flex items-center justify-center bg-paper-dark-gray overflow-hidden cursor-pointer" id="reader-canvas" onclick="toggleChrome()">
+<!-- Comic Spread Viewport -->
+<div class="relative w-full max-w-[840px] h-full flex items-center justify-center p-0 md:px-margin-expanded">
+<div class="relative max-h-full max-w-full aspect-[2/3] bg-paper-oled-black flex items-center justify-center overflow-hidden shadow-2xl rounded-none md:rounded-lg">
+<img class="w-full h-full object-contain pointer-events-none" data-alt="A masterfully illustrated Japanese manga page in monochrome black and white ink style. High fantasy adventure scene depicting an elven mage surrounded by delicate swirling crystalline magic, intricate line art, rich crosshatching textures, and clean white gutters. The atmospheric visual features soft natural rim lighting and subtle atmospheric paper grain, presenting a disciplined, focused graphic novel aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_RR8rdT1lhnx6FbLXQvD7NKMt57vF4SJvYoRxRcRrYEqmftcZ3LWyuDMp8gH8MTiuPEplNMuF3nlh1I6OIea_Z0tm-3r6_4AFNsYv395023fMZOyOzqvULgEDxwQDxsqsNBLZoD55YAiYTJ20bs__kuiEToj2B0-V38tBPTXrHo4d1WPNnLa4I5mPQWk8n1_tBf3TgJoDBXQULE9EDBBs4tnvIFAmYwY_Z_V6j8k1"/>
+<!-- Subtle Comic Corner Page Turn Feedback Indicator -->
+<div class="absolute bottom-3 right-4 bg-paper-dark-gray/80 px-2 py-0.5 rounded-full text-paper-light/60 font-label-sm text-label-sm backdrop-blur-sm pointer-events-none">
+          P. 89
+        </div>
+</div>
+</div>
+<!-- Android 12+ Edge Gesture Safe Zones (24dp edgeGestureBuffer) -->
+<div class="edge-buffer absolute top-0 bottom-0 left-0 z-10 pointer-events-none flex items-center justify-center opacity-0 transition-opacity duration-300" id="left-edge-hint">
+<div class="w-1 h-24 bg-primary-fixed/40 rounded-full"></div>
+</div>
+<div class="edge-buffer absolute top-0 bottom-0 right-0 z-10 pointer-events-none flex items-center justify-center opacity-0 transition-opacity duration-300" id="right-edge-hint">
+<div class="w-1 h-24 bg-primary-fixed/40 rounded-full"></div>
+</div>
+</main>
+<!-- ========================================== -->
+<!-- 2. TRANSIENT TOP CHROME (R-01 Shell Top)  -->
+<!-- ========================================== -->
+<header class="relative z-40 w-full transition-all duration-200 ease-out transform translate-y-0 opacity-100" id="top-chrome">
+<div class="w-full bg-surface-container/95 dark:bg-surface-container/95 backdrop-blur-md px-margin md:px-margin-expanded py-2 flex items-center justify-between min-h-[56px] shadow-sm">
+<!-- Left: Exit / Back to Library -->
+<div class="flex items-center gap-space-sm">
+<button aria-label="返回资料库" class="w-12 h-12 flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container-high active:scale-95 transition-all" onclick="event.stopPropagation(); history.back();" type="button">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<!-- Title & Chapter Metadata -->
+<div class="flex flex-col ml-1">
+<div class="flex items-center gap-space-xs">
+<h1 class="font-title-md text-title-md font-bold text-on-surface tracking-tight truncate max-w-[200px] sm:max-w-md">
+              葬送的芙莉莲 11
+            </h1>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-secondary-container text-on-secondary-container">
+              RTL
+            </span>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5">
+<span>第104话 · 故乡的祭典</span>
+<span class="inline-block w-1 h-1 rounded-full bg-outline"></span>
+<span class="text-primary font-medium">连载中</span>
+</p>
+</div>
+</div>
+<!-- Right Action Cluster: Search & Overflow Menu -->
+<div class="flex items-center gap-1" onclick="event.stopPropagation()">
+<button aria-label="章节内搜索" class="w-12 h-12 flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container-high active:scale-95 transition-all" type="button">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+<button aria-label="阅读器更多选项" class="w-12 h-12 flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container-high active:scale-95 transition-all" type="button">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</header>
+<!-- ========================================== -->
+<!-- 3. TRANSIENT BOTTOM CHROME & CONTROLS      -->
+<!-- ========================================== -->
+<div class="relative z-40 w-full flex flex-col items-center gap-space-sm pb-6 px-margin md:px-margin-expanded transition-all duration-200 ease-out transform translate-y-0 opacity-100" id="bottom-chrome" onclick="event.stopPropagation()">
+<!-- 3.1 Progress Capsule Layer (进度控制胶囊) -->
+<div class="w-full max-w-xl bg-surface-container-high/95 backdrop-blur-md rounded-full px-space-md py-2.5 flex items-center justify-between gap-space-sm shadow-md border border-outline-variant/30">
+<!-- Previous Chapter -->
+<button class="h-10 px-2.5 flex items-center gap-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-full active:scale-95 transition-all" title="上一话" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="skip_previous">skip_previous</span>
+<span class="hidden sm:inline font-label-md text-label-md">上一话</span>
+</button>
+<!-- Accurate Slider & Position Tag -->
+<div class="flex-1 flex items-center gap-space-sm px-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium min-w-[36px] text-right">89</span>
+<div class="relative w-full flex items-center group py-2">
+<!-- Track Base -->
+<div class="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden relative">
+<!-- Active Fill (74%) -->
+<div class="h-full bg-primary rounded-full" style="width: 74%;"></div>
+</div>
+<!-- Slider Thumb (48dp touch footprint) -->
+<div class="absolute left-[74%] -translate-x-1/2 w-4 h-4 bg-primary rounded-full shadow-sm ring-4 ring-primary-fixed cursor-pointer transition-transform group-hover:scale-125"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium min-w-[36px]">120</span>
+</div>
+<!-- Percentage Indicator -->
+<div class="bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full font-label-sm text-label-sm font-semibold tracking-wide">
+        74%
+      </div>
+<!-- Next Chapter -->
+<button class="h-10 px-2.5 flex items-center gap-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-full active:scale-95 transition-all" title="下一话" type="button">
+<span class="hidden sm:inline font-label-md text-label-md">下一话</span>
+<span class="material-symbols-outlined text-[20px]" data-icon="skip_next">skip_next</span>
+</button>
+</div>
+<!-- 3.2 ReaderControlIsland Floating Island (胶囊悬浮操作岛 999dp) -->
+<nav class="w-full max-w-xl bg-surface-container-high/95 backdrop-blur-md rounded-full p-1.5 flex items-center justify-between shadow-lg border border-outline-variant/30">
+<!-- Option 1: Contents / Chapters Drawer -->
+<button class="flex-1 min-h-[48px] flex flex-col items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all px-2" title="目录与书签" type="button">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-label-sm text-label-sm mt-0.5">目录</span>
+</button>
+<!-- Option 2: Page Mode (单页 / 双页 / 滚动) -->
+<button class="flex-1 min-h-[48px] flex flex-col items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all px-2" title="翻页模式切换" type="button">
+<span class="material-symbols-outlined" data-icon="filter_none">filter_none</span>
+<span class="font-label-sm text-label-sm mt-0.5">单页</span>
+</button>
+<!-- Option 3: Reading Direction (RTL / LTR / 纵向) - Active Pill -->
+<button class="flex-1 min-h-[48px] flex flex-col items-center justify-center rounded-full bg-secondary-container text-on-secondary-container shadow-sm active:scale-95 transition-all px-2" title="阅读方向" type="button">
+<span class="material-symbols-outlined fill-1" data-icon="swap_horiz">swap_horiz</span>
+<span class="font-label-sm text-label-sm font-semibold mt-0.5">RTL</span>
+</button>
+<!-- Option 4: Typography & Display Settings -->
+<button class="flex-1 min-h-[48px] flex flex-col items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all px-2" title="排版与画面滤镜" type="button">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+<span class="font-label-sm text-label-sm mt-0.5">设置</span>
+</button>
+<!-- Option 5: Day / Night / OLED Theme Toggle -->
+<button class="flex-1 min-h-[48px] flex flex-col items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all px-2" onclick="toggleReadingTheme(this)" title="昼夜模式切换" type="button">
+<span class="material-symbols-outlined" data-icon="dark_mode" id="theme-icon">dark_mode</span>
+<span class="font-label-sm text-label-sm mt-0.5" id="theme-label">深色</span>
+</button>
+</nav>
+</div>
+<!-- Micro-interaction logic for Reader Chrome auto-fade & controls -->
+<script>
+    let chromeVisible = true;
+    let autoHideTimer = null;
+
+    function resetAutoHide() {
+      clearTimeout(autoHideTimer);
+      if (chromeVisible) {
+        autoHideTimer = setTimeout(() => {
+          hideChrome();
+        }, 5000); // 5s relaxed timeout for reading immersion
+      }
+    }
+
+    function toggleChrome() {
+      if (chromeVisible) {
+        hideChrome();
+      } else {
+        showChrome();
+      }
+    }
+
+    function hideChrome() {
+      chromeVisible = false;
+      const top = document.getElementById('top-chrome');
+      const bottom = document.getElementById('bottom-chrome');
+      
+      top.classList.add('-translate-y-full', 'opacity-0');
+      bottom.classList.add('translate-y-full', 'opacity-0');
+    }
+
+    function showChrome() {
+      chromeVisible = true;
+      const top = document.getElementById('top-chrome');
+      const bottom = document.getElementById('bottom-chrome');
+      
+      top.classList.remove('-translate-y-full', 'opacity-0');
+      bottom.classList.remove('translate-y-full', 'opacity-0');
+      resetAutoHide();
+    }
+
+    function toggleReadingTheme(btn) {
+      const icon = document.getElementById('theme-icon');
+      const label = document.getElementById('theme-label');
+      const canvas = document.getElementById('reader-canvas');
+
+      if (label.innerText === '深色') {
+        label.innerText = '浅色';
+        icon.innerText = 'light_mode';
+        canvas.classList.remove('bg-paper-dark-gray');
+        canvas.classList.add('bg-paper-light');
+      } else {
+        label.innerText = '深色';
+        icon.innerText = 'dark_mode';
+        canvas.classList.remove('bg-paper-light');
+        canvas.classList.add('bg-paper-dark-gray');
+      }
+    }
+
+    // Initialize timer
+    resetAutoHide();
+  </script>
+</body></html>

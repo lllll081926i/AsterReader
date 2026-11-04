@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aster Reader - 平板沉浸双页阅读 (Tablet Dual-Page Reader)</title>
+<!-- Material Symbols Outlined Font -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Roboto Flex Font -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS with Forms and Container Queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Verbatim Tailwind Configuration -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "outline": "#717974",
+            "annotation-yellow": "#F7E69C",
+            "on-secondary-container": "#56695e",
+            "surface-variant": "#dce4de",
+            "paper-warm": "#F3EAD8",
+            "surface-container-highest": "#dce4de",
+            "annotation-green": "#C4E8C2",
+            "on-secondary": "#ffffff",
+            "on-tertiary": "#ffffff",
+            "on-error-container": "#93000a",
+            "on-surface": "#161d1a",
+            "on-secondary-fixed": "#0d1f17",
+            "error-container": "#ffdad6",
+            "surface-dim": "#d4dcd6",
+            "ink-dark": "#E1E3DF",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#eef6ef",
+            "on-secondary-fixed-variant": "#384b41",
+            "tertiary-fixed-dim": "#a5cddc",
+            "primary-fixed-dim": "#aacfbd",
+            "on-primary": "#ffffff",
+            "paper-light": "#FBF9F5",
+            "surface": "#f3fbf5",
+            "error": "#ba1a1a",
+            "surface-tint": "#436557",
+            "on-primary-fixed-variant": "#2c4d40",
+            "surface-container": "#e8f0ea",
+            "secondary": "#506359",
+            "surface-container-high": "#e2eae4",
+            "on-tertiary-fixed-variant": "#254c58",
+            "inverse-surface": "#2a322e",
+            "surface-bright": "#f3fbf5",
+            "paper-dark-gray": "#1F2021",
+            "primary-container": "#436557",
+            "ink-light": "#191C1B",
+            "on-surface-variant": "#414844",
+            "on-error": "#ffffff",
+            "primary": "#2b4d40",
+            "primary-fixed": "#c5ebd9",
+            "on-tertiary-fixed": "#001f28",
+            "inverse-primary": "#aacfbd",
+            "background": "#f3fbf5",
+            "paper-oled-black": "#000000",
+            "tertiary-fixed": "#c1e9f8",
+            "ink-warm": "#2D261C",
+            "outline-variant": "#c1c8c3",
+            "secondary-container": "#d2e8db",
+            "on-primary-fixed": "#002116",
+            "tertiary": "#244b58",
+            "on-background": "#161d1a",
+            "secondary-fixed-dim": "#b7cbbf",
+            "annotation-blue": "#C0DCF5",
+            "annotation-pink": "#F6C8D6",
+            "on-primary-container": "#bbe1cf",
+            "on-tertiary-container": "#b6deed",
+            "tertiary-container": "#3d6370",
+            "inverse-on-surface": "#ebf3ec",
+            "vault-secure-tint": "#284D3D",
+            "secondary-fixed": "#d2e8db"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "gutter-expanded": "1rem",
+            "gutter": "0.75rem",
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "space-lg": "1.5rem",
+            "margin-expanded": "2rem",
+            "margin-medium": "1.5rem",
+            "margin": "1rem",
+            "space-xs": "0.25rem",
+            "space-xl": "2rem"
+          },
+          "fontFamily": {
+            "body-lg": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "label-lg": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "headline-sm": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "label-sm": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "title-md": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "label-md": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "body-md": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "headline-lg-mobile": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "headline-lg": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "title-lg": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "body-sm": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"],
+            "title-sm": ["Roboto Flex", "system-ui", "-apple-system", "sans-serif"]
+          },
+          "fontSize": {
+            "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400" }],
+            "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "500" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400" }],
+            "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "400" }],
+            "title-lg": ["22px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.4px", "fontWeight": "400" }],
+            "title-sm": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    
+    /* Manga Crease & Texture Depth */
+    .manga-gutter-spine {
+      background: linear-gradient(90deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 20%, rgba(0,0,0,0.02) 48%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.02) 52%, rgba(0,0,0,0.2) 80%, rgba(0,0,0,0.55) 100%);
+    }
+
+    /* Edge Gestures Buffer */
+    .edge-gesture-safe-left {
+      width: 24px;
+    }
+    .edge-gesture-safe-right {
+      width: 24px;
+    }
+
+    /* Custom Micro Scrollbar for TOC list */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(113, 121, 116, 0.3);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(113, 121, 116, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-paper-dark-gray text-ink-dark h-full overflow-hidden select-none font-body-md text-body-md antialiased flex flex-col justify-between relative">
+<!-- ========================================================================= -->
+<!-- 1. TOP TRANSIENT CHROME BAR (平板顶部控制栏 - 沉浸式浮动胶囊) -->
+<!-- ========================================================================= -->
+<header class="fixed top-0 left-0 right-0 z-40 px-margin-medium py-space-sm flex justify-between items-center pointer-events-none">
+<!-- Left: Navigation & Manga Meta Cluster -->
+<div class="pointer-events-auto flex items-center gap-space-sm bg-surface-container/90 backdrop-blur-md text-on-surface rounded-full px-space-md py-space-xs shadow-sm border border-outline-variant/30">
+<button class="flex items-center gap-space-xs text-primary font-label-md text-label-md hover:bg-surface-container-high rounded-full px-space-sm py-1 transition-all active:scale-95" onclick="window.history.back()" title="返回资料库">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span>
+<span class="hidden sm:inline">资料库</span>
+</button>
+<div class="h-4 w-px bg-outline-variant/40"></div>
+<!-- Book Title & Current Chapter Info -->
+<div class="flex items-center gap-space-xs">
+<span class="font-title-sm text-title-sm text-on-surface font-semibold tracking-tight">葬送的芙莉莲 11</span>
+<span class="text-on-surface-variant font-body-sm text-body-sm hidden md:inline">· 第106话 帝国的密探</span>
+<!-- Metadata Badges -->
+<span class="bg-secondary-container text-on-secondary-container font-label-sm text-label-sm px-2 py-0.5 rounded-full font-medium ml-1">
+          RTL
+        </span>
+<span class="bg-surface-variant text-on-surface-variant font-label-sm text-label-sm px-1.5 py-0.5 rounded-md font-mono text-[10px]">
+          CBZ
+        </span>
+</div>
+</div>
+<!-- Center/Right: Read Metric & Contextual Actions -->
+<div class="pointer-events-auto flex items-center gap-space-xs bg-surface-container/90 backdrop-blur-md text-on-surface rounded-full px-space-sm py-space-xs shadow-sm border border-outline-variant/30">
+<div class="px-space-sm text-center">
+<span class="font-label-md text-label-md font-semibold text-primary">88-89</span>
+<span class="text-on-surface-variant font-label-sm text-label-sm">/ 121</span>
+<span class="text-secondary font-label-sm text-label-sm ml-1">(74%)</span>
+</div>
+<div class="h-4 w-px bg-outline-variant/40 mx-0.5"></div>
+<!-- Internal Search in Chapter/Manga -->
+<button class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors active:scale-95" title="页面检索">
+<span class="material-symbols-outlined text-[20px]">search</span>
+</button>
+<!-- Bookmark/Annotation -->
+<button class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors active:scale-95" title="书签与批注">
+<span class="material-symbols-outlined text-[20px]">bookmark_border</span>
+</button>
+<!-- Layout Toggle: Dual Page vs Single -->
+<button class="w-9 h-9 rounded-full flex items-center justify-center bg-secondary-container text-on-secondary-container hover:bg-secondary-container/80 transition-colors active:scale-95" title="当前：双页展开 (点击切换)">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+</button>
+<!-- Toggle Side Drawer (TOC & Settings) -->
+<button class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors active:scale-95" id="toggleDrawerBtn" title="侧边设置与目录">
+<span class="material-symbols-outlined text-[20px]">tune</span>
+</button>
+</div>
+</header>
+<!-- ========================================================================= -->
+<!-- 2. MAIN READER CANVAS (平板双页展开模式 R-02 Dual-Page Mode) -->
+<!-- ========================================================================= -->
+<main class="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden bg-[#141615]">
+<!-- Android Edge Gesture Buffer Guard (24dp touch boundary) -->
+<div class="edge-gesture-safe-left absolute left-0 top-0 bottom-0 z-30 pointer-events-none"></div>
+<div class="edge-gesture-safe-right absolute right-0 top-0 bottom-0 z-30 pointer-events-none"></div>
+<!-- Reading Stage Container (16:10 / 4:3 Balanced Tablet Frame) -->
+<div class="relative w-full max-w-[1260px] h-[942px] max-h-[820px] mx-auto flex items-center justify-center px-space-md">
+<!-- Dual Spread Outer Border & Ambient Paper Base -->
+<div class="relative w-full h-full flex rounded-lg overflow-hidden shadow-2xl bg-[#0f1110] border border-outline/20">
+<!-- ========================================== -->
+<!-- LEFT PAGE (Page 89 - RTL sequence: Page 89 is Left) -->
+<!-- ========================================== -->
+<div class="relative flex-1 h-full bg-[#1e201f] flex flex-col justify-between overflow-hidden border-r border-black/40">
+<!-- Realistic Manga Page Graphic: Left Page -->
+<div class="relative w-full h-full p-6 flex flex-col justify-between bg-cover bg-center" data-alt="High quality clean Japanese manga black and white comic illustration showing a wide mysterious European medieval forest landscape with ancient cobblestone ruins and magical floating petals. The art style features meticulous line art and screentone gradients, evoking a calm, atmospheric fantasy adventure under soft ambient light." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBGtBv70TnZoUgFFK3f4WfunVaju9AXo32E5GkWIz_XYET4WWVYw8jg0OBnaj_PtjyieksU8rzfAyEk7m9-vHBnbS6fNOMf0uR0eqZB8jlEuz_rlu3RpVCeg4g6iEWWQ0kFFH5Xe7rhSRMGll-7PRKHXI5DXQYlWRr7U2_s-XVeMdKaI1Oh-MK3a99_WU1qlI8gXuFBdluUiu7Kky_A_x4B2ulNQPvHxaWspvtYMBLk')">
+<!-- Dark Gradient Vignette for page depth -->
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/30 pointer-events-none"></div>
+<!-- Page Header Running Head -->
+<div class="relative z-10 flex justify-between items-center text-[10px] text-zinc-400 font-mono tracking-wider opacity-60">
+<span>葬送のフリーレン · CHAPTER 106</span>
+<span>EPISODE OF THE IMPERIAL SHADOW</span>
+</div>
+<!-- Manga Speech Balloon & Screentone UI Overlay (Simulation) -->
+<div class="relative z-10 flex-1 flex items-center justify-center pointer-events-none">
+<div class="max-w-[240px] p-3 rounded-2xl bg-white/95 text-black border border-black/80 shadow-md transform -rotate-1">
+<p class="text-[12px] leading-relaxed font-serif font-bold text-center">
+                  “……帝国北境的结界，<br/>似乎在三个月前就被彻底重构了。”
+                </p>
+</div>
+</div>
+<!-- Left Page Footer with subtle page number -->
+<div class="relative z-10 flex justify-between items-center text-zinc-500 font-mono text-[11px] pt-2 border-t border-zinc-700/30">
+<span class="flex items-center gap-1 font-semibold text-zinc-400">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                P. 88
+              </span>
+<span class="text-[10px] tracking-widest text-zinc-600">SHOGAKUKAN COMICS</span>
+</div>
+</div>
+</div>
+<!-- ========================================== -->
+<!-- REALISTIC CENTER BINDING CREASE / SPINE SHADOW -->
+<!-- ========================================== -->
+<div class="w-6 h-full manga-gutter-spine absolute left-1/2 -translate-x-1/2 z-20 pointer-events-none opacity-80"></div>
+<!-- ========================================== -->
+<!-- RIGHT PAGE (Page 88 - RTL sequence: Page 88 is Right) -->
+<!-- ========================================== -->
+<div class="relative flex-1 h-full bg-[#1e201f] flex flex-col justify-between overflow-hidden">
+<!-- Realistic Manga Page Graphic: Right Page -->
+<div class="relative w-full h-full p-6 flex flex-col justify-between bg-cover bg-center" data-alt="High contrast manga comic page layout showing a close-up portrait of the elf mage Frieren looking contemplatively forward with calm expressions, paired with high-contrast comic panels of magic staves and enchanted manuscripts. Fine black ink hatchings, dynamic manga screentones, professional high fidelity illustration." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCFN55EvkV2mKo3hi6E-84UCQ2YpDm6ZX74YEcyfsu0ZlUn2s8ZkJGY4U-VugOulabV8LW4qP6pH7XAJqqLYcoDMsMOhsGO5iKHrk-kgt0zY30tBBBD8cpw5pEUO7pcwvnWx2-nMQwP4pqFxXvsYadXk5ZAdmbsW02H5IS5nQ15zNTSYJU657lNKsctOVQEuYyDhBPR3YW9vWZNV9hgLvY4GCXcUH2alKAV4A96bedz')">
+<!-- Dark Gradient Vignette for center crease -->
+<div class="absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-black/30 pointer-events-none"></div>
+<!-- Page Header Running Head -->
+<div class="relative z-10 flex justify-between items-center text-[10px] text-zinc-400 font-mono tracking-wider opacity-60">
+<span>VOL. 11</span>
+<span>ASTER READER HD ENHANCED</span>
+</div>
+<!-- Manga Speech Balloon & Focal Point -->
+<div class="relative z-10 flex-1 flex flex-col items-end justify-center pointer-events-none gap-4 pr-4">
+<div class="p-3 rounded-2xl bg-white/95 text-black border border-black/80 shadow-md">
+<p class="text-[12px] leading-relaxed font-serif font-bold text-right">
+                  “不过没关系，<br/>我们还有菲伦的探测魔法。”
+                </p>
+</div>
+<!-- RTL Reading Guidance Marker -->
+<div class="flex items-center gap-1 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-full text-zinc-300 font-label-sm text-label-sm border border-zinc-700/50">
+<span class="material-symbols-outlined text-[14px] text-primary-fixed-dim">arrow_back</span>
+<span>翻页方向 (RTL)</span>
+</div>
+</div>
+<!-- Right Page Footer -->
+<div class="relative z-10 flex justify-between items-center text-zinc-500 font-mono text-[11px] pt-2 border-t border-zinc-700/30">
+<span class="text-[10px] tracking-widest text-zinc-600">WEEKLY SHONEN SUNDAY</span>
+<span class="flex items-center gap-1 font-semibold text-zinc-400">
+                P. 89
+                <span class="w-1.5 h-1.5 rounded-full bg-primary-fixed-dim"></span>
+</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Canvas Page Steppers (Hover Overlay on Sides) -->
+<button class="absolute left-6 top-1/2 -translate-y-1/2 w-12 h-20 rounded-2xl bg-black/40 hover:bg-black/70 backdrop-blur-sm text-zinc-300 hover:text-white flex items-center justify-center transition-all opacity-40 hover:opacity-100 z-30" title="下一跨页 (RTL 下一页在左侧)">
+<span class="material-symbols-outlined text-[28px]">chevron_left</span>
+</button>
+<button class="absolute right-6 top-1/2 -translate-y-1/2 w-12 h-20 rounded-2xl bg-black/40 hover:bg-black/70 backdrop-blur-sm text-zinc-300 hover:text-white flex items-center justify-center transition-all opacity-40 hover:opacity-100 z-30" title="上一跨页 (RTL 上一页在右侧)">
+<span class="material-symbols-outlined text-[28px]">chevron_right</span>
+</button>
+</div>
+</main>
+<!-- ========================================================================= -->
+<!-- 3. BOTTOM FLOATING CONTROL ISLAND & SCRUB BAR (底部悬浮进度胶囊) -->
+<!-- ========================================================================= -->
+<footer class="fixed bottom-6 left-0 right-0 z-40 flex justify-center items-center pointer-events-none px-margin-medium">
+<div class="pointer-events-auto w-full max-w-[760px] bg-surface-container/95 backdrop-blur-md rounded-full px-space-lg py-3 shadow-lg border border-outline-variant/40 flex items-center gap-space-md text-on-surface transition-all">
+<!-- Prev Chapter/Page Button -->
+<button class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors active:scale-95 flex-shrink-0" title="上一跨页 (P.86-87)">
+<span class="material-symbols-outlined text-[20px]">first_page</span>
+</button>
+<!-- Current Page Tag -->
+<div class="flex-shrink-0 flex items-center gap-1.5 font-mono">
+<span class="font-label-lg text-label-lg font-bold text-primary">088</span>
+<span class="text-outline-variant font-label-md">/</span>
+<span class="text-on-surface-variant font-label-md text-label-md">121</span>
+</div>
+<!-- High Precision Slider & Scrub Rail -->
+<div class="relative flex-1 flex items-center group">
+<!-- Scrub Progress Track -->
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden relative cursor-pointer">
+<!-- Active Filled Range (74%) -->
+<div class="h-full bg-primary rounded-full transition-all" style="width: 74%;"></div>
+</div>
+<!-- Thumb Node -->
+<div class="absolute left-[74%] -translate-x-1/2 w-4 h-4 bg-primary rounded-full border-2 border-surface shadow-sm cursor-grab active:scale-125 transition-transform"></div>
+<!-- Floating Tooltip Preview on Hover (Scrub Preview) -->
+<div class="absolute left-[74%] -translate-x-1/2 -top-9 hidden group-hover:flex items-center px-2 py-0.5 rounded bg-inverse-surface text-inverse-on-surface font-label-sm text-label-sm shadow-md pointer-events-none">
+          第 88-89 页 (74%)
+        </div>
+</div>
+<!-- Quick Action: Next Spread -->
+<button class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors active:scale-95 flex-shrink-0" title="下一跨页 (P.90-91)">
+<span class="material-symbols-outlined text-[20px]">last_page</span>
+</button>
+<div class="h-5 w-px bg-outline-variant/40 flex-shrink-0"></div>
+<!-- Reading Brightness & Contrast Quick Pill -->
+<div class="flex items-center gap-1 flex-shrink-0">
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="阅读滤镜 / 纸张调色">
+<span class="material-symbols-outlined text-[18px]">palette</span>
+</button>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="全屏沉浸模式 (隐藏全部控制条)">
+<span class="material-symbols-outlined text-[18px]">fullscreen</span>
+</button>
+</div>
+</div>
+</footer>
+<!-- ========================================================================= -->
+<!-- 4. SUPPORTING PANE - TABLET READER SETTINGS & TOC PANEL (侧边辅助抽屉) -->
+<!-- ========================================================================= -->
+<aside class="fixed top-0 right-0 bottom-0 w-[380px] max-w-[90vw] z-50 bg-surface-container shadow-2xl border-l border-outline-variant/40 flex flex-col transition-transform duration-300 ease-out transform translate-x-0" id="sideSupportingDrawer">
+<!-- Drawer Header -->
+<div class="p-space-md flex items-center justify-between border-b border-outline-variant/30 bg-surface">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">tune</span>
+<h2 class="font-title-md text-title-md text-on-surface font-semibold tracking-tight">阅读面板 &amp; 大纲</h2>
+</div>
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" id="closeDrawerBtn" title="收起辅助面板">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Segmented Tabs: 目录大纲 (TOC) vs 阅读配置 (Settings) -->
+<div class="px-space-md pt-space-sm bg-surface">
+<div class="flex p-1 bg-surface-container-high rounded-full">
+<button class="flex-1 py-1.5 rounded-full text-center font-label-md text-label-md font-semibold bg-secondary-container text-on-secondary-container shadow-sm transition-all" id="tabSettingsBtn">
+          阅读偏好
+        </button>
+<button class="flex-1 py-1.5 rounded-full text-center font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all" id="tabTocBtn">
+          目录章节 (12)
+        </button>
+</div>
+</div>
+<!-- TAB CONTENT A: 阅读偏好设置 (SETTINGS CONTAINER) -->
+<div class="flex-1 overflow-y-auto p-space-md space-y-space-md" id="settingsPanel">
+<!-- Group 1: 页面显示方式 -->
+<section class="bg-surface rounded-2xl p-space-md border border-outline-variant/30 space-y-space-sm">
+<div class="flex justify-between items-center">
+<span class="font-title-sm text-title-sm font-semibold text-on-surface">页面排版模式</span>
+<span class="font-label-sm text-label-sm text-primary">已启用双页</span>
+</div>
+<div class="grid grid-cols-3 gap-2 pt-1">
+<!-- Dual Page (Selected) -->
+<button class="flex flex-col items-center justify-center p-2.5 rounded-xl border-2 border-primary bg-secondary-container text-on-secondary-container">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+<span class="font-label-sm text-label-sm mt-1 font-semibold">双页展开</span>
+</button>
+<!-- Single Page -->
+<button class="flex flex-col items-center justify-center p-2.5 rounded-xl border border-outline-variant/40 bg-surface-container hover:bg-surface-container-high text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">crop_portrait</span>
+<span class="font-label-sm text-label-sm mt-1">单页纵向</span>
+</button>
+<!-- Webtoon / Continuous Vertical -->
+<button class="flex flex-col items-center justify-center p-2.5 rounded-xl border border-outline-variant/40 bg-surface-container hover:bg-surface-container-high text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">view_day</span>
+<span class="font-label-sm text-label-sm mt-1">连续条漫</span>
+</button>
+</div>
+</section>
+<!-- Group 2: 翻页方向 & 裁剪 -->
+<section class="bg-surface rounded-2xl p-space-md border border-outline-variant/30 space-y-space-md">
+<div>
+<span class="font-title-sm text-title-sm font-semibold text-on-surface">翻页与裁切</span>
+</div>
+<!-- 翻页方向 Selector -->
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-surface">翻页方向</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">日漫建议从右至左</span>
+</div>
+<div class="flex bg-surface-container-high rounded-lg p-0.5">
+<button class="px-2.5 py-1 rounded-md text-xs font-semibold bg-primary text-on-primary shadow-xs">
+              RTL (右向左)
+            </button>
+<button class="px-2.5 py-1 rounded-md text-xs text-on-surface-variant hover:text-on-surface">
+              LTR (左向右)
+            </button>
+</div>
+</div>
+<div class="h-px bg-outline-variant/30"></div>
+<!-- 智能拼接跨页跨屏 Switch -->
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-surface">跨页智能拼接</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">自动对齐魄力两页插画</span>
+</div>
+<!-- M3 Switch Component -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="h-px bg-outline-variant/30"></div>
+<!-- 适合比例 Radio Segment -->
+<div class="flex items-center justify-between">
+<span class="font-body-md text-body-md text-on-surface">画面缩放适配</span>
+<div class="flex gap-1">
+<button class="px-2 py-1 rounded bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-semibold">
+              适合高度
+            </button>
+<button class="px-2 py-1 rounded bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-sm text-label-sm">
+              适合宽度
+            </button>
+</div>
+</div>
+</section>
+<!-- Group 3: 纸张底色与色彩渲染 -->
+<section class="bg-surface rounded-2xl p-space-md border border-outline-variant/30 space-y-space-sm">
+<span class="font-title-sm text-title-sm font-semibold text-on-surface">纸张背景色调</span>
+<div class="grid grid-cols-3 gap-2 pt-1">
+<!-- OLED 纯黑 -->
+<button class="flex flex-col items-center justify-center p-2 rounded-xl border border-outline-variant/40 bg-black text-white hover:border-primary">
+<div class="w-4 h-4 rounded-full bg-black border border-zinc-600 mb-1"></div>
+<span class="text-[11px]">纯黑 OLED</span>
+</button>
+<!-- 深灰纸张 (Selected) -->
+<button class="flex flex-col items-center justify-center p-2 rounded-xl border-2 border-primary bg-[#1F2021] text-zinc-100 shadow-sm">
+<div class="w-4 h-4 rounded-full bg-paper-dark-gray border border-zinc-500 mb-1"></div>
+<span class="text-[11px] font-semibold">深灰阅读纸</span>
+</button>
+<!-- 护眼暖纸色 -->
+<button class="flex flex-col items-center justify-center p-2 rounded-xl border border-outline-variant/40 bg-[#F3EAD8] text-ink-warm hover:border-primary">
+<div class="w-4 h-4 rounded-full bg-paper-warm border border-zinc-300 mb-1"></div>
+<span class="text-[11px]">暖调羊皮纸</span>
+</button>
+</div>
+</section>
+<!-- Group 4: 硬件与手势设置 -->
+<section class="bg-surface rounded-2xl p-space-md border border-outline-variant/30 space-y-3">
+<div class="flex items-center justify-between">
+<span class="font-body-md text-body-md text-on-surface">音量键翻页</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between">
+<span class="font-body-md text-body-md text-on-surface">自动裁剪白色边缘</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</section>
+</div>
+<!-- TAB CONTENT B: 目录大纲 (TOC PANEL - HIDDEN BY DEFAULT) -->
+<div class="flex-1 overflow-y-auto p-space-md space-y-2 hidden" id="tocPanel">
+<div class="text-xs text-on-surface-variant px-2 pb-1 flex justify-between">
+<span>全卷共 11 话</span>
+<span>已读至 74%</span>
+</div>
+<!-- TOC Item 1 -->
+<div class="p-3 rounded-xl bg-surface hover:bg-surface-container-high transition-colors cursor-pointer flex items-center justify-between border border-outline-variant/20">
+<div>
+<div class="font-label-lg text-label-lg text-on-surface font-medium">第104话 黄金乡的遗民</div>
+<div class="font-body-sm text-body-sm text-outline">P. 1 - 28 · 完读</div>
+</div>
+<span class="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+</div>
+<!-- TOC Item 2 -->
+<div class="p-3 rounded-xl bg-surface hover:bg-surface-container-high transition-colors cursor-pointer flex items-center justify-between border border-outline-variant/20">
+<div>
+<div class="font-label-lg text-label-lg text-on-surface font-medium">第105话 前往奥伊萨斯特</div>
+<div class="font-body-sm text-body-sm text-outline">P. 29 - 58 · 完读</div>
+</div>
+<span class="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+</div>
+<!-- TOC Item 3 (Current Active Chapter) -->
+<div class="p-3 rounded-xl bg-secondary-container border border-primary/30 cursor-pointer flex items-center justify-between">
+<div>
+<div class="font-label-lg text-label-lg text-on-secondary-container font-semibold flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+            第106话 帝国的密探 (当前)
+          </div>
+<div class="font-body-sm text-body-sm text-secondary font-mono mt-0.5">P. 59 - 94 · 正在阅读第88页</div>
+</div>
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+</div>
+<!-- TOC Item 4 -->
+<div class="p-3 rounded-xl bg-surface hover:bg-surface-container-high transition-colors cursor-pointer flex items-center justify-between border border-outline-variant/20 opacity-80">
+<div>
+<div class="font-label-lg text-label-lg text-on-surface">第107话 追迹之术式</div>
+<div class="font-body-sm text-body-sm text-outline">P. 95 - 121 · 未读</div>
+</div>
+<span class="material-symbols-outlined text-outline text-[18px]">radio_button_unchecked</span>
+</div>
+</div>
+<!-- Drawer Footer: Quick Vault Lock / Information Note -->
+<div class="p-space-md border-t border-outline-variant/30 bg-surface flex items-center justify-between">
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[18px]">security</span>
+<span>本地硬件解密 · 零云端缓存</span>
+</div>
+<button class="font-label-sm text-label-sm text-primary hover:underline">
+        重置偏好
+      </button>
+</div>
+</aside>
+<!-- ========================================================================= -->
+<!-- 5. JAVASCRIPT: MICRO-INTERACTIONS & SUPPORTING DRAWER LOGIC -->
+<!-- ========================================================================= -->
+<script>
+    // Tab Switching Logic between Reader Settings & TOC Outline
+    const tabSettingsBtn = document.getElementById('tabSettingsBtn');
+    const tabTocBtn = document.getElementById('tabTocBtn');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const tocPanel = document.getElementById('tocPanel');
+    const sideDrawer = document.getElementById('sideSupportingDrawer');
+    const toggleDrawerBtn = document.getElementById('toggleDrawerBtn');
+    const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+
+    tabSettingsBtn.addEventListener('click', () => {
+      tabSettingsBtn.className = 'flex-1 py-1.5 rounded-full text-center font-label-md text-label-md font-semibold bg-secondary-container text-on-secondary-container shadow-sm transition-all';
+      tabTocBtn.className = 'flex-1 py-1.5 rounded-full text-center font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all';
+      settingsPanel.classList.remove('hidden');
+      tocPanel.classList.add('hidden');
+    });
+
+    tabTocBtn.addEventListener('click', () => {
+      tabTocBtn.className = 'flex-1 py-1.5 rounded-full text-center font-label-md text-label-md font-semibold bg-secondary-container text-on-secondary-container shadow-sm transition-all';
+      tabSettingsBtn.className = 'flex-1 py-1.5 rounded-full text-center font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all';
+      tocPanel.classList.remove('hidden');
+      settingsPanel.classList.add('hidden');
+    });
+
+    // Toggle Drawer Open / Closed
+    let drawerOpen = true;
+    function setDrawerState(open) {
+      drawerOpen = open;
+      if (drawerOpen) {
+        sideDrawer.classList.remove('translate-x-full');
+      } else {
+        sideDrawer.classList.add('translate-x-full');
+      }
+    }
+
+    toggleDrawerBtn.addEventListener('click', () => {
+      setDrawerState(!drawerOpen);
+    });
+
+    closeDrawerBtn.addEventListener('click', () => {
+      setDrawerState(false);
+    });
+
+    // Keyboard Shortcuts for Tablet/Desktop (Arrows & Escape)
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        setDrawerState(false);
+      }
+    });
+  </script>
+</body></html>

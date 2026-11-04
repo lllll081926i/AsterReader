@@ -1,0 +1,9 @@
+flowchart LR
+    LIB[Library] -- shared cover --> DETAIL[Detail]
+    DETAIL -- content handoff --> READER[Reader]
+    LIB -- SearchBar expand --> SEARCH[Expanded Search]
+    SEARCH -- predictive back --> LIB
+    DETAIL -- predictive back + shared element --> LIB
+    READER -- predictive back --> DETAIL
+    SETTINGS[Settings] --> VAULT[Vault / Security]
+    VAULT --> AUTH[Auth Gate]

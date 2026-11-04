@@ -1,0 +1,306 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Aster Reader - 身份验证门禁</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Roboto Flex via Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "annotation-pink": "#F6C8D6",
+            "surface-container-high": "#e2eae4",
+            "paper-warm": "#F3EAD8",
+            "secondary": "#506359",
+            "secondary-container": "#d2e8db",
+            "on-tertiary-fixed": "#001f28",
+            "vault-secure-tint": "#284D3D",
+            "inverse-on-surface": "#ebf3ec",
+            "on-secondary-fixed-variant": "#384b41",
+            "on-surface": "#161d1a",
+            "outline": "#717974",
+            "surface-variant": "#dce4de",
+            "annotation-yellow": "#F7E69C",
+            "tertiary-fixed": "#c1e9f8",
+            "on-secondary-fixed": "#0d1f17",
+            "ink-warm": "#2D261C",
+            "annotation-green": "#C4E8C2",
+            "surface-tint": "#436557",
+            "on-tertiary": "#ffffff",
+            "annotation-blue": "#C0DCF5",
+            "surface-container-highest": "#dce4de",
+            "primary-container": "#436557",
+            "error-container": "#ffdad6",
+            "on-error": "#ffffff",
+            "secondary-fixed": "#d2e8db",
+            "surface-container-low": "#eef6ef",
+            "on-primary-fixed-variant": "#2c4d40",
+            "paper-light": "#FBF9F5",
+            "on-surface-variant": "#414844",
+            "on-primary-fixed": "#002116",
+            "on-tertiary-fixed-variant": "#254c58",
+            "secondary-fixed-dim": "#b7cbbf",
+            "background": "#f3fbf5",
+            "ink-dark": "#E1E3DF",
+            "primary-fixed": "#c5ebd9",
+            "ink-light": "#191C1B",
+            "error": "#ba1a1a",
+            "inverse-surface": "#2a322e",
+            "tertiary-container": "#3d6370",
+            "on-primary-container": "#bbe1cf",
+            "inverse-primary": "#aacfbd",
+            "surface-container-lowest": "#ffffff",
+            "tertiary": "#244b58",
+            "on-secondary-container": "#56695e",
+            "on-tertiary-container": "#b6deed",
+            "on-primary": "#ffffff",
+            "paper-oled-black": "#000000",
+            "surface-bright": "#f3fbf5",
+            "paper-dark-gray": "#1F2021",
+            "tertiary-fixed-dim": "#a5cddc",
+            "surface": "#f3fbf5",
+            "surface-container": "#e8f0ea",
+            "on-background": "#161d1a",
+            "on-secondary": "#ffffff",
+            "primary": "#2b4d40",
+            "on-error-container": "#93000a",
+            "surface-dim": "#d4dcd6",
+            "primary-fixed-dim": "#aacfbd",
+            "outline-variant": "#c1c8c3"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem",
+            "3xl": "1.5rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xl": "2rem",
+            "margin-medium": "1.5rem",
+            "space-xs": "0.25rem",
+            "margin": "1rem",
+            "gutter": "0.75rem",
+            "space-md": "1rem",
+            "gutter-expanded": "1rem",
+            "space-lg": "1.5rem",
+            "space-sm": "0.5rem",
+            "margin-expanded": "2rem"
+          },
+          "fontFamily": {
+            "title-sm": ["Roboto Flex"],
+            "body-lg": ["Roboto Flex"],
+            "title-lg": ["Roboto Flex"],
+            "body-sm": ["Roboto Flex"],
+            "label-lg": ["Roboto Flex"],
+            "headline-lg-mobile": ["Roboto Flex"],
+            "headline-sm": ["Roboto Flex"],
+            "headline-lg": ["Roboto Flex"],
+            "body-md": ["Roboto Flex"],
+            "title-md": ["Roboto Flex"],
+            "label-md": ["Roboto Flex"],
+            "label-sm": ["Roboto Flex"]
+          },
+          "fontSize": {
+            "title-sm": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400" }],
+            "title-lg": ["22px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.4px", "fontWeight": "400" }],
+            "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "400" }],
+            "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400" }],
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "500" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    @keyframes sensorPulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.35;
+      }
+      50% {
+        transform: scale(1.18);
+        opacity: 0.85;
+      }
+    }
+    .animate-sensor-pulse {
+      animation: sensorPulse 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+
+    @keyframes subtleDrift {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-3px); }
+    }
+    .animate-drift {
+      animation: subtleDrift 3.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col justify-between overflow-x-hidden antialiased select-none">
+<!-- Android System Status Bar Simulation -->
+<header class="w-full pt-2 px-margin flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm z-20">
+<span class="font-medium tracking-tight">09:41</span>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px]">wifi</span>
+<span class="material-symbols-outlined text-[18px]">signal_cellular_4_bar</span>
+<span class="material-symbols-outlined text-[18px]">battery_full</span>
+</div>
+</header>
+<!-- Top Security Isolation Status Bar -->
+<div class="w-full px-margin pt-space-sm flex justify-between items-center z-10">
+<!-- Secure Isolation Mode Chip -->
+<div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container border border-outline-variant text-primary font-label-md text-label-md">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">lock</span>
+<span class="">安全隔离模式已激活</span>
+</div>
+<!-- Right Shield Status Telemetry -->
+<div class="inline-flex items-center gap-1 text-on-surface-variant font-label-sm text-label-sm">
+<span class="w-2 h-2 rounded-full bg-surface-tint inline-block"></span>
+<span class="">KEEPALIVE</span>
+</div>
+</div>
+<!-- Main Canvas: Strict Privacy Vault Atmosphere (No thumbnails, no book text leak) -->
+<main class="w-full flex-1 flex flex-col items-center justify-center px-margin py-space-lg text-center relative max-w-md mx-auto">
+<!-- Vault Geometric Emblem -->
+<div class="relative mb-6">
+<div class="w-20 h-20 rounded-full bg-surface-container-low flex items-center justify-center border border-surface-variant shadow-sm animate-drift">
+<div class="w-14 h-14 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-[32px]" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+</div>
+<!-- Miniature status pip -->
+<span class="absolute bottom-0 right-0 p-1 bg-surface-container-lowest rounded-full border border-surface-container-high shadow-xs">
+<span class="material-symbols-outlined text-primary text-[14px]">verified_user</span>
+</span>
+</div>
+<!-- App Identity & Typography Anchor -->
+<h1 class="text-title-lg font-title-lg font-bold tracking-tight text-on-surface mb-1">
+      Aster Reader
+    </h1>
+<h2 class="text-headline-sm font-headline-sm text-primary font-medium tracking-tight mb-3">
+      解锁以继续
+    </h2>
+<p class="text-body-md font-body-md text-on-surface-variant max-w-[280px] leading-relaxed mb-6">
+      已启用生物识别保护以保障您的本地书库与私密阅读安全
+    </p>
+<!-- Mini Security Checklist / Vault Guarantee -->
+<div class="w-full bg-surface-container-low rounded-2xl p-4 flex items-center justify-around text-on-surface-variant border border-outline-variant/40">
+<div class="flex items-center gap-1.5 font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px] text-surface-tint">enhanced_encryption</span>
+<span class="">端侧加密</span>
+</div>
+<div class="w-[1px] h-4 bg-outline-variant"></div>
+<div class="flex items-center gap-1.5 font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px] text-surface-tint">visibility_off</span>
+<span class="">封面遮蔽</span>
+</div>
+<div class="w-[1px] h-4 bg-outline-variant"></div>
+<div class="flex items-center gap-1.5 font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px] text-surface-tint">memory</span>
+<span class="">硬件信任根</span>
+</div>
+</div>
+</main>
+<!-- System BiometricPrompt Bottom Sheet Overlay (M3 Expressive Simulation) -->
+<section class="w-full bg-surface-container-lowest rounded-t-3xl border-t border-surface-container-high px-margin pt-3 pb-6 shadow-2xl relative z-30 transition-transform"><!-- Android M3 Sheet Drag Handle -->
+<div class="w-10 h-1 bg-outline-variant rounded-full mx-auto mb-5"></div>
+<div class="max-w-md mx-auto flex flex-col">
+  <!-- Standard Android BiometricPrompt Dialog Header -->
+  <div class="flex items-center gap-3 mb-2 px-1">
+    <span class="material-symbols-outlined text-[24px] text-primary flex-shrink-0" style="font-variation-settings: 'FILL' 1;">fingerprint</span>
+    <div class="flex flex-col text-left">
+      <span class="font-label-md text-label-md text-on-surface-variant font-medium">Aster Reader</span>
+      <h3 class="text-title-lg font-title-lg font-bold text-on-surface tracking-tight">验证身份</h3>
+    </div>
+  </div>
+  <!-- Subtitle / Explanation (Android standard prompt text) -->
+  <p class="text-body-md font-body-md text-on-surface-variant text-left px-1 mb-6 leading-relaxed">
+    使用已保存的指纹或屏幕锁以继续访问 Aster Reader
+  </p>
+  <!-- Android Native Sensor Touch Target Zone -->
+  <div class="flex flex-col items-center justify-center my-4 py-2">
+    <div class="relative flex items-center justify-center w-28 h-28">
+      <!-- System Glow Halo Ripple -->
+      <div class="absolute inset-0 rounded-full bg-secondary-container animate-sensor-pulse pointer-events-none"></div>
+      <div class="absolute inset-2 rounded-full border border-surface-tint/30 pointer-events-none"></div>
+      <!-- Android Biometric Fingerprint Sensor Touchpoint -->
+      <button aria-label="请轻触指纹传感器" class="relative z-10 w-20 h-20 rounded-full bg-surface-container flex items-center justify-center text-primary border border-outline-variant shadow-sm active:scale-95 active:bg-secondary-container transition-all duration-150 focus:outline-none" onclick="triggerMockAuth()" type="button">
+        <span class="material-symbols-outlined text-[44px]">fingerprint</span>
+      </button>
+    </div>
+    <p class="text-body-sm font-body-sm text-on-surface-variant mt-3 font-medium tracking-wide text-center" id="auth-status-text">
+      请轻触指纹传感器
+    </p>
+  </div>
+  <!-- Android System Native Action Bar -->
+  <div class="flex items-center justify-between w-full pt-4 mt-2 px-1 border-t border-surface-container-high">
+    <!-- Primary Credential Fallback (Use Pattern/PIN/Password) -->
+    <button class="min-h-[48px] px-3 py-2 text-primary font-label-lg text-label-lg rounded-full flex items-center gap-1.5 hover:bg-surface-container active:scale-95 transition-all" type="button">
+      <span class="material-symbols-outlined text-[18px]">pin</span>
+      <span class="">使用应用密码 / 屏幕凭据</span>
+    </button>
+    <!-- Standard System Cancel Action -->
+    <button class="min-h-[48px] px-5 py-2 text-on-surface-variant font-label-lg text-label-lg rounded-full hover:text-on-surface hover:bg-surface-container active:scale-95 transition-all" type="button">
+      取消
+    </button>
+  </div>
+</div></section>
+<!-- Android System Navigation Bar (Gesture pill) -->
+<footer class="w-full py-2 bg-surface-container-lowest flex justify-center items-center z-30">
+<div class="w-32 h-1 bg-on-surface/30 rounded-full"></div>
+</footer>
+<!-- Micro-interaction feedback script -->
+<script>
+    function triggerMockAuth() {
+      const statusText = document.getElementById('auth-status-text');
+      statusText.innerText = "正在验证指纹...";
+      statusText.classList.remove('text-on-surface-variant');
+      statusText.classList.add('text-primary');
+
+      setTimeout(() => {
+        statusText.innerText = "验证成功，正在解密书库...";
+        statusText.classList.remove('text-primary');
+        statusText.classList.add('text-primary-container');
+        setTimeout(() => {
+          statusText.innerText = "轻触指纹传感器进行验证";
+          statusText.classList.remove('text-primary-container');
+          statusText.classList.add('text-on-surface-variant');
+        }, 1800);
+      }, 700);
+    }
+  </script>
+
+
+</body></html>

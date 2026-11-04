@@ -1,0 +1,20 @@
+flowchart TD
+    UI[Feature UI] --> POL[Protection Policy]
+    UI --> AUTH[AuthGate / AppLockManager]
+    AUTH --> BIO[BiometricPrompt / Device Credential]
+    AUTH --> PIN[App PIN / Password]
+
+    POL --> VAULT[VaultManager]
+    VAULT --> MASTER[Vault Master Secret]
+    MASTER --> DEK[Per-file DEK]
+    DEK --> ENC[AES-256-GCM Chunk Encryption]
+    ENC --> CIPHER[(Vault Ciphertext)]
+
+    KSTORE[Android Keystore Device KEK] --> MASTER
+    REC[Recovery Password KDF Slot] --> MASTER
+
+    READER[Reader Engine] --> SDS[SecureDocumentSource]
+    SDS --> DEC[DecryptingSeekableSource]
+    DEC --> CIPHER
+    DEC --> MEM[Plaintext in memory only]
+    MEM --> READER

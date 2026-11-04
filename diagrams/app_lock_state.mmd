@@ -1,0 +1,13 @@
+stateDiagram-v2
+    [*] --> ColdStart
+    ColdStart --> SecurityBootstrap
+    SecurityBootstrap --> Ready: App lock disabled
+    SecurityBootstrap --> Locked: Lock required
+    Locked --> Authenticating: User requests unlock
+    Authenticating --> UnlockedSession: Success
+    Authenticating --> Locked: Cancel/Fail
+    UnlockedSession --> Locked: Screen off
+    UnlockedSession --> Locked: Timeout
+    UnlockedSession --> Locked: Explicit lock
+    UnlockedSession --> Ready: Main navigation
+    Ready --> Locked: Protected item requires auth

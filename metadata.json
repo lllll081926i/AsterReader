@@ -1,0 +1,6 @@
+{
+  "name": "Aster Reader",
+  "description": "本地优先、支持动态取色与加密保险库的现代化电子书与漫画阅读器",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

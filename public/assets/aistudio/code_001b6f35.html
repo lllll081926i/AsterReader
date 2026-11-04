@@ -1,0 +1,571 @@
+<!DOCTYPE html><html lang="zh-CN" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>Aster Reader - 漫画阅读器 (R-01 / R-02)</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Google Fonts: Roboto Flex -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-variant": "#dce4de",
+            "background": "#f3fbf5",
+            "secondary-container": "#d2e8db",
+            "on-secondary-fixed": "#0d1f17",
+            "ink-light": "#191C1B",
+            "inverse-primary": "#aacfbd",
+            "on-surface-variant": "#414844",
+            "annotation-green": "#C4E8C2",
+            "on-primary-container": "#bbe1cf",
+            "outline-variant": "#c1c8c3",
+            "surface": "#f3fbf5",
+            "error-container": "#ffdad6",
+            "on-tertiary": "#ffffff",
+            "paper-light": "#FBF9F5",
+            "secondary-fixed-dim": "#b7cbbf",
+            "tertiary": "#244b58",
+            "surface-dim": "#d4dcd6",
+            "surface-container-lowest": "#ffffff",
+            "outline": "#717974",
+            "on-background": "#161d1a",
+            "paper-oled-black": "#000000",
+            "on-secondary-fixed-variant": "#384b41",
+            "annotation-blue": "#C0DCF5",
+            "vault-secure-tint": "#284D3D",
+            "inverse-on-surface": "#ebf3ec",
+            "on-primary-fixed": "#002116",
+            "paper-warm": "#F3EAD8",
+            "primary-fixed": "#c5ebd9",
+            "surface-container-highest": "#dce4de",
+            "tertiary-container": "#3d6370",
+            "tertiary-fixed": "#c1e9f8",
+            "surface-container-high": "#e2eae4",
+            "surface-container": "#e8f0ea",
+            "on-tertiary-fixed": "#001f28",
+            "surface-bright": "#f3fbf5",
+            "paper-dark-gray": "#1F2021",
+            "annotation-pink": "#F6C8D6",
+            "on-primary-fixed-variant": "#2c4d40",
+            "primary-container": "#436557",
+            "error": "#ba1a1a",
+            "on-secondary-container": "#56695e",
+            "secondary": "#506359",
+            "on-surface": "#161d1a",
+            "ink-dark": "#E1E3DF",
+            "on-error": "#ffffff",
+            "on-error-container": "#93000a",
+            "ink-warm": "#2D261C",
+            "annotation-yellow": "#F7E69C",
+            "secondary-fixed": "#d2e8db",
+            "primary-fixed-dim": "#aacfbd",
+            "on-tertiary-container": "#b6deed",
+            "on-secondary": "#ffffff",
+            "on-tertiary-fixed-variant": "#254c58",
+            "on-primary": "#ffffff",
+            "tertiary-fixed-dim": "#a5cddc",
+            "primary": "#2b4d40",
+            "surface-container-low": "#eef6ef",
+            "surface-tint": "#436557",
+            "inverse-surface": "#2a322e"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "margin-expanded": "2rem",
+            "space-lg": "1.5rem",
+            "margin": "1rem",
+            "margin-medium": "1.5rem",
+            "gutter-expanded": "1rem",
+            "gutter": "0.75rem",
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "space-xl": "2rem"
+          },
+          "fontFamily": {
+            "title-md": ["Roboto Flex"],
+            "body-lg": ["Roboto Flex"],
+            "label-lg": ["Roboto Flex"],
+            "label-md": ["Roboto Flex"],
+            "headline-lg-mobile": ["Roboto Flex"],
+            "headline-lg": ["Roboto Flex"],
+            "body-md": ["Roboto Flex"],
+            "title-sm": ["Roboto Flex"],
+            "title-lg": ["Roboto Flex"],
+            "label-sm": ["Roboto Flex"],
+            "headline-sm": ["Roboto Flex"],
+            "body-sm": ["Roboto Flex"]
+          },
+          "fontSize": {
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "500" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400" }],
+            "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400" }],
+            "title-sm": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "title-lg": ["22px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.4px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      font-size: 24px;
+      line-height: 1;
+      display: inline-block;
+      user-select: none;
+    }
+    .material-symbols-outlined.fill-1 {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    /* Hide scrollbars */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    * {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .smooth-scroll {
+      scroll-behavior: smooth;
+    }
+    /* RTL container style */
+    .rtl-scroll-container {
+      direction: rtl;
+    }
+    .rtl-scroll-container > * {
+      direction: ltr;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-paper-dark-gray text-ink-dark antialiased h-screen w-screen overflow-hidden select-none flex flex-col justify-between relative font-body-md text-body-md">
+<!-- ========================================== -->
+<!-- 1. MANGA READING CANVAS (R-02)             -->
+<!-- ========================================== -->
+<main class="absolute inset-0 z-0 bg-paper-dark-gray transition-colors duration-300" id="reader-canvas">
+<!-- Mode 1: 垂直连续上下滚动流 (Webtoon / Continuous Scroll) - 默认激活 -->
+<div class="w-full h-full overflow-y-auto overflow-x-hidden smooth-scroll pb-36 px-0 md:px-margin-expanded flex flex-col items-center" id="scroll-flow-container" onclick="handleCanvasTap(event)" style="overscroll-behavior-y: contain; scroll-behavior: smooth;">
+<div class="w-full max-w-[840px] flex flex-col items-center gap-0"><!-- 页面 88 -->
+<article class="relative w-full bg-paper-oled-black m-0 p-0 block leading-none select-none" data-page="88">
+  <img alt="葬送的芙莉莲 漫画第104话 页面 88" class="w-full h-auto block m-0 p-0 pointer-events-none align-bottom" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_RR8rdT1lhnx6FbLXQvD7NKMt57vF4SJvYoRxRcRrYEqmftcZ3LWyuDMp8gH8MTiuPEplNMuF3nlh1I6OIea_Z0tm-3r6_4AFNsYv395023fMZOyOzqvULgEDxwQDxsqsNBLZoD55YAiYTJ20bs__kuiEToj2B0-V38tBPTXrHo4d1WPNnLa4I5mPQWk8n1_tBf3TgJoDBXQULE9EDBBs4tnvIFAmYwY_Z_V6j8k1" style="display: block; vertical-align: bottom;">
+  <!-- 悬浮页码指示 -->
+  <div class="absolute bottom-3 right-4 bg-paper-dark-gray/80 px-2.5 py-0.5 rounded-full text-paper-light/80 font-label-sm text-[11px] backdrop-blur-sm border border-white/10 pointer-events-none z-10">
+    P. 88
+  </div>
+</article>
+<!-- 页面 89 (当前核心跨页) 首尾完全贴合无缝 -->
+<article class="relative w-full bg-paper-oled-black m-0 p-0 block leading-none select-none" data-page="89">
+  <img alt="葬送的芙莉莲 漫画第104话 高光大跨页 页面 89" class="w-full h-auto block m-0 p-0 pointer-events-none align-bottom" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_RR8rdT1lhnx6FbLXQvD7NKMt57vF4SJvYoRxRcRrYEqmftcZ3LWyuDMp8gH8MTiuPEplNMuF3nlh1I6OIea_Z0tm-3r6_4AFNsYv395023fMZOyOzqvULgEDxwQDxsqsNBLZoD55YAiYTJ20bs__kuiEToj2B0-V38tBPTXrHo4d1WPNnLa4I5mPQWk8n1_tBf3TgJoDBXQULE9EDBBs4tnvIFAmYwY_Z_V6j8k1" style="display: block; vertical-align: bottom;">
+  <!-- 悬浮页码指示 -->
+  <div class="absolute bottom-3 right-4 bg-paper-dark-gray/80 px-2.5 py-0.5 rounded-full text-primary-fixed font-label-sm text-[11px] backdrop-blur-sm pointer-events-none border border-primary-fixed/30 z-10">
+    P. 89
+  </div>
+</article>
+<!-- 页面 90 (下续页) 首尾完全贴合无缝 -->
+<article class="relative w-full bg-paper-oled-black m-0 p-0 block leading-none select-none" data-page="90">
+  <img alt="葬送的芙莉莲 漫画第104话 页面 90" class="w-full h-auto block m-0 p-0 pointer-events-none align-bottom" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_RR8rdT1lhnx6FbLXQvD7NKMt57vF4SJvYoRxRcRrYEqmftcZ3LWyuDMp8gH8MTiuPEplNMuF3nlh1I6OIea_Z0tm-3r6_4AFNsYv395023fMZOyOzqvULgEDxwQDxsqsNBLZoD55YAiYTJ20bs__kuiEToj2B0-V38tBPTXrHo4d1WPNnLa4I5mPQWk8n1_tBf3TgJoDBXQULE9EDBBs4tnvIFAmYwY_Z_V6j8k1" style="display: block; vertical-align: bottom;">
+  <!-- 悬浮页码指示 -->
+  <div class="absolute bottom-3 right-4 bg-paper-dark-gray/80 px-2.5 py-0.5 rounded-full text-paper-light/80 font-label-sm text-[11px] backdrop-blur-sm pointer-events-none border border-white/10 z-10">
+    P. 90
+  </div>
+</article>
+<!-- 卷末章节过渡提示 -->
+<!-- 章节无缝衔接过渡卡片 -->
+<div class="w-full py-8 px-4 flex flex-col items-center justify-center text-center bg-surface-container/50 border-y border-outline-variant/20 my-0 backdrop-blur-sm">
+  <div class="flex items-center gap-2 text-primary text-label-md font-medium mb-1">
+    <span class="material-symbols-outlined text-[18px]">check_circle</span>
+    <span class="">第 104 话 · 故乡的祭典 完</span>
+  </div>
+  <div class="flex items-center justify-center gap-2 text-on-surface-variant text-label-sm">
+    <span class="inline-block w-8 h-[1px] bg-outline-variant/40"></span>
+    <span class="">向上滑动无缝进入</span>
+    <span class="inline-block w-8 h-[1px] bg-outline-variant/40"></span>
+  </div>
+  <div class="mt-2 px-3 py-1 bg-secondary-container/80 text-on-secondary-container rounded-full text-label-md font-semibold flex items-center gap-1.5 shadow-sm">
+    <span class="material-symbols-outlined text-[18px]">auto_stories</span>
+    <span class="">第 105 话 · 哥利赞同盟</span>
+  </div>
+  <div class="mt-3 flex items-center gap-1 text-[11px] text-on-surface-variant/60 animate-bounce">
+    <span class="material-symbols-outlined text-[16px]">keyboard_double_arrow_down</span>
+    <span class="">连贯阅读中</span>
+  </div>
+</div>
+
+<!-- 下一章：第105话 开头无缝拼接流 (P.01) -->
+<article class="relative w-full bg-paper-oled-black m-0 p-0 block leading-none select-none" data-page="1" data-chapter="第105话 · 哥利赞同盟">
+  <img alt="葬送的芙莉莲 漫画第105话 页面 01" class="w-full h-auto block m-0 p-0 pointer-events-none align-bottom" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_RR8rdT1lhnx6FbLXQvD7NKMt57vF4SJvYoRxRcRrYEqmftcZ3LWyuDMp8gH8MTiuPEplNMuF3nlh1I6OIea_Z0tm-3r6_4AFNsYv395023fMZOyOzqvULgEDxwQDxsqsNBLZoD55YAiYTJ20bs__kuiEToj2B0-V38tBPTXrHo4d1WPNnLa4I5mPQWk8n1_tBf3TgJoDBXQULE9EDBBs4tnvIFAmYwY_Z_V6j8k1" style="display: block; vertical-align: bottom;">
+  <!-- 悬浮页码指示 -->
+  <div class="absolute bottom-3 right-4 bg-paper-dark-gray/80 px-2.5 py-0.5 rounded-full text-primary-fixed font-label-sm text-[11px] backdrop-blur-sm pointer-events-none border border-primary-fixed/30 z-10 flex items-center gap-1">
+    <span class="">第105话</span>
+    <span class="opacity-40">|</span>
+    <span class="">P. 01</span>
+  </div>
+</article>
+
+<!-- 下一章：第105话 (P.02) 首尾完全贴合无缝 -->
+<article class="relative w-full bg-paper-oled-black m-0 p-0 block leading-none select-none" data-page="2" data-chapter="第105话 · 哥利赞同盟">
+  <img alt="葬送的芙莉莲 漫画第105话 页面 02" class="w-full h-auto block m-0 p-0 pointer-events-none align-bottom" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_RR8rdT1lhnx6FbLXQvD7NKMt57vF4SJvYoRxRcRrYEqmftcZ3LWyuDMp8gH8MTiuPEplNMuF3nlh1I6OIea_Z0tm-3r6_4AFNsYv395023fMZOyOzqvULgEDxwQDxsqsNBLZoD55YAiYTJ20bs__kuiEToj2B0-V38tBPTXrHo4d1WPNnLa4I5mPQWk8n1_tBf3TgJoDBXQULE9EDBBs4tnvIFAmYwY_Z_V6j8k1" style="display: block; vertical-align: bottom;">
+  <!-- 悬浮页码指示 -->
+  <div class="absolute bottom-3 right-4 bg-paper-dark-gray/80 px-2.5 py-0.5 rounded-full text-paper-light/80 font-label-sm text-[11px] backdrop-blur-sm pointer-events-none border border-white/10 z-10 flex items-center gap-1">
+    <span class="">第105话</span>
+    <span class="opacity-40">|</span>
+    <span class="">P. 02</span>
+  </div>
+</article>
+
+<!-- 正在预加载更多后续页 -->
+<div class="w-full py-8 flex items-center justify-center gap-2 text-on-surface-variant/60 text-label-sm">
+  <span class="material-symbols-outlined text-[18px] animate-spin">sync</span>
+  <span class="">正在无缝预加载后续页面...</span>
+</div></div>
+</div>
+<!-- Mode 2: 横向水平翻页流 (RTL / LTR) - 动态切换 -->
+<div class="hidden absolute inset-0 w-full h-full rtl-scroll-container overflow-x-auto overflow-y-hidden smooth-scroll snap-x snap-mandatory flex items-center" id="horizontal-flow-container" onclick="handleCanvasTap(event)">
+<div class="flex flex-row h-full min-w-full items-center justify-center gap-0 md:gap-4 px-0 md:px-margin-expanded py-12 md:py-16">
+<!-- 横向页 90 (RTL视角下先出现或者左侧) -->
+<div class="snap-center shrink-0 w-screen md:w-auto h-full flex items-center justify-center p-2" data-hpage="90">
+<div class="relative max-h-full max-w-full aspect-[2/3] bg-paper-oled-black flex items-center justify-center overflow-hidden shadow-2xl rounded-none md:rounded-lg">
+<img class="w-full h-full object-contain pointer-events-none" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_RR8rdT1lhnx6FbLXQvD7NKMt57vF4SJvYoRxRcRrYEqmftcZ3LWyuDMp8gH8MTiuPEplNMuF3nlh1I6OIea_Z0tm-3r6_4AFNsYv395023fMZOyOzqvULgEDxwQDxsqsNBLZoD55YAiYTJ20bs__kuiEToj2B0-V38tBPTXrHo4d1WPNnLa4I5mPQWk8n1_tBf3TgJoDBXQULE9EDBBs4tnvIFAmYwY_Z_V6j8k1">
+<div class="absolute bottom-3 right-4 bg-paper-dark-gray/80 px-2 py-0.5 rounded-full text-paper-light/60 font-label-sm text-label-sm backdrop-blur-sm pointer-events-none">
+            P. 90
+          </div>
+</div>
+</div>
+<!-- 横向页 89 (当前主阅页) -->
+<div class="snap-center shrink-0 w-screen md:w-auto h-full flex items-center justify-center p-2" data-hpage="89">
+<div class="relative max-h-full max-w-full aspect-[2/3] bg-paper-oled-black flex items-center justify-center overflow-hidden shadow-2xl rounded-none md:rounded-lg ring-1 ring-primary-fixed/20">
+<img class="w-full h-full object-contain pointer-events-none" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_RR8rdT1lhnx6FbLXQvD7NKMt57vF4SJvYoRxRcRrYEqmftcZ3LWyuDMp8gH8MTiuPEplNMuF3nlh1I6OIea_Z0tm-3r6_4AFNsYv395023fMZOyOzqvULgEDxwQDxsqsNBLZoD55YAiYTJ20bs__kuiEToj2B0-V38tBPTXrHo4d1WPNnLa4I5mPQWk8n1_tBf3TgJoDBXQULE9EDBBs4tnvIFAmYwY_Z_V6j8k1">
+<div class="absolute bottom-3 right-4 bg-paper-dark-gray/80 px-2 py-0.5 rounded-full text-primary-fixed font-label-sm text-label-sm backdrop-blur-sm pointer-events-none border border-primary-fixed/30">
+            P. 89
+          </div>
+</div>
+</div>
+<!-- 横向页 88 -->
+<div class="snap-center shrink-0 w-screen md:w-auto h-full flex items-center justify-center p-2" data-hpage="88">
+<div class="relative max-h-full max-w-full aspect-[2/3] bg-paper-oled-black flex items-center justify-center overflow-hidden shadow-2xl rounded-none md:rounded-lg">
+<img class="w-full h-full object-contain pointer-events-none" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_RR8rdT1lhnx6FbLXQvD7NKMt57vF4SJvYoRxRcRrYEqmftcZ3LWyuDMp8gH8MTiuPEplNMuF3nlh1I6OIea_Z0tm-3r6_4AFNsYv395023fMZOyOzqvULgEDxwQDxsqsNBLZoD55YAiYTJ20bs__kuiEToj2B0-V38tBPTXrHo4d1WPNnLa4I5mPQWk8n1_tBf3TgJoDBXQULE9EDBBs4tnvIFAmYwY_Z_V6j8k1">
+<div class="absolute bottom-3 right-4 bg-paper-dark-gray/80 px-2 py-0.5 rounded-full text-paper-light/60 font-label-sm text-label-sm backdrop-blur-sm pointer-events-none">
+            P. 88
+          </div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- ========================================== -->
+<!-- 2. TRANSIENT TOP CHROME (R-01 Shell Top)  -->
+<!-- ========================================== -->
+<header class="fixed top-0 left-0 right-0 z-40 w-full transition-all duration-300 ease-out transform translate-y-0 opacity-100 opacity-0" id="top-chrome">
+<div class="w-full bg-surface-container/95 dark:bg-surface-container/95 backdrop-blur-md px-margin md:px-margin-expanded py-2 flex items-center justify-between min-h-[56px] shadow-sm border-b border-outline-variant/20">
+<!-- Left: Exit / Back to Library -->
+<div class="flex items-center gap-space-sm">
+<button aria-label="返回资料库" class="w-12 h-12 flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container-high active:scale-95 transition-all" onclick="event.stopPropagation(); history.back();" type="button">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<!-- Title & Chapter Metadata -->
+<div class="flex flex-col ml-1">
+<div class="flex items-center gap-space-xs">
+<h1 class="font-title-md text-title-md font-bold text-on-surface tracking-tight truncate max-w-[200px] sm:max-w-md">
+              葬送的芙莉莲 11
+            </h1>
+<!-- 动态模式状态徽章 -->
+
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant flex items-center gap-1.5">
+<span class="">第104话 · 故乡的祭典</span>
+<span class="inline-block w-1 h-1 rounded-full bg-outline"></span>
+
+</p>
+</div>
+</div>
+<!-- Right Action Cluster: Search & Overflow Menu -->
+<div class="flex items-center gap-1" onclick="event.stopPropagation()">
+<button aria-label="章节内搜索" class="w-12 h-12 flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container-high active:scale-95 transition-all" type="button">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+<button aria-label="阅读器更多选项" class="w-12 h-12 flex items-center justify-center rounded-full text-on-surface hover:bg-surface-container-high active:scale-95 transition-all" type="button">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</header>
+<!-- ========================================== -->
+<!-- 3. TRANSIENT BOTTOM CHROME & CONTROLS      -->
+<!-- ========================================== -->
+<div class="fixed bottom-0 left-0 right-0 z-40 w-full flex flex-col items-center gap-space-sm pb-6 px-margin md:px-margin-expanded transition-all duration-300 ease-out transform translate-y-0 opacity-100 translate-y-full opacity-0" id="bottom-chrome" onclick="event.stopPropagation()">
+<!-- 3.1 Progress Capsule Layer (进度控制胶囊) -->
+<div class="w-full max-w-xl bg-surface-container-high/95 backdrop-blur-md rounded-full px-space-md py-2.5 flex items-center justify-between gap-space-sm shadow-md border border-outline-variant/30">
+<!-- Previous Chapter -->
+<button class="h-10 px-2.5 flex items-center gap-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-full active:scale-95 transition-all" onclick="prevChapter()" title="上一话" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="skip_previous">skip_previous</span>
+<span class="hidden sm:inline font-label-md text-label-md">上一话</span>
+</button>
+<!-- Accurate Slider & Position Tag -->
+<div class="flex-1 flex items-center gap-space-sm px-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium min-w-[36px] text-right" id="current-page-text">89</span>
+<div class="relative w-full flex items-center group py-2 cursor-pointer" id="progress-bar-container" onclick="handleProgressBarClick(event)">
+<!-- Track Base -->
+<div class="w-full h-1.5 bg-surface-variant rounded-full overflow-hidden relative">
+<!-- Active Fill (74%) -->
+<div class="h-full bg-primary rounded-full transition-all duration-150" id="progress-fill" style="width: 96%;"></div>
+</div>
+<!-- Slider Thumb (48dp touch footprint) -->
+<div class="absolute left-[74%] -translate-x-1/2 w-4 h-4 bg-primary rounded-full shadow-sm ring-4 ring-primary-fixed cursor-pointer transition-transform group-hover:scale-125" id="progress-thumb" style="left: 96%;"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-medium min-w-[36px]">120</span>
+</div>
+<!-- Percentage Indicator -->
+<div class="bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full font-label-sm text-label-sm font-semibold tracking-wide" id="percentage-indicator">96%</div>
+<!-- Next Chapter -->
+<button class="h-10 px-2.5 flex items-center gap-1 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded-full active:scale-95 transition-all" onclick="nextChapter()" title="下一话" type="button">
+<span class="hidden sm:inline font-label-md text-label-md">下一话</span>
+<span class="material-symbols-outlined text-[20px]" data-icon="skip_next">skip_next</span>
+</button>
+</div>
+<!-- 3.2 ReaderControlIsland Floating Island (胶囊悬浮操作岛 999dp) -->
+<nav class="w-full max-w-xl bg-surface-container-high/95 backdrop-blur-md rounded-full p-1.5 flex items-center justify-between shadow-lg border border-outline-variant/30">
+<!-- Option 1: Contents / Chapters Drawer -->
+<button class="flex-1 min-h-[48px] flex flex-col items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all px-2" title="目录与书签" type="button">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-label-sm text-label-sm mt-0.5">目录</span>
+</button>
+<!-- Option 2: Page Mode (单页 / 双页 / 滚动) -->
+<button class="flex-1 min-h-[48px] flex flex-col items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all px-2" id="layout-mode-btn" onclick="cycleReadingMode()" title="视图模式" type="button">
+<span class="material-symbols-outlined" data-icon="view_agenda" id="layout-mode-icon">view_agenda</span>
+<span class="font-label-sm text-label-sm mt-0.5" id="layout-mode-label">条漫</span>
+</button>
+<!-- Option 3: Reading Direction Switch Button (上下滚动 / RTL / LTR 智能循环切换) -->
+<button class="flex-1 min-h-[48px] flex flex-col items-center justify-center rounded-full bg-secondary-container text-on-secondary-container shadow-sm active:scale-95 transition-all px-2 ring-1 ring-primary/20" id="direction-toggle-btn" onclick="cycleReadingMode()" title="点击切换阅读模式 (上下滚动 / RTL / LTR)" type="button">
+<span class="material-symbols-outlined fill-1" data-icon="swap_vert" id="direction-icon">swap_vert</span>
+<span class="font-label-sm text-label-sm font-semibold mt-0.5" id="direction-label">上下滚动</span>
+</button>
+<!-- Option 4: Typography & Display Settings -->
+<button class="flex-1 min-h-[48px] flex flex-col items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all px-2" title="排版与画面滤镜" type="button">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+<span class="font-label-sm text-label-sm mt-0.5">设置</span>
+</button>
+<!-- Option 5: Day / Night / OLED Theme Toggle -->
+<button class="flex-1 min-h-[48px] flex flex-col items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container active:scale-95 transition-all px-2" onclick="toggleReadingTheme(this)" title="昼夜模式切换" type="button">
+<span class="material-symbols-outlined" data-icon="dark_mode" id="theme-icon">dark_mode</span>
+<span class="font-label-sm text-label-sm mt-0.5" id="theme-label">深色</span>
+</button>
+</nav>
+</div>
+<!-- ========================================== -->
+<!-- 4. TOAST NOTIFICATION                      -->
+<!-- ========================================== -->
+<div class="fixed top-20 left-1/2 -translate-x-1/2 z-50 transition-opacity duration-300 transform opacity-0 pointer-events-none" id="mode-toast">
+<div class="bg-surface-container-highest/95 backdrop-blur-md border border-outline-variant/40 text-on-surface px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-label-md">
+<span class="material-symbols-outlined text-[18px] text-primary" id="toast-icon">swap_vert</span>
+<span id="toast-text" class="">已切换至 上下滚动 模式</span>
+</div>
+</div>
+<!-- Micro-interaction logic for Reader Chrome, scroll tracking & direction mode toggling -->
+<script>
+    let chromeVisible = true;
+    let autoHideTimer = null;
+
+    // Reading modes: 'vertical' (默认上下连续滚动) -> 'rtl' (从右至左翻页) -> 'ltr' (从左至右翻页)
+    const MODES = [
+      { key: 'vertical', label: '上下滚动', icon: 'swap_vert', layoutLabel: '条漫', layoutIcon: 'view_agenda' },
+      { key: 'rtl', label: 'RTL', icon: 'swap_horiz', layoutLabel: '日漫双页', layoutIcon: 'auto_stories' },
+      { key: 'ltr', label: 'LTR', icon: 'east', layoutLabel: '单页', layoutIcon: 'filter_none' }
+    ];
+    let currentModeIndex = 0; // 0 = 垂直上下连续滚动 (默认)
+
+    function resetAutoHide() {
+      clearTimeout(autoHideTimer);
+      if (chromeVisible) {
+        autoHideTimer = setTimeout(() => {
+          hideChrome();
+        }, 5500); // 浸润模式自隐
+      }
+    }
+
+    function handleCanvasTap(e) {
+      // Toggle top & bottom chrome when canvas is tapped
+      toggleChrome();
+    }
+
+    function toggleChrome() {
+      if (chromeVisible) {
+        hideChrome();
+      } else {
+        showChrome();
+      }
+    }
+
+    function hideChrome() {
+      chromeVisible = false;
+      const top = document.getElementById('top-chrome');
+      const bottom = document.getElementById('bottom-chrome');
+      
+      top.classList.add('-translate-y-full', 'opacity-0');
+      bottom.classList.add('translate-y-full', 'opacity-0');
+    }
+
+    function showChrome() {
+      chromeVisible = true;
+      const top = document.getElementById('top-chrome');
+      const bottom = document.getElementById('bottom-chrome');
+      
+      top.classList.remove('-translate-y-full', 'opacity-0');
+      bottom.classList.remove('translate-y-full', 'opacity-0');
+      resetAutoHide();
+    }
+
+    // 交互模式循环切换：上下滚动 -> RTL -> LTR -> 上下滚动
+    function cycleReadingMode() {
+      currentModeIndex = (currentModeIndex + 1) % MODES.length;
+      applyReadingMode(MODES[currentModeIndex]);
+      resetAutoHide();
+    }
+
+    function applyReadingMode(mode) {
+      // 1. 更新底部控制岛方向按钮
+      const dirLabel = document.getElementById('direction-label');
+      const dirIcon = document.getElementById('direction-icon');
+      dirLabel.innerText = mode.label;
+      dirIcon.innerText = mode.icon;
+
+      // 2. 更新排版模式按钮提示
+      const layoutLabel = document.getElementById('layout-mode-label');
+      const layoutIcon = document.getElementById('layout-mode-icon');
+      layoutLabel.innerText = mode.layoutLabel;
+      layoutIcon.innerText = mode.layoutIcon;
+
+      // 3. 更新顶栏状态徽章
+      const badgeText = document.getElementById('badge-reading-text');
+      const badgeIcon = document.getElementById('badge-reading-icon');
+      badgeText.innerText = mode.label;
+      badgeIcon.innerText = mode.icon;
+
+      // 4. 控制主画布视图容器切换
+      const scrollFlow = document.getElementById('scroll-flow-container');
+      const horizontalFlow = document.getElementById('horizontal-flow-container');
+
+      if (mode.key === 'vertical') {
+        scrollFlow.classList.remove('hidden');
+        horizontalFlow.classList.add('hidden');
+      } else {
+        scrollFlow.classList.add('hidden');
+        horizontalFlow.classList.remove('hidden');
+        if (mode.key === 'rtl') {
+          horizontalFlow.classList.add('rtl-scroll-container');
+          horizontalFlow.style.direction = 'rtl';
+        } else {
+          horizontalFlow.classList.remove('rtl-scroll-container');
+          horizontalFlow.style.direction = 'ltr';
+        }
+      }
+
+      // 5. 显示轻量浮层反馈
+      showModeToast(mode.label, mode.icon);
+    }
+
+    function showModeToast(text, iconName) {
+      const toast = document.getElementById('mode-toast');
+      const toastText = document.getElementById('toast-text');
+      const toastIcon = document.getElementById('toast-icon');
+
+      toastText.innerText = `已切换至 ${text} 模式`;
+      toastIcon.innerText = iconName;
+
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 1800);
+    }
+
+    // 垂直滚动监听，更新当前页码指示与进度条
+    const scrollContainer = document.getElementById('scroll-flow-container');
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', () => {
+        const scrollTop = scrollContainer.scrollTop;
+        const scrollHeight = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+        const percent = Math.min(100, Math.max(0, Math.round((scrollTop / (scrollHeight || 1)) * 100)));
+
+        // 更新进度条 UI (在 70% ~ 76% 之间基准微调或者纯根据滚动百分比)
+        const mappedPercent = Math.min(96, Math.max(70, Math.round(70 + (percent * 0.26))));
+        updateProgressDisplay(mappedPercent);
+      }, { passive: true });
+    }
+
+    function updateProgressDisplay(pct) {
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('progress-thumb').style.left = pct + '%';
+      document.getElementById('percentage-indicator').innerText = pct + '%';
+    }
+
+    function handleProgressBarClick(e) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const pct = Math.max(1, Math.min(100, Math.round((clickX / rect.width) * 100)));
+      updateProgressDisplay(pct);
+      const pageCalc = Math.round(1 + (pct / 100) * 119);
+      document.getElementById('current-page-text').innerText = pageCalc;
+      resetAutoHide();
+    }
+
+    function prevChapter() {
+      showModeToast('正在加载前一章节：第103话', 'skip_previous');
+    }
+
+    function nextChapter() {
+      showModeToast('正在加载下一章节：第105话', 'skip_next');
+    }
+
+    function toggleReadingTheme(btn) {
+      const icon = document.getElementById('theme-icon');
+      const label = document.getElementById('theme-label');
+      const canvas = document.getElementById('reader-canvas');
+
+      if (label.innerText === '深色') {
+        label.innerText = '浅色';
+        icon.innerText = 'light_mode';
+        canvas.classList.remove('bg-paper-dark-gray');
+        canvas.classList.add('bg-paper-light');
+      } else {
+        label.innerText = '深色';
+        icon.innerText = 'dark_mode';
+        canvas.classList.remove('bg-paper-light');
+        canvas.classList.add('bg-paper-dark-gray');
+      }
+      resetAutoHide();
+    }
+
+    // 默认应用上下滚动模式
+    applyReadingMode(MODES[0]);
+    resetAutoHide();
+  </script>
+
+
+</body></html>

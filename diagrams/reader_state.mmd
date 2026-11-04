@@ -1,0 +1,14 @@
+stateDiagram-v2
+  [*] --> Opening
+  Opening --> Ready
+  Opening --> Error
+  Ready --> Reading
+  Reading --> OverlayVisible
+  OverlayVisible --> Reading
+  Reading --> Seeking
+  Seeking --> Reading
+  Reading --> Suspended
+  Suspended --> Reading
+  Reading --> Closing
+  Closing --> [*]
+  Error --> Closing

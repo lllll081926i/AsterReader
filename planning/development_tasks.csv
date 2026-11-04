@@ -1,0 +1,55 @@
+﻿id,phase,sprint,priority,area,task,depends_on,deliverable,acceptance
+BOOT-001,Phase 0,S0,P0,BUILD,Create Android project minSdk31 targetSdk37,,Clean project,API31/API37 launch
+BOOT-002,Phase 0,S0,P0,BUILD,Version Catalog + AGP/Kotlin/Gradle/JDK lock,BOOT-001,libs.versions.toml,clean build
+CI-001,Phase 0,S0,P0,CI,CI assemble/test/lint,BOOT-002,CI workflow,green on clean clone
+ARCH-001,Phase 0,S1,P0,ARCH,Create core and first feature modules,BOOT-002,module skeleton,dependency directions enforced
+DESIGN-001,Phase 0,S1,P0,DESIGN,AsterTheme + Monet light/dark,ARCH-001,theme,Android12 real device dynamic color
+NAV-001,Phase 0,S1,P0,NAV,Navigation3 top-level destinations,ARCH-001,root navigation,state survives rotation
+ADAPT-001,Phase 0,S1,P0,ADAPTIVE,Adaptive bar/rail shell,NAV-001,navigation suite,compact/expanded pass
+DESIGN-002,Phase 0,S2,P0,DESIGN,Shapes/Typography/Spacing/Motion tokens,DESIGN-001,design system tokens,no feature hardcoded tokens
+MOTION-001,Phase 0,S2,P0,MOTION,AsterMotion wrapper + reduced motion,DESIGN-002,motion API,animation scale 0 pass
+TEST-001,Phase 0,S2,P0,TEST,Preview/screenshot test harness,DESIGN-002,UI test infra,golden baseline stored
+DATA-001,Phase 1,S3,P0,DATA,Room schema v1 + migration harness,ARCH-001,database,migration test passes
+DATA-002,Phase 1,S3,P0,DATA,Publication/Shelf/Tag/Progress repositories,DATA-001,repositories,UI has no DAO access
+FILE-001,Phase 1,S4,P0,FILES,SAF directory picker + persisted permissions,ARCH-001,local source,reopen after restart
+FILE-002,Phase 1,S4,P0,FILES,DocumentSource capabilities probe,FILE-001,source abstraction,slow/nonseekable provider handled
+SCAN-001,Phase 1,S5,P0,SCAN,Incremental scanner staging/diff/commit,FILE-002;DATA-001,scanner,cancel/restart safe
+SCAN-002,Phase 1,S5,P0,SCAN,Fingerprint + change detection,SCAN-001,incremental update,modify/move/delete detected
+LIB-001,Phase 1,S6,P0,LIB,Library grid/list/search/filter,DATA-002;SCAN-001,library UI,1000 fixture usable
+LIB-002,Phase 1,S6,P0,LIB,Shelves/tags/favorites/history/detail,LIB-001,library metadata UX,CRUD + restore pass
+SEC-001,Phase 2,S7,P0,SECURITY,SecurityBootstrap + AuthGate,ARCH-001,auth state machine,fail closed after process restart
+SEC-002,Phase 2,S7,P0,SECURITY,BiometricPrompt + device credential,SEC-001,system auth,success/fail/cancel matrix
+SEC-003,Phase 2,S7,P0,SECURITY,App PIN/password + timeout,SEC-001,app credential policy,rate-limit/timeout tests
+KEY-001,Phase 2,S8,P0,VAULT,Keystore KEK + master secret,SEC-001,key repository,key never persisted plaintext
+KEY-002,Phase 2,S8,P0,VAULT,Per-object DEK + recovery slot,KEY-001,key hierarchy,device/recovery unwrap tests
+VAULT-001,Phase 2,S9,P0,VAULT,ASV1 container header/chunks/AAD,KEY-002,container codec,test vectors pass
+VAULT-002,Phase 2,S9,P0,VAULT,Random-access decrypt source,VAULT-001,SecureDocumentSource,seek reads correct
+VAULT-003,Phase 2,S9,P0,SECURITY,Corruption/fuzz/fail-closed tests,VAULT-001,security tests,tamper always detected
+VAULT-004,Phase 2,S10,P0,VAULT,Encrypt & Lock atomic migration,VAULT-002;FILE-001,migration worker,kill at arbitrary progress recoverable
+PRIV-001,Phase 2,S10,P0,PRIVACY,Protected metadata/cover/FTS policy,VAULT-004,privacy layer,locked content not leaked
+PRIV-002,Phase 2,S10,P0,PRIVACY,FLAG_SECURE/recents policy,SEC-001,window privacy,screenshot/recents test pass
+COMIC-001,Phase 3,S11,P0,COMIC,Image directory + CBZ index,FILE-002,comic engine,natural sort/cover pass
+READER-001,Phase 3,S12,P0,READER,Reader Shell/chrome/control island,COMIC-001,reader shell,normal and Vault source both open
+COMIC-002,Phase 3,S13,P0,COMIC,Paging/vertical/webtoon/RTL/dual-page,READER-001,comic modes,mode persistence pass
+COMIC-003,Phase 3,S14,P0,COMIC,RAR/7Z/TAR adapters,COMIC-001,archive support,fixture suite pass
+PERF-001,Phase 3,S14,P0,PERF,Prefetch/decode sampling/memory budget,READER-001,reader performance,500-page soak no OOM
+TEXT-001,Phase 4,S15,P0,TEXT,TXT/Markdown/HTML engine,READER-001,reflow engine,locator restore pass
+EPUB-001,Phase 4,S16-S17,P0,EPUB,Readium EPUB adapter,TEXT-001,EPUB reader,TOC/search/progress pass
+NOTE-001,Phase 4,S18,P0,ANNOTATION,Highlight/note/bookmark model,EPUB-001,annotations,roundtrip + migration pass
+TTS-001,Phase 4,S18,P0,TTS,TTS session lifecycle,EPUB-001;SEC-001,TTS,locked content never speaks
+FB2-001,Phase 4,S19,P0,FB2,FB2 adapter,TEXT-001,FB2 reader,fixture suite pass
+MOBI-001,Phase 4,S19,P0,MOBI,MOBI/KF8 adapter spike and implementation,TEXT-001,MOBI reader,quality gate or mark experimental
+PDF-001,Phase 5,S20,P0,PDF,PDF document mode,READER-001,PDF document reader,large PDF usable
+PDF-002,Phase 5,S21,P0,PDF,PDF comic mode + tile strategy,PDF-001,PDF comic reader,zoom/memory pass
+BACKUP-001,Phase 6,S22,P0,BACKUP,Metadata backup + restore dry-run,DATA-001,backup format,roundtrip pass
+BACKUP-002,Phase 6,S22,P0,BACKUP,Encrypted full backup,VAULT-001;BACKUP-001,encrypted backup,restore on test device
+REC-001,Phase 6,S23,P0,RECOVERY,Recovery password/export/import,KEY-002,recovery UX,lost-device scenario pass
+BENCH-001,Phase 6,S24,P0,PERF,Baseline Profile CUJs,LIB-001;READER-001,profile,generated every release
+BENCH-002,Phase 6,S24,P0,PERF,Macrobenchmark start/library/readers/unlock,BENCH-001,benchmark suite,regression thresholds tracked
+A11Y-001,Phase 6,S25,P0,A11Y,TalkBack/font scale/reduced motion audit,LIB-001;READER-001,a11y fixes,audit checklist pass
+ADAPT-002,Phase 6,S25,P0,ADAPTIVE,List-detail/supporting-pane hardening,ADAPT-001;LIB-001,adaptive layouts,compact/medium/expanded pass
+DAV-001,Phase 7,S26,P1,REMOTE,WebDAV SourceProvider,FILE-002,remote source,list/open/auth pass
+DAV-002,Phase 7,S27,P1,REMOTE,ETag refresh + cache/offline,DAV-001,remote cache,offline/reconnect pass
+DAV-003,Phase 7,S28,P1,REMOTE,Range probe + download fallback,DAV-001,stream strategy,provider capability matrix
+RC-001,Phase 8,RC1,P0,RELEASE,Feature freeze + blocker burn-down,,RC build,P0/P1=0
+RC-002,Phase 8,RC2,P0,RELEASE,Migration/security/performance soak,RC-001,release candidate,7-day self-use + gates pass

@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Aster Reader</title>
+<!-- Material Symbols Outlined font -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Roboto Flex -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration verbatim -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "vault-secure-tint": "#284D3D",
+            "on-secondary-container": "#56695e",
+            "ink-light": "#191C1B",
+            "surface-tint": "#436557",
+            "on-tertiary": "#ffffff",
+            "surface-container-highest": "#dce4de",
+            "secondary-fixed": "#d2e8db",
+            "outline": "#717974",
+            "secondary-container": "#d2e8db",
+            "secondary-fixed-dim": "#b7cbbf",
+            "surface-bright": "#f3fbf5",
+            "on-surface": "#161d1a",
+            "on-surface-variant": "#414844",
+            "on-primary-fixed-variant": "#2c4d40",
+            "surface-container-high": "#e2eae4",
+            "error": "#ba1a1a",
+            "annotation-blue": "#C0DCF5",
+            "on-secondary-fixed-variant": "#384b41",
+            "annotation-yellow": "#F7E69C",
+            "on-secondary-fixed": "#0d1f17",
+            "surface-container-lowest": "#ffffff",
+            "annotation-pink": "#F6C8D6",
+            "on-error-container": "#93000a",
+            "surface-dim": "#d4dcd6",
+            "outline-variant": "#c1c8c3",
+            "annotation-green": "#C4E8C2",
+            "secondary": "#506359",
+            "primary": "#2b4d40",
+            "primary-fixed": "#c5ebd9",
+            "tertiary-container": "#3d6370",
+            "tertiary": "#244b58",
+            "on-background": "#161d1a",
+            "paper-warm": "#F3EAD8",
+            "on-tertiary-container": "#b6deed",
+            "inverse-on-surface": "#ebf3ec",
+            "ink-dark": "#E1E3DF",
+            "primary-container": "#436557",
+            "error-container": "#ffdad6",
+            "on-primary": "#ffffff",
+            "on-primary-container": "#bbe1cf",
+            "ink-warm": "#2D261C",
+            "tertiary-fixed-dim": "#a5cddc",
+            "on-secondary": "#ffffff",
+            "surface-container-low": "#eef6ef",
+            "surface": "#f3fbf5",
+            "surface-container": "#e8f0ea",
+            "inverse-primary": "#aacfbd",
+            "background": "#f3fbf5",
+            "surface-variant": "#dce4de",
+            "inverse-surface": "#2a322e",
+            "tertiary-fixed": "#c1e9f8",
+            "on-tertiary-fixed-variant": "#254c58",
+            "primary-fixed-dim": "#aacfbd",
+            "on-error": "#ffffff",
+            "on-tertiary-fixed": "#001f28",
+            "paper-oled-black": "#000000",
+            "on-primary-fixed": "#002116",
+            "paper-dark-gray": "#1F2021",
+            "paper-light": "#FBF9F5"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-md": "1rem",
+            "gutter-expanded": "1rem",
+            "margin": "1rem",
+            "gutter": "0.75rem",
+            "space-xs": "0.25rem",
+            "margin-expanded": "2rem",
+            "space-lg": "1.5rem",
+            "space-xl": "2rem",
+            "margin-medium": "1.5rem",
+            "space-sm": "0.5rem"
+          },
+          "fontFamily": {
+            "body-sm": ["Roboto Flex"],
+            "body-md": ["Roboto Flex"],
+            "label-md": ["Roboto Flex"],
+            "body-lg": ["Roboto Flex"],
+            "headline-lg-mobile": ["Roboto Flex"],
+            "title-md": ["Roboto Flex"],
+            "title-sm": ["Roboto Flex"],
+            "headline-sm": ["Roboto Flex"],
+            "label-sm": ["Roboto Flex"],
+            "headline-lg": ["Roboto Flex"],
+            "label-lg": ["Roboto Flex"],
+            "title-lg": ["Roboto Flex"]
+          },
+          "fontSize": {
+            "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.4px", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400" }],
+            "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "400" }],
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "500" }],
+            "title-sm": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "400" }],
+            "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "title-lg": ["22px", { "lineHeight": "28px", "fontWeight": "400" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      font-size: 24px;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background-color: rgba(113, 121, 116, 0.2);
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background-color: rgba(113, 121, 116, 0.35);
+    }
+  </style>
+</head>
+<body class="h-full bg-surface text-on-surface antialiased overflow-hidden flex relative selection:bg-secondary-container selection:text-on-secondary-fixed">
+<!-- ======================================================== -->
+<!-- LEFT: NAVIGATION RAIL / PERSISTENT DRAWER               -->
+<!-- ======================================================== -->
+<aside class="w-64 flex-shrink-0 bg-surface-container-low flex flex-col justify-between h-full select-none z-20 transition-all duration-300 ease-in-out overflow-hidden border-r border-outline-variant/20" id="main-sidebar">
+<!-- Top Area: Brand Logo, Collapse Toggle & Navigation Destinations -->
+<div class="p-space-lg flex flex-col gap-space-lg transition-all duration-300" id="sidebar-top-area">
+<!-- App Brand Anchor & Toggle Button -->
+<div class="flex items-center justify-between gap-space-xs">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 rounded-xl bg-primary-container text-on-primary flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined" data-icon="auto_stories" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+</div>
+<div class="flex flex-col min-w-0 sidebar-label-text transition-opacity duration-200">
+<h1 class="text-title-lg font-title-lg text-on-surface font-semibold tracking-tight truncate">Aster Reader</h1>
+<span class="text-label-sm font-label-sm text-outline truncate">v2.4.0 · 本地安全库</span>
+</div>
+</div>
+<!-- Collapse / Rail Toggle Button -->
+<button class="w-9 h-9 rounded-full hover:bg-surface-container text-on-surface-variant flex items-center justify-center flex-shrink-0 transition-colors" id="sidebar-collapse-btn" title="折叠/展开侧边栏">
+<span class="material-symbols-outlined text-[20px]" data-icon="menu_open" id="sidebar-collapse-icon">menu_open</span>
+</button>
+</div>
+<!-- Navigation Destinations (Hierarchical M3 List / Rail Items) -->
+<nav aria-label="主要导航" class="flex flex-col gap-space-xs" id="sidebar-nav">
+<!-- Item: 资料库 (Active) -->
+<a class="nav-item group relative flex items-center gap-space-md h-12 px-space-md rounded-full bg-secondary-container text-on-secondary-container transition-all active:scale-95 duration-150" data-dest="library" href="#" title="资料库">
+<span class="material-symbols-outlined text-primary flex-shrink-0" data-icon="local_library" style="font-variation-settings: 'FILL' 1;">local_library</span>
+<span class="sidebar-label-text text-label-lg font-label-lg font-medium whitespace-nowrap">资料库</span>
+<span class="sidebar-badge ml-auto text-label-sm font-label-sm bg-surface-container text-on-surface-variant px-space-sm py-0.5 rounded-full">148</span>
+</a>
+<!-- Item: 书架 (Inactive) -->
+<a class="nav-item group relative flex items-center gap-space-md h-12 px-space-md rounded-full text-on-surface-variant hover:bg-surface-container transition-all active:scale-95 duration-150" data-dest="bookshelf" href="#" title="书架">
+<span class="material-symbols-outlined text-on-surface-variant flex-shrink-0" data-icon="auto_stories">auto_stories</span>
+<span class="sidebar-label-text text-label-lg font-label-lg whitespace-nowrap">书架</span>
+<span class="sidebar-badge ml-auto text-label-sm font-label-sm text-outline">6 组</span>
+</a>
+<!-- Item: 保险库 (Inactive) -->
+<a class="nav-item group relative flex items-center gap-space-md h-12 px-space-md rounded-full text-on-surface-variant hover:bg-surface-container transition-all active:scale-95 duration-150" data-dest="vault" href="#" title="保险库">
+<span class="material-symbols-outlined text-on-surface-variant flex-shrink-0" data-icon="lock">lock</span>
+<span class="sidebar-label-text text-label-lg font-label-lg whitespace-nowrap">保险库</span>
+<span class="sidebar-badge ml-auto w-2 h-2 rounded-full bg-vault-secure-tint flex-shrink-0"></span>
+</a>
+<!-- Item: 设置 (Inactive) -->
+<a class="nav-item group relative flex items-center gap-space-md h-12 px-space-md rounded-full text-on-surface-variant hover:bg-surface-container transition-all active:scale-95 duration-150" data-dest="settings" href="#" title="设置">
+<span class="material-symbols-outlined text-on-surface-variant flex-shrink-0" data-icon="settings">settings</span>
+<span class="sidebar-label-text text-label-lg font-label-lg whitespace-nowrap">设置</span>
+</a>
+</nav>
+</div>
+<!-- Bottom Status Card: Storage & Quick Switch -->
+<div class="p-space-lg flex flex-col gap-space-sm transition-all duration-300" id="sidebar-bottom-area">
+<!-- Mode Switch Action inside drawer -->
+<button class="w-full h-10 px-3 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface flex items-center justify-center gap-2 text-label-md font-label-md transition-colors" id="switch-to-pill-btn" title="切换为底部悬浮药丸导航">
+<span class="material-symbols-outlined text-[18px]" data-icon="dock_to_bottom">dock_to_bottom</span>
+<span class="sidebar-label-text whitespace-nowrap">底部药丸导航</span>
+</button>
+<!-- Storage Widget -->
+<div class="bg-surface-container rounded-2xl p-space-md flex flex-col gap-space-sm transition-all duration-200" id="sidebar-storage-card">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]" data-icon="cloud_done">cloud_done</span>
+<span class="text-label-sm font-label-sm">WebDAV 同步完成</span>
+</div>
+<span class="text-label-sm font-label-sm text-outline">10:42</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 42%;"></div>
+</div>
+<div class="flex justify-between items-center text-label-sm font-label-sm text-outline">
+<span>存储空间</span>
+<span>12.4 GB / 32 GB</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- ======================================================== -->
+<!-- CENTER PANE: PRIMARY CONTENT CANVAS (PUBLICATION GRID)  -->
+<!-- ======================================================== -->
+<main class="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-surface relative">
+<!-- TopAppBar & Large Search Capsule Container (Height 56dp search integrated) -->
+<header class="p-space-lg pb-space-sm flex flex-col gap-space-md">
+<!-- Search & Command Bar -->
+<div class="flex items-center gap-space-md">
+<!-- Tablet Quick Nav Mode Segmented Switch -->
+<div class="flex items-center bg-surface-container-low rounded-full p-1 h-14 flex-shrink-0" title="导航展示形态切换">
+<button class="h-12 px-3.5 rounded-full bg-surface-container text-primary flex items-center gap-1.5 transition-all text-label-md font-medium" id="nav-mode-sidebar-btn" title="侧边导航栏模式">
+<span class="material-symbols-outlined text-[20px]" data-icon="side_navigation">side_navigation</span>
+<span class="hidden sm:inline">侧边栏</span>
+</button>
+<button class="h-12 px-3.5 rounded-full text-on-surface-variant hover:bg-surface-container flex items-center gap-1.5 transition-all text-label-md font-medium" id="nav-mode-pill-btn" title="底部悬浮药丸模式">
+<span class="material-symbols-outlined text-[20px]" data-icon="dock_to_bottom">dock_to_bottom</span>
+<span class="hidden sm:inline">悬浮药丸</span>
+</button>
+</div>
+<!-- 56dp Search Capsule with subtle tonal containment -->
+<div class="flex-1 h-14 bg-surface-container rounded-full px-space-md flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="search">search</span>
+<input class="flex-1 bg-transparent border-0 focus:ring-0 text-body-md font-body-md text-on-surface placeholder:text-outline p-0" placeholder="搜索书籍、作者、文件名" type="text" value="芙莉莲"/>
+<!-- Filter chips inside search capsule -->
+<div class="flex items-center gap-space-xs">
+<button class="h-8 px-space-sm rounded-full bg-secondary-container text-on-secondary-container text-label-md font-label-md flex items-center gap-1">
+<span>漫画</span>
+<span class="material-symbols-outlined text-[16px]" data-icon="close">close</span>
+</button>
+<button class="w-9 h-9 rounded-full hover:bg-surface-container-high text-on-surface-variant flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+</button>
+</div>
+</div>
+<!-- Layout switchers and sort controls -->
+<div class="flex items-center gap-space-xs bg-surface-container-low rounded-full p-1 h-14">
+<button class="w-12 h-12 rounded-full bg-surface-container text-primary flex items-center justify-center transition-colors" title="网格视图">
+<span class="material-symbols-outlined" data-icon="grid_view" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+</button>
+<button class="w-12 h-12 rounded-full text-on-surface-variant hover:bg-surface-container flex items-center justify-center transition-colors" title="列表视图">
+<span class="material-symbols-outlined" data-icon="view_list">view_list</span>
+</button>
+</div>
+</div>
+<!-- Quick Shelf Chips & Stats Header -->
+<div class="flex items-center justify-between px-space-xs">
+<div class="flex items-center gap-space-sm overflow-x-auto py-1">
+<button class="h-8 px-4 rounded-full bg-primary-container text-on-primary text-label-md font-label-md flex items-center gap-1.5 flex-shrink-0">
+<span>全部书籍</span>
+<span class="opacity-80 text-label-sm font-label-sm">48</span>
+</button>
+<button class="h-8 px-4 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high text-label-md font-label-md flex items-center gap-1.5 flex-shrink-0">
+<span>未读</span>
+<span class="text-outline text-label-sm font-label-sm">12</span>
+</button>
+<button class="h-8 px-4 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high text-label-md font-label-md flex items-center gap-1.5 flex-shrink-0">
+<span>在读中</span>
+<span class="text-outline text-label-sm font-label-sm">7</span>
+</button>
+<button class="h-8 px-4 rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high text-label-md font-label-md flex items-center gap-1.5 flex-shrink-0">
+<span>EPUB 小说</span>
+<span class="text-outline text-label-sm font-label-sm">29</span>
+</button>
+</div>
+<div class="flex items-center gap-space-xs text-outline text-label-md font-label-md flex-shrink-0">
+<span class="material-symbols-outlined text-[18px]" data-icon="swap_vert">swap_vert</span>
+<span>最近阅读优先</span>
+</div>
+</div>
+</header>
+<!-- Publication Grid Section (Adaptive 4-5 Columns) -->
+<div class="flex-1 overflow-y-auto custom-scroll px-space-lg pb-space-xl" id="publication-scroll-area">
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-space-md">
+<!-- CARD 1: Selected Publication (Active Card Border Tone) -->
+<article class="group relative flex flex-col cursor-pointer bg-surface-container-low rounded-2xl p-space-xs ring-2 ring-primary transition-all duration-150">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container-high relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Modern Japanese comic book graphic novel cover featuring high-fantasy elf sorceress with subtle pastel watercolor highlights and soft green ambient foliage lighting, minimalist clean aesthetic in high resolution, natural light-mode reading atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBEtsyTmXfSidsTr7LyTRjfo6c74Tg4xtIjGfv_jNriPib2ezy6mjmLSC_QFGVAIIznGU1TcbB0J8uP24a9SXFNFhz_YULy1vNbYJcWSOxDFrZ7I0oUz3uoeJFV_Q6Go_897SPBT9kgtnFmKRb--5nQLHMWJWtasMcYk26Ru_0KkNwH4j6c51eGxjjgivAPpPsr10ZPvBJRzrVCyLtMLf8BtQ2owViCsU-0EKB1rnW"/>
+<div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-surface/90 text-on-surface text-label-sm font-label-sm backdrop-blur-sm">
+              CBZ
+            </div>
+<!-- Progress Overlay Indicator -->
+<div class="absolute bottom-0 inset-x-0 bg-surface/85 backdrop-blur-xs px-2.5 py-1.5 flex items-center justify-between">
+<span class="text-label-sm font-label-sm font-medium text-primary">已读 74%</span>
+<span class="text-label-sm font-label-sm text-outline">89/121</span>
+</div>
+</div>
+<div class="p-space-xs pt-space-sm flex flex-col gap-0.5">
+<h2 class="text-title-sm font-title-sm font-medium text-on-surface truncate">葬送的芙莉莲 11</h2>
+<p class="text-body-sm font-body-sm text-outline truncate">山田钟人 / 阿部司</p>
+</div>
+</article>
+<!-- CARD 2: Publication -->
+<article class="group relative flex flex-col cursor-pointer bg-surface-container-low rounded-2xl p-space-xs hover:bg-surface-container transition-all duration-150">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container-high relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Detailed fantasy culinary manga volume cover depicting adventurers resting around a campfire cooking dungeon monster stew, soft warm natural morning daylight, gentle earth tones with clean vector outlines and rich composition." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBkcL4oC2JMONwynX9bEw7pwPbppETRVwF36lzAlHaV5AHiA2Di2uh7Kls7j-kUBxCm2GsLdMqaEAnZGpJOxyev18U8ZCWup3pU7P83gUoL1T4e95Pjjq3020UC_5YAXoW6Jdni45pJds00emr7iqqnSKPFGABMF5Oqt4VK-w5vP2epB5a3GoTPmufeWosO05EKuKXZar2ZzTU6FnXkICPJ_208Jmvk52aG5tQK1BAY"/>
+<div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-surface/90 text-on-surface text-label-sm font-label-sm backdrop-blur-sm">
+              CBZ
+            </div>
+<div class="absolute bottom-0 inset-x-0 bg-surface/85 backdrop-blur-xs px-2.5 py-1.5 flex items-center justify-between">
+<span class="text-label-sm font-label-sm font-medium text-primary">已读 32%</span>
+<span class="text-label-sm font-label-sm text-outline">64/200</span>
+</div>
+</div>
+<div class="p-space-xs pt-space-sm flex flex-col gap-0.5">
+<h2 class="text-title-sm font-title-sm font-medium text-on-surface truncate">迷宫饭 第12卷</h2>
+<p class="text-body-sm font-body-sm text-outline truncate">九井谅子</p>
+</div>
+</article>
+<!-- CARD 3: Publication -->
+<article class="group relative flex flex-col cursor-pointer bg-surface-container-low rounded-2xl p-space-xs hover:bg-surface-container transition-all duration-150">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container-high relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Classic science fiction novel cover of a grand galactic empire city with architectural geometric spires illuminated in serene mint green and deep twilight space, clean typography layout and modern editorial look." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBZLUITSL4_Z7NFGK9xGLCR2kGaeUmyDKiqFFtcdJsavrZ9Lwnokt4gxPGh78UBzxDl0ywEwug8A_JsKCAZG1OagrZ5SGLOxwkokF9t50jm0u8Eh5wKzH9pz3E7SN8qxfQlgoiAYRFAP3vEnoW-Nnc3ljLvVISBWGucmHnf-15mmahr51WTpfIBHqCZ5JIIQDd6-s0nRsoRVMHyt5XJNAB0JGXsEnat6I2Bp3ktsmJL"/>
+<div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-surface/90 text-on-surface text-label-sm font-label-sm backdrop-blur-sm">
+              EPUB
+            </div>
+<div class="absolute bottom-0 inset-x-0 bg-surface/85 backdrop-blur-xs px-2.5 py-1.5 flex items-center justify-between">
+<span class="text-label-sm font-label-sm font-medium text-primary">已读 100%</span>
+<span class="text-label-sm font-label-sm text-outline">已完结</span>
+</div>
+</div>
+<div class="p-space-xs pt-space-sm flex flex-col gap-0.5">
+<h2 class="text-title-sm font-title-sm font-medium text-on-surface truncate">银河帝国：基地</h2>
+<p class="text-body-sm font-body-sm text-outline truncate">艾萨克·阿西莫夫</p>
+</div>
+</article>
+<!-- CARD 4: Vault Protected Item (V-07 Protected Item card with neutral secure lock) -->
+<article class="group relative flex flex-col cursor-pointer bg-surface-container rounded-2xl p-space-xs hover:bg-surface-container-high transition-all duration-150">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container-highest flex flex-col items-center justify-center p-space-md text-center relative select-none">
+<!-- Strict M3 Secure Shield / neutral vault styling -->
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center text-vault-secure-tint mb-space-sm shadow-none">
+<span class="material-symbols-outlined" data-icon="lock" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+<span class="text-title-sm font-title-sm font-medium text-on-surface">受保护内容</span>
+<span class="text-label-sm font-label-sm text-outline mt-1">V-07 安全保密箱</span>
+<div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-surface/90 text-on-surface-variant text-label-sm font-label-sm">
+              ENC
+            </div>
+</div>
+<div class="p-space-xs pt-space-sm flex flex-col gap-0.5">
+<h2 class="text-title-sm font-title-sm font-medium text-on-surface-variant truncate">个人工作笔记集 (加密)</h2>
+<p class="text-body-sm font-body-sm text-outline truncate">触控以解锁</p>
+</div>
+</article>
+<!-- CARD 5: Publication -->
+<article class="group relative flex flex-col cursor-pointer bg-surface-container-low rounded-2xl p-space-xs hover:bg-surface-container transition-all duration-150">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container-high relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Editorial book cover of contemporary architectural essays with abstract spatial grids and balanced natural daylight tones, clean modern typography in understated sage and off-white palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDychL9zjrGTkA2x24l8aKNfeaOMFedxlqQL50UgfKHn_4dropFOKjLuBcogpJsrNCC8eHPUdHjUoHNKlql3F1WzrCGiJtL44lF027-6CrU-0lvttzY9JvCjsZJwGkyXBMBXVqbtTmYhjDb2Ub7aXfqs-WybLdctbw0AkEHSRJTGZioO0H1PjcZrwc6OfsyO2dcSSYKsTwiO9MMqIQm9mej46S-CCJoyVlt0ZwvfJqv"/>
+<div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-surface/90 text-on-surface text-label-sm font-label-sm backdrop-blur-sm">
+              PDF
+            </div>
+<div class="absolute bottom-0 inset-x-0 bg-surface/85 backdrop-blur-xs px-2.5 py-1.5 flex items-center justify-between">
+<span class="text-label-sm font-label-sm font-medium text-outline">未读</span>
+<span class="text-label-sm font-label-sm text-outline">0/340</span>
+</div>
+</div>
+<div class="p-space-xs pt-space-sm flex flex-col gap-0.5">
+<h2 class="text-title-sm font-title-sm font-medium text-on-surface truncate">建筑空间论</h2>
+<p class="text-body-sm font-body-sm text-outline truncate">布鲁诺·塞维</p>
+</div>
+</article>
+<!-- CARD 6: Publication -->
+<article class="group relative flex flex-col cursor-pointer bg-surface-container-low rounded-2xl p-space-xs hover:bg-surface-container transition-all duration-150">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container-high relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Manga volume front cover with retro cyberpunk detective aesthetic, soft green neon reflective accents against pale paper textures, fine clean inked lines in modern Japanese graphic style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAN0niOidET4YDGTNJOdSZLtScaPnvO9qXDsr2325L5dz9dxDbmpEgsWZi_NW4D91e6q-fg8xz1uA6lmjHJArwXqRag_bugvNsBgW0VSNW9OEmmsriUcjhcs5KYxvaTpLbwgJP-pBzmW6aOvbbrplIPRs9prMVv9yPK7bw_SNylLSc3vBy8C33P8ATALfbgCJegnHePy7a_yXPZMRIT9qtRYUd0pJWMr6rul2Ih-Kt"/>
+<div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-surface/90 text-on-surface text-label-sm font-label-sm backdrop-blur-sm">
+              CBZ
+            </div>
+<div class="absolute bottom-0 inset-x-0 bg-surface/85 backdrop-blur-xs px-2.5 py-1.5 flex items-center justify-between">
+<span class="text-label-sm font-label-sm font-medium text-primary">已读 12%</span>
+<span class="text-label-sm font-label-sm text-outline">24/198</span>
+</div>
+</div>
+<div class="p-space-xs pt-space-sm flex flex-col gap-0.5">
+<h2 class="text-title-sm font-title-sm font-medium text-on-surface truncate">攻壳机动队 1.5</h2>
+<p class="text-body-sm font-body-sm text-outline truncate">士郎正宗</p>
+</div>
+</article>
+<!-- CARD 7: Publication -->
+<article class="group relative flex flex-col cursor-pointer bg-surface-container-low rounded-2xl p-space-xs hover:bg-surface-container transition-all duration-150">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container-high relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Serene Scandinavian interior design collection cover with pale wooden furniture, warm daylight streaming through tall curtains, soft botanical shadows and minimalist layout design." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyDJDDEz-dMn1_VmzrMe5JZeSKHyaD_ui2zs7W7GVr9X8CgYk3Dfa6NMYtbC7WrKpPMUzgCeAi_gdRyd72EgixS8kSJaHnb5qOLWj4dmEZj4E2UO5hpyUe_8vL4mPVaA9_gfwYgVFEMBJssNRqP6yNja7g7mSTmXxgRaUGPOGA-uwjaJCjO_GQkwh7vd__315yQkkLmeJF_VgwiHDUsSdQetKAmZ_YffIUKWpm7K8N"/>
+<div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-surface/90 text-on-surface text-label-sm font-label-sm backdrop-blur-sm">
+              EPUB
+            </div>
+<div class="absolute bottom-0 inset-x-0 bg-surface/85 backdrop-blur-xs px-2.5 py-1.5 flex items-center justify-between">
+<span class="text-label-sm font-label-sm font-medium text-primary">已读 45%</span>
+<span class="text-label-sm font-label-sm text-outline">120/266</span>
+</div>
+</div>
+<div class="p-space-xs pt-space-sm flex flex-col gap-0.5">
+<h2 class="text-title-sm font-title-sm font-medium text-on-surface truncate">北欧日常美学</h2>
+<p class="text-body-sm font-body-sm text-outline truncate">阿斯特丽德·林</p>
+</div>
+</article>
+<!-- CARD 8: Publication -->
+<article class="group relative flex flex-col cursor-pointer bg-surface-container-low rounded-2xl p-space-xs hover:bg-surface-container transition-all duration-150">
+<div class="aspect-[2/3] w-full rounded-xl overflow-hidden bg-surface-container-high relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Classic vintage typography typography book cover with balanced serif fonts on handmade textured creamy paper, delicate geometric botanical stamps and understated natural sage accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuChnx2cJUIn75mgBnqbodSeE4UnQCso9D6bKdMRwKwEStGqu_HpjYTX_xRSiWkq5qm-W3-k1zizcQcbQbctIm_Ushtw_Caq5TM3UJn4RsyEW9kPF3uy6OYWu2U64bTk3SQbBmpm3iEWl6qCAbNjHIzGeF9xAouNeGE6zS9lXdYcl6l8Ud1XSPY-g4vln3JMa5lScha5q8dOHgUrXK-k5o6DQsw1Fi6majwj9PKSulBJ"/>
+<div class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-surface/90 text-on-surface text-label-sm font-label-sm backdrop-blur-sm">
+              MOBI
+            </div>
+<div class="absolute bottom-0 inset-x-0 bg-surface/85 backdrop-blur-xs px-2.5 py-1.5 flex items-center justify-between">
+<span class="text-label-sm font-label-sm font-medium text-outline">未读</span>
+<span class="text-label-sm font-label-sm text-outline">0/512</span>
+</div>
+</div>
+<div class="p-space-xs pt-space-sm flex flex-col gap-0.5">
+<h2 class="text-title-sm font-title-sm font-medium text-on-surface truncate">百年孤独</h2>
+<p class="text-body-sm font-body-sm text-outline truncate">加夫列尔·加西亚·马尔克斯</p>
+</div>
+</article>
+</div>
+</div>
+<!-- ======================================================== -->
+<!-- FLOATING BOTTOM PILL NAVIGATION CAPSULE (M3 FAB-STYLE)   -->
+<!-- ======================================================== -->
+<div class="hidden pointer-events-none absolute bottom-6 inset-x-0 z-30 flex justify-center items-center px-4 transition-all duration-300 transform translate-y-8 opacity-0" id="floating-bottom-nav">
+<nav aria-label="底部浮动导航" class="pointer-events-auto flex items-center gap-1.5 p-1.5 bg-surface-container-high/90 backdrop-blur-md rounded-full shadow-lg border border-outline-variant/30 ring-1 ring-black/5">
+<!-- Quick Return to Sidebar icon -->
+<button class="w-10 h-10 rounded-full hover:bg-surface-container text-outline hover:text-on-surface flex items-center justify-center transition-colors" id="pill-restore-sidebar-btn" title="恢复侧边栏显示">
+<span class="material-symbols-outlined text-[20px]" data-icon="dock_to_left">dock_to_left</span>
+</button>
+<div class="w-px h-6 bg-outline-variant/40 mx-0.5"></div>
+<!-- Item: 资料库 (Active) -->
+<button class="pill-nav-item h-11 px-4 rounded-full bg-secondary-container text-on-secondary-container flex items-center gap-2 font-medium text-label-md transition-all active:scale-95" data-dest="library">
+<span class="material-symbols-outlined text-primary text-[20px]" data-icon="local_library" style="font-variation-settings: 'FILL' 1;">local_library</span>
+<span>资料库</span>
+<span class="text-label-sm font-label-sm bg-surface-container text-on-surface-variant px-1.5 py-0.2 rounded-full">148</span>
+</button>
+<!-- Item: 书架 -->
+<button class="pill-nav-item h-11 px-4 rounded-full text-on-surface-variant hover:bg-surface-container/70 flex items-center gap-2 font-medium text-label-md transition-all active:scale-95" data-dest="bookshelf">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]" data-icon="auto_stories">auto_stories</span>
+<span>书架</span>
+</button>
+<!-- Item: 保险库 -->
+<button class="pill-nav-item h-11 px-4 rounded-full text-on-surface-variant hover:bg-surface-container/70 flex items-center gap-2 font-medium text-label-md transition-all active:scale-95" data-dest="vault">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]" data-icon="lock">lock</span>
+<span>保险库</span>
+<span class="w-1.5 h-1.5 rounded-full bg-vault-secure-tint"></span>
+</button>
+<!-- Item: 设置 -->
+<button class="pill-nav-item h-11 px-4 rounded-full text-on-surface-variant hover:bg-surface-container/70 flex items-center gap-2 font-medium text-label-md transition-all active:scale-95" data-dest="settings">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]" data-icon="settings">settings</span>
+<span>设置</span>
+</button>
+</nav>
+</div>
+</main>
+<!-- ======================================================== -->
+<!-- RIGHT PANE: SUPPORTING PANE / PUBLICATION DETAIL (P-01)  -->
+<!-- ======================================================== -->
+<aside class="w-[380px] flex-shrink-0 bg-surface-container-low flex flex-col h-full border-l border-outline-variant/20 relative select-none">
+<!-- Top Action Row inside Inspection Pane -->
+<div class="p-space-md flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="text-title-sm font-title-sm font-medium text-on-surface">书籍详情</span>
+<span class="text-label-sm font-label-sm text-outline">P-01 响应适配</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="w-10 h-10 rounded-full hover:bg-surface-container text-on-surface-variant flex items-center justify-center transition-colors" title="分享或导出">
+<span class="material-symbols-outlined text-[20px]" data-icon="share">share</span>
+</button>
+<button class="w-10 h-10 rounded-full hover:bg-surface-container text-on-surface-variant flex items-center justify-center transition-colors" title="收藏">
+<span class="material-symbols-outlined text-[20px]" data-icon="star">star</span>
+</button>
+<button class="w-10 h-10 rounded-full hover:bg-surface-container text-on-surface-variant flex items-center justify-center transition-colors" title="更多选项">
+<span class="material-symbols-outlined text-[20px]" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Scrollable Detail Body -->
+<div class="flex-1 overflow-y-auto custom-scroll px-space-lg pb-28 flex flex-col gap-space-lg">
+<!-- Large 2:3 Cover Anchor & Main Metadata -->
+<div class="flex gap-space-md items-start">
+<div class="w-28 flex-shrink-0 aspect-[2/3] rounded-xl overflow-hidden bg-surface-container-highest shadow-none">
+<img class="w-full h-full object-cover" data-alt="Detailed graphic novel cover closeup of Japanese manga Sousou no Frieren Volume 11 with soft elven fantasy aesthetic, pastel greens and whites, high resolution light mode book presentation." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAIkf_54sj9kvqz8BN42o01ncDUWjP9jn_9S4rwxwDn1UuU-rXtAxysnVWqSIv1uowoPYwJAh6m6cR_FGapMuvKX0x_T9gbRl4wAJEQo8j16CIH1tDANDyF7vpkjinueW5yIgyHPFJUNvBbx-yFBXvOq2HIfjiZrN0R6F16YmS3yMSbfncjm737b8jIaaKxiUlZwnfuVPUZXN8TIrKkuerNlhZl_UKZy_qhWKXxQDgl"/>
+</div>
+<div class="flex-1 flex flex-col gap-1 min-w-0">
+<span class="inline-flex self-start items-center px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-label-sm font-label-sm font-medium">
+            CBZ 漫画归档
+          </span>
+<h2 class="text-title-lg font-title-lg font-bold text-on-surface leading-snug">葬送的芙莉莲 11</h2>
+<p class="text-body-md font-body-md text-on-surface-variant">山田钟人 (原作)</p>
+<p class="text-body-sm font-body-sm text-outline">阿部司 (作画)</p>
+<div class="mt-2 flex items-center gap-space-xs text-label-sm font-label-sm text-outline">
+<span>小学馆 / 少年Sunday</span>
+</div>
+</div>
+</div>
+<!-- Reading Progress Container -->
+<div class="bg-surface-container rounded-2xl p-space-md flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="text-label-lg font-label-lg font-medium text-on-surface">当前阅读进度</span>
+<span class="text-label-lg font-label-lg font-bold text-primary">74%</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 74%;"></div>
+</div>
+<div class="flex justify-between items-center text-label-sm font-label-sm text-outline">
+<span>当前停留在第 89 页</span>
+<span>总计 121 页</span>
+</div>
+</div>
+<!-- Publication Synopsis -->
+<div class="flex flex-col gap-space-xs">
+<h3 class="text-title-sm font-title-sm font-medium text-on-surface">作品简介</h3>
+<p class="text-body-md font-body-md text-on-surface-variant leading-relaxed">
+          魔王被打倒之后，精灵魔法使芙莉莲在漫长的人世岁月中展开寻找自我与回忆的旅程。在第11卷中，前往灵魂长眠之地的路程继续推进，北方高原的严苛考验与过去的勇者记忆再度交织……
+        </p>
+</div>
+<!-- Quick Chapter List with Jump Targets -->
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<h3 class="text-title-sm font-title-sm font-medium text-on-surface">章节目录</h3>
+<span class="text-label-sm font-label-sm text-outline">共 7 话</span>
+</div>
+<div class="bg-surface-container rounded-2xl overflow-hidden divide-y divide-outline-variant/30">
+<button class="w-full min-h-[48px] px-space-md py-2.5 flex items-center justify-between text-left hover:bg-surface-container-high transition-colors">
+<span class="text-body-md font-body-md text-on-surface-variant">第104话 极北的结界</span>
+<span class="text-label-sm font-label-sm text-outline">P.1</span>
+</button>
+<button class="w-full min-h-[48px] px-space-md py-2.5 flex items-center justify-between text-left hover:bg-surface-container-high transition-colors">
+<span class="text-body-md font-body-md text-on-surface-variant">第105话 哥利赞同盟</span>
+<span class="text-label-sm font-label-sm text-outline">P.21</span>
+</button>
+<button class="w-full min-h-[48px] px-space-md py-2.5 flex items-center justify-between text-left bg-secondary-container/50 hover:bg-secondary-container transition-colors">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-primary" data-icon="play_arrow" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+<span class="text-body-md font-body-md font-medium text-primary">第106话 帝国的密探 (当前)</span>
+</div>
+<span class="text-label-sm font-label-sm font-medium text-primary">P.43</span>
+</button>
+<button class="w-full min-h-[48px] px-space-md py-2.5 flex items-center justify-between text-left hover:bg-surface-container-high transition-colors">
+<span class="text-body-md font-body-md text-on-surface-variant">第107话 奇迹之幻影</span>
+<span class="text-label-sm font-label-sm text-outline">P.65</span>
+</button>
+<button class="w-full min-h-[48px] px-space-md py-2.5 flex items-center justify-between text-left hover:bg-surface-container-high transition-colors">
+<span class="text-body-md font-body-md text-on-surface-variant">第108话 过去的重聚</span>
+<span class="text-label-sm font-label-sm text-outline">P.92</span>
+</button>
+</div>
+</div>
+<!-- File Attributes Table (Subtle grouped rows) -->
+<div class="bg-surface-container rounded-2xl p-space-md flex flex-col gap-2">
+<h3 class="text-label-lg font-label-lg font-medium text-on-surface mb-1">文件元数据</h3>
+<div class="flex justify-between text-body-sm font-body-sm">
+<span class="text-outline">本地存储路径</span>
+<span class="text-on-surface truncate max-w-[200px]">/storage/emulated/0/Comics/Frieren_11.cbz</span>
+</div>
+<div class="flex justify-between text-body-sm font-body-sm">
+<span class="text-outline">文件体积</span>
+<span class="text-on-surface">148.6 MB</span>
+</div>
+<div class="flex justify-between text-body-sm font-body-sm">
+<span class="text-outline">渲染引擎</span>
+<span class="text-on-surface">Bento Vector Direct2D</span>
+</div>
+<div class="flex justify-between text-body-sm font-body-sm">
+<span class="text-outline">双页裁切</span>
+<span class="text-on-surface">智能跨页自动拼接</span>
+</div>
+</div>
+</div>
+<!-- Docked Action Island / Bottom Controls (Pill Action Bar) -->
+<div class="absolute bottom-4 inset-x-4">
+<div class="bg-surface-container-high rounded-full p-2 flex items-center gap-space-xs shadow-none">
+<!-- Main CTA: 继续阅读 (Continue Reading, >=48dp touch target) -->
+<button class="flex-1 h-12 rounded-full bg-primary-container text-on-primary hover:bg-primary transition-all duration-150 flex items-center justify-center gap-space-sm font-medium active:scale-95">
+<span class="material-symbols-outlined" data-icon="menu_book" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+<span class="text-label-lg font-label-lg">继续阅读 (第89页)</span>
+</button>
+<!-- Secondary Icon Buttons (Preferences & Annotations) -->
+<button class="w-12 h-12 rounded-full hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors active:scale-95" title="阅读样式与滤镜">
+<span class="material-symbols-outlined" data-icon="display_settings">display_settings</span>
+</button>
+<button class="w-12 h-12 rounded-full hover:bg-surface-container text-on-surface flex items-center justify-center transition-colors active:scale-95" title="笔记与标注">
+<span class="material-symbols-outlined" data-icon="edit_note">edit_note</span>
+</button>
+</div>
+</div>
+</aside>
+<!-- Script for interactive states & navigation switcher -->
+<script>
+    // Publication card selection feedback
+    document.querySelectorAll('article').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('article').forEach(c => {
+          c.classList.remove('ring-2', 'ring-primary');
+        });
+        card.classList.add('ring-2', 'ring-primary');
+      });
+    });
+
+    // Navigation State Manager
+    // Modes: 'expanded' (256px), 'rail' (72px), 'floating-pill' (hidden sidebar + bottom pill)
+    const sidebar = document.getElementById('main-sidebar');
+    const collapseBtn = document.getElementById('sidebar-collapse-btn');
+    const collapseIcon = document.getElementById('sidebar-collapse-icon');
+    const floatingNav = document.getElementById('floating-bottom-nav');
+    const navModeSidebarBtn = document.getElementById('nav-mode-sidebar-btn');
+    const navModePillBtn = document.getElementById('nav-mode-pill-btn');
+    const switchToPillBtn = document.getElementById('switch-to-pill-btn');
+    const pillRestoreSidebarBtn = document.getElementById('pill-restore-sidebar-btn');
+    const sidebarLabels = document.querySelectorAll('.sidebar-label-text');
+    const sidebarBadges = document.querySelectorAll('.sidebar-badge');
+    const sidebarStorageCard = document.getElementById('sidebar-storage-card');
+    const sidebarTopArea = document.getElementById('sidebar-top-area');
+    const sidebarBottomArea = document.getElementById('sidebar-bottom-area');
+    const navItems = document.querySelectorAll('.nav-item');
+    const publicationScrollArea = document.getElementById('publication-scroll-area');
+
+    let currentNavState = 'expanded'; // 'expanded' | 'rail' | 'floating-pill'
+
+    function updateNavUI(state) {
+      currentNavState = state;
+
+      if (state === 'expanded') {
+        // Sidebar Expanded
+        sidebar.classList.remove('w-0', 'w-[72px]', 'p-0', 'opacity-0', 'pointer-events-none');
+        sidebar.classList.add('w-64');
+        sidebarTopArea.classList.remove('p-space-xs', 'px-2');
+        sidebarTopArea.classList.add('p-space-lg');
+        sidebarBottomArea.classList.remove('p-space-xs', 'px-2');
+        sidebarBottomArea.classList.add('p-space-lg');
+
+        // Show labels & badges
+        sidebarLabels.forEach(el => el.classList.remove('hidden'));
+        sidebarBadges.forEach(el => el.classList.remove('hidden'));
+        sidebarStorageCard.classList.remove('hidden');
+
+        // Update nav items centering
+        navItems.forEach(item => {
+          item.classList.remove('justify-center', 'px-0');
+          item.classList.add('px-space-md');
+        });
+
+        // Icon shows collapse option
+        collapseIcon.textContent = 'menu_open';
+        collapseBtn.title = '折叠为紧凑侧栏';
+
+        // Hide Floating Nav
+        floatingNav.classList.add('opacity-0', 'translate-y-8', 'pointer-events-none');
+        setTimeout(() => {
+          if (currentNavState !== 'floating-pill') floatingNav.classList.add('hidden');
+        }, 300);
+
+        // Header Switcher Highlight
+        navModeSidebarBtn.classList.add('bg-surface-container', 'text-primary');
+        navModeSidebarBtn.classList.remove('text-on-surface-variant');
+        navModePillBtn.classList.remove('bg-surface-container', 'text-primary');
+        navModePillBtn.classList.add('text-on-surface-variant');
+        publicationScrollArea.classList.remove('pb-28');
+        publicationScrollArea.classList.add('pb-space-xl');
+
+      } else if (state === 'rail') {
+        // Sidebar Narrow Rail
+        sidebar.classList.remove('w-0', 'w-64', 'opacity-0', 'pointer-events-none');
+        sidebar.classList.add('w-[72px]');
+        sidebarTopArea.classList.remove('p-space-lg');
+        sidebarTopArea.classList.add('px-2', 'py-space-lg');
+        sidebarBottomArea.classList.remove('p-space-lg');
+        sidebarBottomArea.classList.add('px-2', 'pb-space-lg');
+
+        // Hide text labels & detailed cards
+        sidebarLabels.forEach(el => el.classList.add('hidden'));
+        sidebarBadges.forEach(el => el.classList.add('hidden'));
+        sidebarStorageCard.classList.add('hidden');
+
+        // Center rail icons
+        navItems.forEach(item => {
+          item.classList.remove('px-space-md');
+          item.classList.add('justify-center', 'px-0');
+        });
+
+        // Icon shows expand option
+        collapseIcon.textContent = 'menu';
+        collapseBtn.title = '展开为完整侧栏';
+
+        // Hide Floating Nav
+        floatingNav.classList.add('opacity-0', 'translate-y-8', 'pointer-events-none');
+        setTimeout(() => {
+          if (currentNavState !== 'floating-pill') floatingNav.classList.add('hidden');
+        }, 300);
+
+        // Header Switcher
+        navModeSidebarBtn.classList.add('bg-surface-container', 'text-primary');
+        navModeSidebarBtn.classList.remove('text-on-surface-variant');
+        navModePillBtn.classList.remove('bg-surface-container', 'text-primary');
+        navModePillBtn.classList.add('text-on-surface-variant');
+        publicationScrollArea.classList.remove('pb-28');
+        publicationScrollArea.classList.add('pb-space-xl');
+
+      } else if (state === 'floating-pill') {
+        // Floating Bottom Pill Mode: Hide sidebar completely
+        sidebar.classList.remove('w-64', 'w-[72px]');
+        sidebar.classList.add('w-0', 'opacity-0', 'pointer-events-none');
+
+        // Show Floating Nav Pill
+        floatingNav.classList.remove('hidden');
+        // allow browser layout reflow for CSS transition
+        requestAnimationFrame(() => {
+          floatingNav.classList.remove('opacity-0', 'translate-y-8', 'pointer-events-none');
+        });
+
+        // Header Switcher Highlight
+        navModePillBtn.classList.add('bg-surface-container', 'text-primary');
+        navModePillBtn.classList.remove('text-on-surface-variant');
+        navModeSidebarBtn.classList.remove('bg-surface-container', 'text-primary');
+        navModeSidebarBtn.classList.add('text-on-surface-variant');
+
+        // Extra padding at grid bottom so pill does not occlude cards
+        publicationScrollArea.classList.remove('pb-space-xl');
+        publicationScrollArea.classList.add('pb-28');
+      }
+    }
+
+    // Toggle collapse between expanded and rail
+    collapseBtn.addEventListener('click', () => {
+      if (currentNavState === 'expanded') {
+        updateNavUI('rail');
+      } else {
+        updateNavUI('expanded');
+      }
+    });
+
+    // Switch between Sidebar mode and Floating Pill mode
+    navModeSidebarBtn.addEventListener('click', () => {
+      updateNavUI('expanded');
+    });
+
+    navModePillBtn.addEventListener('click', () => {
+      updateNavUI('floating-pill');
+    });
+
+    switchToPillBtn.addEventListener('click', () => {
+      updateNavUI('floating-pill');
+    });
+
+    pillRestoreSidebarBtn.addEventListener('click', () => {
+      updateNavUI('expanded');
+    });
+
+    // Synchronize active item switching across both navigation bars
+    const allNavAnchors = document.querySelectorAll('[data-dest]');
+    allNavAnchors.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const dest = btn.getAttribute('data-dest');
+        allNavAnchors.forEach(b => {
+          if (b.getAttribute('data-dest') === dest) {
+            b.classList.add('bg-secondary-container', 'text-on-secondary-container');
+            b.classList.remove('text-on-surface-variant');
+            const icon = b.querySelector('.material-symbols-outlined');
+            if (icon) {
+              icon.classList.add('text-primary');
+              icon.classList.remove('text-on-surface-variant');
+              icon.style.fontVariationSettings = "'FILL' 1";
+            }
+          } else {
+            b.classList.remove('bg-secondary-container', 'text-on-secondary-container');
+            b.classList.add('text-on-surface-variant');
+            const icon = b.querySelector('.material-symbols-outlined');
+            if (icon) {
+              icon.classList.remove('text-primary');
+              icon.classList.add('text-on-surface-variant');
+              icon.style.fontVariationSettings = "'FILL' 0";
+            }
+          }
+        });
+      });
+    });
+  </script>
+</body></html>

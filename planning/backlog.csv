@@ -1,0 +1,46 @@
+﻿priority,area,task,phase,size
+P0,ARCH,建立多模块工程与 Version Catalog,Phase 0,M
+P0,UI,实现 M3E Theme + Dynamic Color + Adaptive Navigation,Phase 0,M
+P0,CORE,定义 SourceProvider / PublicationEngine / ReaderSession,Phase 0,M
+P0,DATA,Room schema + migrations + FTS,Phase 0,L
+P0,SOURCE,SAF 本地仓库授权与持久化,Phase 1,M
+P0,SCAN,增量扫描 + staging commit,Phase 1,L
+P0,LIB,资料库网格/列表/搜索/筛选,Phase 1,L
+P0,LIB,书架/标签/收藏/历史,Phase 1,M
+P0,COMIC,图片目录引擎,Phase 3,M
+P0,COMIC,CBZ/ZIP 引擎,Phase 3,M
+P0,COMIC,RAR/7Z/TAR libarchive adapter,Phase 3,L
+P0,READER,漫画 Reader Shell + 预取/缓存,Phase 3,XL
+P0,TEXT,TXT/Markdown Engine,Phase 4,L
+P0,EPUB,Readium EPUB adapter,Phase 4,XL
+P0,FB2,FB2 Engine,Phase 4,L
+P0,MOBI,MOBI/KF8 Engine,Phase 4,XL
+P0,TEXT,全文搜索/高亮/笔记/TTS,Phase 4,XL
+P0,PDF,PDF document/comic mode,Phase 5,XL
+P0,META,详情页 + 元数据编辑 + 自定义封面,Phase 5,L
+P0,BACKUP,data-only/full backup restore,Phase 6,L
+P0,PERF,Baseline Profile + Macrobenchmark,Phase 6,L
+P1,REMOTE,WebDAV SourceProvider,Phase 7,XL
+P1,REMOTE,Range probe + remote cache,Phase 7,XL
+P1,ADAPTIVE,平板 list-detail 全量适配,Phase 6,L
+P0,DESIGN,建立 design.md 对应 Design Token 与组件库,Phase 0,L
+P0,DESIGN,Monet Dynamic Color Android 12+ 全局默认,Phase 0,M
+P0,MOTION,Material3 Expressive MotionScheme 封装,Phase 0,M
+P0,MOTION,Shared Element Library->Detail,Phase 0,M
+P0,MOTION,Predictive Back 全导航接入,Phase 0,L
+P0,SECURITY,SecurityBootstrap + AuthGate,Phase 2,L
+P0,SECURITY,BiometricPrompt + DEVICE_CREDENTIAL,Phase 2,M
+P0,SECURITY,App PIN/Password policy + timeout,Phase 2,L
+P0,SECURITY,Android Keystore Device KEK,Phase 2,L
+P0,VAULT,Vault Master Secret + key slots,Phase 2,L
+P0,VAULT,ASV1 AES-GCM chunk container,Phase 2,XL
+P0,VAULT,DecryptingSeekableSource,Phase 2,XL
+P0,VAULT,单文件 Encrypt & Lock 原子迁移,Phase 2,XL
+P0,VAULT,Protected metadata + FTS exclusion,Phase 2,L
+P0,PRIVACY,FLAG_SECURE + recents screenshot policy,Phase 2,M
+P0,RECOVERY,Recovery password slot + warning UX,Phase 2,L
+P0,TEST,密文篡改/截断/崩溃恢复测试,Phase 2,L
+P0,VAULT,文件夹/书架/仓库批量加密 Worker,Phase 6,XL
+P0,ACCESSIBILITY,Reduced Motion + animation scale 0 test,Phase 6,M
+P1,SECURITY,Vault integrity scanner,Phase 6,L
+P1,BACKUP,Encrypted Aster backup with vault recovery,Phase 6,XL

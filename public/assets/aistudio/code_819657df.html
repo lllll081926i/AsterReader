@@ -1,0 +1,387 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>作品详情 - 葬送的芙莉莲 11</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Google Fonts: Roboto Flex -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:wght,opsz@300..700,8..144&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS CDN with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Config verbatim from Design System -->
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-variant": "#dce4de",
+            "background": "#f3fbf5",
+            "secondary-container": "#d2e8db",
+            "on-secondary-fixed": "#0d1f17",
+            "ink-light": "#191C1B",
+            "inverse-primary": "#aacfbd",
+            "on-surface-variant": "#414844",
+            "annotation-green": "#C4E8C2",
+            "on-primary-container": "#bbe1cf",
+            "outline-variant": "#c1c8c3",
+            "surface": "#f3fbf5",
+            "error-container": "#ffdad6",
+            "on-tertiary": "#ffffff",
+            "paper-light": "#FBF9F5",
+            "secondary-fixed-dim": "#b7cbbf",
+            "tertiary": "#244b58",
+            "surface-dim": "#d4dcd6",
+            "surface-container-lowest": "#ffffff",
+            "outline": "#717974",
+            "on-background": "#161d1a",
+            "paper-oled-black": "#000000",
+            "on-secondary-fixed-variant": "#384b41",
+            "annotation-blue": "#C0DCF5",
+            "vault-secure-tint": "#284D3D",
+            "inverse-on-surface": "#ebf3ec",
+            "on-primary-fixed": "#002116",
+            "paper-warm": "#F3EAD8",
+            "primary-fixed": "#c5ebd9",
+            "surface-container-highest": "#dce4de",
+            "tertiary-container": "#3d6370",
+            "tertiary-fixed": "#c1e9f8",
+            "surface-container-high": "#e2eae4",
+            "surface-container": "#e8f0ea",
+            "on-tertiary-fixed": "#001f28",
+            "surface-bright": "#f3fbf5",
+            "paper-dark-gray": "#1F2021",
+            "annotation-pink": "#F6C8D6",
+            "on-primary-fixed-variant": "#2c4d40",
+            "primary-container": "#436557",
+            "error": "#ba1a1a",
+            "on-secondary-container": "#56695e",
+            "secondary": "#506359",
+            "on-surface": "#161d1a",
+            "ink-dark": "#E1E3DF",
+            "on-error": "#ffffff",
+            "on-error-container": "#93000a",
+            "ink-warm": "#2D261C",
+            "annotation-yellow": "#F7E69C",
+            "secondary-fixed": "#d2e8db",
+            "primary-fixed-dim": "#aacfbd",
+            "on-tertiary-container": "#b6deed",
+            "on-secondary": "#ffffff",
+            "on-tertiary-fixed-variant": "#254c58",
+            "on-primary": "#ffffff",
+            "tertiary-fixed-dim": "#a5cddc",
+            "primary": "#2b4d40",
+            "surface-container-low": "#eef6ef",
+            "surface-tint": "#436557",
+            "inverse-surface": "#2a322e"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-xs": "0.25rem",
+            "margin-expanded": "2rem",
+            "space-lg": "1.5rem",
+            "margin": "1rem",
+            "margin-medium": "1.5rem",
+            "gutter-expanded": "1rem",
+            "gutter": "0.75rem",
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "space-xl": "2rem"
+          },
+          "fontFamily": {
+            "title-md": ["Roboto Flex"],
+            "body-lg": ["Roboto Flex"],
+            "label-lg": ["Roboto Flex"],
+            "label-md": ["Roboto Flex"],
+            "headline-lg-mobile": ["Roboto Flex"],
+            "headline-lg": ["Roboto Flex"],
+            "body-md": ["Roboto Flex"],
+            "title-sm": ["Roboto Flex"],
+            "title-lg": ["Roboto Flex"],
+            "label-sm": ["Roboto Flex"],
+            "headline-sm": ["Roboto Flex"],
+            "body-sm": ["Roboto Flex"]
+          },
+          "fontSize": {
+            "title-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.15px", "fontWeight": "500" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "0.5px", "fontWeight": "400" }],
+            "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "400" }],
+            "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.25px", "fontWeight": "400" }],
+            "title-sm": ["14px", { "lineHeight": "20px", "letterSpacing": "0.1px", "fontWeight": "500" }],
+            "title-lg": ["22px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "label-sm": ["11px", { "lineHeight": "16px", "letterSpacing": "0.5px", "fontWeight": "500" }],
+            "headline-sm": ["24px", { "lineHeight": "32px", "fontWeight": "400" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.4px", "fontWeight": "400" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface antialiased selection:bg-secondary-container selection:text-on-secondary-container min-h-screen flex flex-col justify-between">
+<!-- Top App Bar (Task-Focused Detail View: with Back Arrow, Favorite, and More options) -->
+<header class="sticky top-0 z-40 bg-surface/90 backdrop-blur-md w-full transition-colors">
+<div class="max-w-4xl mx-auto px-margin md:px-margin-medium h-14 flex items-center justify-between">
+<!-- Leading: Back Action [‹] -->
+<button aria-label="返回" class="w-10 h-10 -ml-2 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container active:scale-95 transition-all" type="button">
+<span class="material-symbols-outlined" data-icon="arrow_back_ios_new">arrow_back_ios_new</span>
+</button>
+<!-- Center Title: Subtle & Clean -->
+<div class="text-center font-title-sm text-title-sm text-on-surface-variant truncate px-space-sm max-w-[200px] md:max-w-md">
+        作品详情
+      </div>
+<!-- Trailing: Actions [♡] & [⋮] -->
+<div class="flex items-center space-x-space-xs -mr-2">
+<button aria-label="收藏" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container active:scale-95 transition-all" id="favorite-btn" type="button">
+<span class="material-symbols-outlined text-outline" data-icon="favorite" id="fav-icon">favorite</span>
+</button>
+<button aria-label="更多操作" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-container active:scale-95 transition-all" type="button">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Canvas Container (Max width 1080dp compliant layout) -->
+<main class="w-full max-w-4xl mx-auto px-margin md:px-margin-medium pb-36 pt-space-sm flex-1">
+<!-- Hero Section: Cover & Metadata Grid -->
+<section class="grid grid-cols-1 md:grid-cols-12 gap-space-lg items-start py-space-sm">
+<!-- Left: Standard 2:3 Aspect Ratio Book Cover -->
+<div class="flex justify-center md:justify-start md:col-span-4 lg:col-span-3">
+<div class="relative w-40 sm:w-44 md:w-full aspect-[2/3] rounded-[12px] overflow-hidden bg-surface-container-high border border-outline-variant/30 flex-shrink-0">
+<img alt="葬送的芙莉莲 11 封面" class="w-full h-full object-cover select-none" data-alt="An ethereal minimalist cover of a fantasy manga depicting a silver-haired elven mage with a wooden staff gazing into a serene, sunlit forest. The art style is light-toned, refined Japanese line illustration with calm pastel sage green, ivory, and soft teal watercolor washes. Clear, uncluttered composition evoking contemplative tranquility and ancient journey aesthetics." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYPkNK4SP9EijWToB8lQ0JkZDNLoGsZcWxctxKaKfa0biYuIFQXQJTlIoPjLe8ZRnpfq_x5qcpmL7D-CpAp2w3jhGR7oyQFUZLJMMN3cLwmkCLn2ciTWwRPDaJ_QzMNGJ_BcPDOBC7MiXjSqEhPYos2aLalzUvv7ynnAh3UgOOkKKLLrG0V9GykLsVkthFndY2KwZCAi0Xhb8a4kyuyVMQ9RqkZJzaFEgCW8dFWbD2">
+<div class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-surface-container-lowest/80 backdrop-blur-sm font-label-sm text-label-sm text-primary font-medium border border-outline-variant/40">
+            CBZ
+          </div>
+</div>
+</div>
+<!-- Right: Clean Normalized Metadata Hierarchy -->
+<div class="flex flex-col md:col-span-8 lg:col-span-9 justify-center space-y-space-md">
+<!-- Title & Authors -->
+<div>
+<div class="flex items-center space-x-space-sm mb-space-xs">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-fixed-variant font-label-sm text-label-sm">
+              连载中 · 卷 11
+            </span>
+<span class="inline-flex items-center font-label-sm text-label-sm text-outline">
+              本地库存储
+            </span>
+</div>
+<h1 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface tracking-tight">
+            葬送的芙莉莲 11
+          </h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-space-xs">
+            原作：山田钟人 / 作画：阿部司
+          </p>
+</div>
+<!-- Format & Storage Quick Pills -->
+<div class="flex flex-wrap gap-space-xs">
+
+<div class="flex items-center space-x-1 px-3 py-1 rounded-full bg-surface-container font-label-md text-label-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-outline" data-icon="folder_zip">folder_zip</span>
+<span class="">184.2 MB · 121 页</span>
+</div>
+<div class="flex items-center space-x-1 px-3 py-1 rounded-full bg-surface-container font-label-md text-label-md text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-outline" data-icon="schedule">schedule</span>
+<span class="">更新于 3 天前</span>
+</div>
+</div>
+<!-- Linear Reading Progress Node -->
+<div class="p-space-md rounded-2xl bg-surface-container-low border border-outline-variant/30 flex flex-col space-y-space-sm">
+<div class="flex items-center justify-between font-label-md text-label-md">
+<div class="flex items-center space-x-1.5 text-primary font-medium">
+<span class="material-symbols-outlined text-[18px]" data-icon="history">history</span>
+<span class="">最近阅读 · 第 89 页</span>
+</div>
+<span class="text-on-surface-variant">已读 74% · 剩余约 32 页</span>
+</div>
+<!-- Progress bar -->
+<div class="w-full h-2 rounded-full bg-surface-variant overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-300" style="width: 74%;"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Content Bento Layout: Synopsis & Table of Contents -->
+<section class="mt-space-lg space-y-space-md">
+<!-- Synopsis Card (Supports Expand/Collapse) -->
+<article class="p-space-lg rounded-2xl bg-surface-container-low border border-outline-variant/30">
+<h2 class="font-title-md text-title-md text-on-surface mb-space-sm flex items-center space-x-2">
+<span class="material-symbols-outlined text-[20px] text-primary" data-icon="subject">subject</span>
+<span class="">作品简介</span>
+</h2>
+<div class="relative">
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed line-clamp-3 transition-all duration-200" id="synopsis-text">
+            打倒魔王之后的勇者一行人回到了王都，结束了长达十年的冒险旅途。身为长生精灵的芙莉莲，面对生命的短暂与时光的流逝，开启了前往灵魂长眠之地「奥里奥尔」的新旅程。在第 11 卷中，芙莉莲与菲伦、修塔尔克来到了北部高原的中心腹地，黄金乡篇章迎来了高潮。面对大魔族马哈特的「万物化为黄金之魔法」，记忆与因缘的纠缠逐渐揭晓。
+          </p>
+<div class="mt-space-xs flex justify-end" id="synopsis-toggle-container">
+<button class="font-label-md text-label-md text-primary font-medium flex items-center space-x-0.5 hover:underline active:opacity-75" id="synopsis-btn" type="button">
+<span id="synopsis-btn-text" class="">展开完整简介</span>
+<span class="material-symbols-outlined text-[18px]" data-icon="expand_more" id="synopsis-arrow">expand_more</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Table of Contents Preview Card -->
+<article class="p-space-lg rounded-2xl bg-surface-container-low border border-outline-variant/30">
+<div class="flex items-center justify-between mb-space-md">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[20px] text-primary" data-icon="toc">toc</span>
+<h2 class="font-title-md text-title-md text-on-surface">目录</h2>
+<span class="px-2 py-0.5 rounded-full bg-surface-container font-label-sm text-label-sm text-on-surface-variant">共 10 话</span>
+</div>
+<button class="group flex items-center space-x-1 font-label-md text-label-md text-primary hover:text-primary-container transition-colors" type="button">
+<span class="">查看完整目录</span>
+<span class="material-symbols-outlined text-[18px] group-hover:translate-x-0.5 transition-transform" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<!-- Chapter Chips Layout -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-space-sm">
+<!-- Chapter 101 -->
+<div class="p-3 rounded-xl bg-surface-container hover:bg-surface-variant transition-colors flex items-center justify-between cursor-pointer border border-transparent hover:border-outline-variant/40">
+<div class="flex items-center space-x-2.5 truncate">
+<span class="w-6 h-6 rounded-full bg-secondary-container text-on-secondary-fixed flex items-center justify-center font-label-sm text-label-sm font-medium flex-shrink-0">1</span>
+<span class="font-body-md text-body-md text-on-surface truncate">第101话 绝壁之战</span>
+</div>
+<span class="material-symbols-outlined text-outline text-[18px]" data-icon="check_circle">check_circle</span>
+</div>
+<!-- Chapter 102 -->
+<div class="p-3 rounded-xl bg-surface-container hover:bg-surface-variant transition-colors flex items-center justify-between cursor-pointer border border-transparent hover:border-outline-variant/40">
+<div class="flex items-center space-x-2.5 truncate">
+<span class="w-6 h-6 rounded-full bg-secondary-container text-on-secondary-fixed flex items-center justify-center font-label-sm text-label-sm font-medium flex-shrink-0">2</span>
+<span class="font-body-md text-body-md text-on-surface truncate">第102话 银币与契约</span>
+</div>
+<span class="material-symbols-outlined text-outline text-[18px]" data-icon="check_circle">check_circle</span>
+</div>
+<!-- Chapter 103 -->
+<div class="p-3 rounded-xl bg-surface-container hover:bg-surface-variant transition-colors flex items-center justify-between cursor-pointer border border-transparent hover:border-outline-variant/40">
+<div class="flex items-center space-x-2.5 truncate">
+<span class="w-6 h-6 rounded-full bg-secondary-container text-on-secondary-fixed flex items-center justify-center font-label-sm text-label-sm font-medium flex-shrink-0">3</span>
+<span class="font-body-md text-body-md text-on-surface truncate">第103话 黄金乡的追忆</span>
+</div>
+<span class="material-symbols-outlined text-outline text-[18px]" data-icon="check_circle">check_circle</span>
+</div>
+<!-- Chapter 104 (Current reading progress item) -->
+<div class="p-3 rounded-xl bg-primary-fixed/30 border border-primary/30 transition-colors flex items-center justify-between cursor-pointer">
+<div class="flex items-center space-x-2.5 truncate">
+<span class="w-6 h-6 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-sm text-label-sm font-bold flex-shrink-0">4</span>
+<span class="font-body-md text-body-md text-primary font-medium truncate">第104话 恶意的定义</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-primary text-on-primary font-label-sm text-label-sm">阅读中</span>
+</div>
+<!-- Chapter 105 -->
+<div class="p-3 rounded-xl bg-surface-container hover:bg-surface-variant transition-colors flex items-center justify-between cursor-pointer border border-transparent hover:border-outline-variant/40">
+<div class="flex items-center space-x-2.5 truncate">
+<span class="w-6 h-6 rounded-full bg-surface-dim text-on-surface-variant flex items-center justify-center font-label-sm text-label-sm font-medium flex-shrink-0">5</span>
+<span class="font-body-md text-body-md text-on-surface truncate">第105话 结界瓦解</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">未读</span>
+</div>
+<!-- Chapter 106 -->
+<div class="p-3 rounded-xl bg-surface-container hover:bg-surface-variant transition-colors flex items-center justify-between cursor-pointer border border-transparent hover:border-outline-variant/40">
+<div class="flex items-center space-x-2.5 truncate">
+<span class="w-6 h-6 rounded-full bg-surface-dim text-on-surface-variant flex items-center justify-center font-label-sm text-label-sm font-medium flex-shrink-0">6</span>
+<span class="font-body-md text-body-md text-on-surface truncate">第106话 师傅的传授</span>
+</div>
+<span class="font-label-sm text-label-sm text-outline">未读</span>
+</div>
+</div>
+</article>
+<!-- Specifications / File Information Capsule -->
+
+</section>
+</main>
+<!-- 
+    Floating Action Island (规格书 3.2 与 P-01 定义)
+    999dp 胶囊形操作岛，浮动居中于视口底部 24dp (6rem 容器留白保证无遮挡)
+    核心操作：[阅读设置]、[目录]、[▶ 继续阅读] (高亮主 CTA 按钮)、[书签笔记]
+    绝对隔离破坏性删除操作，遵守企业级与轻量极简交互要求
+  -->
+<aside class="fixed bottom-6 inset-x-0 z-50 flex justify-center px-4 pointer-events-none">
+<div class="pointer-events-auto flex items-center gap-1 sm:gap-2 px-3 py-2 rounded-full bg-surface-container-high/95 backdrop-blur-xl border border-outline-variant/50 shadow-sm transition-all duration-200 hover:shadow-md">
+<!-- Action 1: Reading Settings [阅读设置] -->
+<button aria-label="阅读设置" class="h-11 px-3 sm:px-4 rounded-full flex items-center justify-center space-x-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container active:scale-95 transition-all" title="阅读设置" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="tune">tune</span>
+<span class="hidden sm:inline font-label-md text-label-md">设置</span>
+</button>
+<!-- Action 2: Table of Contents [目录] -->
+<button aria-label="查看目录" class="h-11 px-3 sm:px-4 rounded-full flex items-center justify-center space-x-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container active:scale-95 transition-all" title="目录章节" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="menu_book">menu_book</span>
+<span class="hidden sm:inline font-label-md text-label-md">目录</span>
+</button>
+<!-- Action 3: Primary CTA [▶ 继续阅读] (High-priority Primary Node) -->
+<button class="h-11 px-5 sm:px-6 rounded-full bg-primary-container text-on-primary hover:bg-primary transition-all active:scale-95 flex items-center justify-center space-x-2 font-label-lg text-label-lg font-medium shadow-sm" type="button">
+<span class="material-symbols-outlined text-[22px]" data-icon="play_arrow" data-weight="fill" style="font-variation-settings: &quot;FILL&quot; 1;">play_arrow</span>
+<span class="">继续阅读</span>
+</button>
+<!-- Action 4: Bookmarks & Notes [书签笔记] -->
+<button aria-label="书签与笔记" class="h-11 px-3 sm:px-4 rounded-full flex items-center justify-center space-x-1.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container active:scale-95 transition-all" title="书签笔记" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+<span class="hidden sm:inline font-label-md text-label-md">书签</span>
+</button>
+</div>
+</aside>
+<!-- Interactive Logic for Synopsis Expansion and Favorite Toggle -->
+<script>
+    // Expandable Synopsis Logic
+    const synopsisText = document.getElementById('synopsis-text');
+    const synopsisBtn = document.getElementById('synopsis-btn');
+    const synopsisBtnText = document.getElementById('synopsis-btn-text');
+    const synopsisArrow = document.getElementById('synopsis-arrow');
+    let isExpanded = false;
+
+    if (synopsisBtn && synopsisText) {
+      synopsisBtn.addEventListener('click', () => {
+        isExpanded = !isExpanded;
+        if (isExpanded) {
+          synopsisText.classList.remove('line-clamp-3');
+          synopsisBtnText.textContent = '收起简介';
+          synopsisArrow.textContent = 'expand_less';
+        } else {
+          synopsisText.classList.add('line-clamp-3');
+          synopsisBtnText.textContent = '展开完整简介';
+          synopsisArrow.textContent = 'expand_more';
+        }
+      });
+    }
+
+    // Favorite Icon Toggle
+    const favBtn = document.getElementById('favorite-btn');
+    const favIcon = document.getElementById('fav-icon');
+    let isFavorited = false;
+
+    if (favBtn && favIcon) {
+      favBtn.addEventListener('click', () => {
+        isFavorited = !isFavorited;
+        if (isFavorited) {
+          favIcon.style.fontVariationSettings = "'FILL' 1";
+          favIcon.classList.remove('text-outline');
+          favIcon.classList.add('text-primary');
+        } else {
+          favIcon.style.fontVariationSettings = "'FILL' 0";
+          favIcon.classList.remove('text-primary');
+          favIcon.classList.add('text-outline');
+        }
+      });
+    }
+  </script>
+
+
+</body></html>
