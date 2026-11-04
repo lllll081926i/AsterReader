@@ -2,7 +2,6 @@ package com.example
 
 import com.example.ui.LibraryLayoutMode
 import com.example.ui.ReaderLayoutMode
-import com.example.ui.ReaderPaperTheme
 import com.example.ui.ShelvesViewMode
 import com.example.ui.SortOption
 import com.example.ui.SubScreen
@@ -62,6 +61,5 @@ class AsterUiModelTest {
     fun libraryAndShelvesLayoutModesCoverAllDisplayOptions() {
         assertEquals(4, LibraryLayoutMode.entries.size)
         assertEquals(4, ShelvesViewMode.entries.size)
-        assertEquals(4, ReaderPaperTheme.entries.size)
     }
 }

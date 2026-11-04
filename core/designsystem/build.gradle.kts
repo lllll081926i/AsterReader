@@ -5,10 +5,10 @@ plugins {
 
 android {
     namespace = "com.asterreader.core.designsystem"
-    compileSdk { version = release(36) { minorApiLevel = 1 } }
+    compileSdk { version = release(37) }
 
     defaultConfig {
-        minSdk = 24
+        minSdk = 31
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

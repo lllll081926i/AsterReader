@@ -76,20 +76,19 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import com.asterreader.core.designsystem.AsterModalBottomSheet as ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.material3.rememberModalBottomSheetState
+import com.asterreader.core.designsystem.rememberAsterSheetState as rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -127,7 +126,7 @@ import com.example.ui.components.SafeProtectedBookCard
 import com.example.ui.components.TranquilDeskEmptyIllustration
 import com.example.ui.theme.LocalAsterColors
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryHomeScreen(
     uiState: AsterUiState,
@@ -150,22 +149,22 @@ fun LibraryHomeScreen(
             "未读" -> books.filter { it.progressPercent == 0 && !it.isVaultProtected }
             "在读" -> books.filter { it.progressPercent in 1..99 }
             "已完结" -> books.filter { it.progressPercent >= 100 }
-            "EPUB" -> books.filter { it.format == "EPUB" || it.format == "MOBI" }
+            "PDF" -> books.filter { it.format == "PDF" }
             "CBZ" -> books.filter { it.format == "CBZ" }
             else -> books
         }
     }
 
     val continueReadingBook = remember(books) {
-        books.firstOrNull { it.id == "dungeon_meshi_12" }
-            ?: books.firstOrNull { !it.isVaultProtected && it.progressPercent > 0 }
+        books.filter { !it.isVaultProtected && it.progressPercent > 0 }.maxByOrNull { it.lastReadTimestamp }
     }
 
     val inspectedBook = remember(books, uiState.tabletInspectedBookId) {
         books.find { it.id == uiState.tabletInspectedBookId } ?: books.firstOrNull()
     }
-    val inspectedChapters by remember(inspectedBook?.id) {
-        viewModel.observeChapters(inspectedBook?.id ?: "frieren_11")
+    val inspectedChapters by remember(inspectedBook?.id, isExpandedTablet) {
+        if (isExpandedTablet && inspectedBook != null) viewModel.observeChapters(inspectedBook.id)
+        else kotlinx.coroutines.flow.flowOf(emptyList())
     }.collectAsState(initial = emptyList())
 
     val gridColumns = when (uiState.libraryLayoutMode) {
@@ -375,7 +374,7 @@ fun LibraryHomeScreen(
                                         onDismissRequest = { showOverflowMenu = false }
                                     ) {
                                         DropdownMenuItem(
-                                            text = { Text("刷新书库", maxLines = 1, softWrap = false) },
+                                            text = { Text(if (uiState.isScanning) "取消扫描" else "刷新书库", maxLines = 1, softWrap = false) },
                                             onClick = {
                                                 showOverflowMenu = false
                                                 viewModel.rescanRepositories()
@@ -417,7 +416,7 @@ fun LibraryHomeScreen(
                             "在读" to "在读 ($inProgressCount)",
                             "已完结" to "已完结",
                             "CBZ" to "漫画",
-                            "EPUB" to "电子书"
+                            "PDF" to "PDF 漫画"
                         )
                         Row(
                             modifier = Modifier
@@ -617,7 +616,7 @@ fun LibraryHomeScreen(
 
             // Floating Action Button (+)
             Surface(
-                shape = RoundedCornerShape(16.dp),
+                shape = MaterialTheme.shapes.medium,
                 color = colorScheme.primaryContainer,
                 contentColor = colorScheme.onPrimaryContainer,
                 shadowElevation = 6.dp,
@@ -626,7 +625,7 @@ fun LibraryHomeScreen(
                     .navigationBarsPadding()
                     .padding(end = 16.dp, bottom = 84.dp)
                     .size(52.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .clickable { showAddContentSheet = true }
                     .testTag("library_add_fab")
             ) {
@@ -643,7 +642,7 @@ fun LibraryHomeScreen(
         // ====================================================================
         // RIGHT PANE: TABLET SUPPORTING PANE
         // ====================================================================
-        if (isExpandedTablet && inspectedBook != null) {
+        if (isExpandedTablet && inspectedBook != null && (!inspectedBook.isVaultProtected || uiState.isVaultUnlocked)) {
             VerticalDivider(
                 thickness = 1.dp,
                 color = colorScheme.outlineVariant.copy(alpha = 0.25f)
@@ -689,11 +688,11 @@ fun LibraryHomeScreen(
                 )
 
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = MaterialTheme.shapes.large,
                     color = colorScheme.secondaryContainer,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .clickable {
                             showAddContentSheet = false
                             onTriggerSystemFilePicker()
@@ -713,7 +712,7 @@ fun LibraryHomeScreen(
                                 maxLines = 1
                             )
                             Text(
-                                text = "EPUB / CBZ / CBR / PDF / MOBI",
+                                text = "CBZ / PDF",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colorScheme.onSurfaceVariant,
                                 maxLines = 1
@@ -723,12 +722,12 @@ fun LibraryHomeScreen(
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = MaterialTheme.shapes.large,
                     color = asterColors.surfaceContainerLow,
                     border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(MaterialTheme.shapes.large)
                         .clickable {
                             showAddContentSheet = false
                             showRepoWizardDialog = true
@@ -765,7 +764,7 @@ fun LibraryHomeScreen(
                     shape = CircleShape,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("导入示例书籍", maxLines = 1, softWrap = false)
+                    Text("导入本地文件", maxLines = 1, softWrap = false)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -792,11 +791,11 @@ fun LibraryHomeScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     shelves.forEach { shelf ->
                         Surface(
-                            shape = RoundedCornerShape(14.dp),
+                            shape = MaterialTheme.shapes.medium,
                             color = asterColors.surfaceContainerLow,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .clickable {
                                     showBatchShelfPicker = false
                                     viewModel.batchAddSelectedToShelf(shelf.id, shelf.name)
@@ -833,11 +832,11 @@ private fun ContinueReadingCompactCard(
     val colorScheme = MaterialTheme.colorScheme
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         color = asterColors.surfaceContainerLow,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable { onCardClick() }
             .testTag("continue_reading_card")
     ) {
@@ -850,7 +849,7 @@ private fun ContinueReadingCompactCard(
                 modifier = Modifier
                     .width(74.dp)
                     .aspectRatio(2f / 3f)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(asterColors.surfaceContainer)
             ) {
                 AsterBookCover(
@@ -948,12 +947,12 @@ private fun PublicationGridCard(
 
     Column(
         modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(MaterialTheme.shapes.medium)
             .then(
                 if (isSelectedRing) {
                     Modifier
-                        .background(asterColors.surfaceContainerLow, RoundedCornerShape(14.dp))
-                        .border(2.dp, colorScheme.primary, RoundedCornerShape(14.dp))
+                        .background(asterColors.surfaceContainerLow, MaterialTheme.shapes.medium)
+                        .border(2.dp, colorScheme.primary, MaterialTheme.shapes.medium)
                         .padding(4.dp)
                 } else {
                     Modifier
@@ -969,7 +968,7 @@ private fun PublicationGridCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(asterColors.surfaceContainerLow)
         ) {
             AsterBookCover(
@@ -989,7 +988,7 @@ private fun PublicationGridCard(
                         .padding(horizontal = 7.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "已加密",
+                        text = "受保护",
                         style = MaterialTheme.typography.labelSmall,
                         color = colorScheme.primary,
                         maxLines = 1,
@@ -1119,13 +1118,13 @@ private fun PublicationListRowCard(
     val colorScheme = MaterialTheme.colorScheme
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         color = asterColors.surfaceContainerLow,
         border = if (isSelectedRing) BorderStroke(2.dp, colorScheme.primary)
         else BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.3f)),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable { onClick() }
     ) {
         Row(
@@ -1140,7 +1139,7 @@ private fun PublicationListRowCard(
                 modifier = Modifier
                     .width(64.dp)
                     .aspectRatio(2f / 3f)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(MaterialTheme.shapes.small)
             )
 
             Column(
@@ -1220,13 +1219,13 @@ private fun PublicationGalleryCard(
     val colorScheme = MaterialTheme.colorScheme
 
     Surface(
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         color = asterColors.surfaceContainerLow,
         border = if (isSelectedRing) BorderStroke(2.dp, colorScheme.primary)
         else BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(MaterialTheme.shapes.large)
             .clickable { onClick() }
     ) {
         Row(
@@ -1241,7 +1240,7 @@ private fun PublicationGalleryCard(
                 modifier = Modifier
                     .width(96.dp)
                     .aspectRatio(2f / 3f)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
             )
 
             Column(
@@ -1321,12 +1320,12 @@ private fun EncryptedBookListRow(onClick: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         color = asterColors.surfaceContainerLow,
         border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable { onClick() }
     ) {
         Row(
@@ -1346,14 +1345,14 @@ private fun EncryptedBookListRow(onClick: () -> Unit) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Outlined.Lock,
-                            contentDescription = "已加密",
+                            contentDescription = "受保护",
                             tint = colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                 }
                 Text(
-                    text = "已加密书籍",
+                    text = "受保护书籍",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = colorScheme.onSurface,
                     maxLines = 1,
@@ -1442,7 +1441,7 @@ private fun TabletSupportingDetailPane(
                         modifier = Modifier
                             .width(104.dp)
                             .aspectRatio(2f / 3f)
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(MaterialTheme.shapes.medium)
                             .background(asterColors.surfaceContainerHighest)
                     ) {
                         AsterBookCover(
@@ -1513,7 +1512,7 @@ private fun TabletSupportingDetailPane(
                         )
                     }
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.medium,
                         color = asterColors.surfaceContainer,
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -1577,7 +1576,7 @@ private fun TabletSupportingDetailPane(
 
         // Merged Progress Bar + Action Island inside Tablet Supporting Pane
         Surface(
-            shape = RoundedCornerShape(24.dp),
+            shape = MaterialTheme.shapes.large,
             color = asterColors.surfaceContainerHigh,
             tonalElevation = 6.dp,
             border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
@@ -1670,13 +1669,14 @@ private fun TabletSupportingDetailPane(
 /**
  * Search and Multi-Dimensional Filter Screen
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchAndFilterScreen(
     uiState: AsterUiState,
     books: List<BookEntity>,
     annotations: List<AnnotationEntity> = emptyList(),
     openFilterInitially: Boolean,
+    initialScope: String = "全部",
     viewModel: AsterViewModel,
     onBack: () -> Unit
 ) {
@@ -1684,75 +1684,20 @@ fun SearchAndFilterScreen(
     val colorScheme = MaterialTheme.colorScheme
 
     var showFilterSheet by remember { mutableStateOf(openFilterInitially) }
-    var searchScopeTab by remember { mutableStateOf("全部") } // 全部, 漫画, 电子书, 书签札记
+    var searchScopeTab by remember(initialScope) { mutableStateOf(initialScope) } // 全部, 漫画, 书签札记
 
-    val matchingBooks = remember(
-        books,
-        uiState.searchQuery,
-        uiState.sortOption,
-        uiState.searchStatusFilter,
-        uiState.searchFormatFilters,
-        uiState.searchTagFilters,
-        uiState.searchStorageFilters,
-        uiState.isVaultUnlocked,
-        searchScopeTab
-    ) {
-        val q = uiState.searchQuery.trim().lowercase()
-        books.filter { book ->
-            if (book.isVaultProtected && !uiState.isVaultUnlocked) return@filter false
-
-            val matchesScope = when (searchScopeTab) {
-                "漫画" -> book.format.equals("CBZ", ignoreCase = true)
-                "电子书" -> !book.format.equals("CBZ", ignoreCase = true)
-                "书签札记" -> false
-                else -> true
-            }
-            if (!matchesScope) return@filter false
-
-            val matchesQuery = q.isBlank() ||
-                book.title.lowercase().contains(q) ||
-                book.author.lowercase().contains(q) ||
-                book.series.lowercase().contains(q) ||
-                book.tagsCsv.lowercase().contains(q) ||
-                book.format.lowercase().contains(q)
-
-            val matchesStatus = uiState.searchStatusFilter == "全部" ||
-                book.statusBadge == uiState.searchStatusFilter
-
-            val matchesFormat = uiState.searchFormatFilters.isEmpty() ||
-                book.format in uiState.searchFormatFilters
-
-            val matchesTag = uiState.searchTagFilters.isEmpty() ||
-                uiState.searchTagFilters.any { tag -> book.tagsCsv.contains(tag) }
-
-            val matchesStorage = uiState.searchStorageFilters.isEmpty() ||
-                book.repositoryName in uiState.searchStorageFilters
-
-            matchesQuery && matchesStatus && matchesFormat && matchesTag && matchesStorage
-        }.let { list ->
-            when (uiState.sortOption) {
-                SortOption.RECENT_READ -> list.sortedByDescending { it.lastReadTimestamp }
-                SortOption.RECENT_ADDED -> list.sortedByDescending { it.id }
-                SortOption.TITLE_AZ -> list.sortedBy { it.title }
-                SortOption.FILE_SIZE -> list.sortedByDescending { it.totalPages }
-                SortOption.PROGRESS -> list.sortedByDescending { it.progressPercent }
-            }
-        }
+    val request = com.example.ui.LibrarySearchRequest(uiState.searchQuery, searchScopeTab,
+        uiState.sortOption, uiState.searchStatusFilter, uiState.searchFormatFilters,
+        uiState.searchTagFilters, uiState.searchStorageFilters, uiState.isVaultUnlocked)
+    val results by androidx.compose.runtime.produceState<Triple<com.example.ui.LibrarySearchRequest,
+        List<BookEntity>, com.example.ui.LibrarySearchResult>?>(null, books, annotations, request) {
+        kotlinx.coroutines.delay(120)
+        val result = com.example.ui.searchLibrary(books, annotations, request)
+        value = Triple(request, books, result)
     }
-
-    val matchingAnnotations = remember(annotations, books, uiState.searchQuery, searchScopeTab, uiState.isVaultUnlocked) {
-        if (searchScopeTab != "全部" && searchScopeTab != "书签札记") return@remember emptyList()
-        val q = uiState.searchQuery.trim().lowercase()
-        annotations.filter { item ->
-            val parentBook = books.firstOrNull { it.id == item.bookId }
-            if (parentBook?.isVaultProtected == true && !uiState.isVaultUnlocked) return@filter false
-            q.isBlank() ||
-                item.quoteText.lowercase().contains(q) ||
-                item.noteText.lowercase().contains(q) ||
-                item.chapterTitle.lowercase().contains(q) ||
-                (parentBook?.title?.lowercase()?.contains(q) == true)
-        }
-    }
+    val currentResult = results?.takeIf { it.first == request && it.second === books }?.third
+    val matchingBooks = currentResult?.books.orEmpty()
+    val matchingAnnotations = currentResult?.annotations.orEmpty()
 
     Column(
         modifier = Modifier
@@ -1864,7 +1809,7 @@ fun SearchAndFilterScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            listOf("全部", "漫画", "电子书", "书签札记").forEach { tab ->
+            listOf("全部", "漫画", "书签札记").forEach { tab ->
                 val isSelected = searchScopeTab == tab
                 Surface(
                     shape = CircleShape,
@@ -2146,7 +2091,7 @@ fun SearchAndFilterScreen(
                 if (matchingBooks.isEmpty()) {
                     item {
                         Surface(
-                            shape = RoundedCornerShape(20.dp),
+                            shape = MaterialTheme.shapes.large,
                             color = asterColors.surfaceContainerLow,
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -2307,7 +2252,7 @@ fun SearchAndFilterScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("CBZ", "EPUB", "PDF").forEach { fmt ->
+                        listOf("CBZ", "PDF").forEach { fmt ->
                             val selected = fmt in uiState.searchFormatFilters
                             FilterSheetPill(
                                 label = fmt,
@@ -2502,12 +2447,12 @@ private fun SearchBookResultCard(
     val colorScheme = MaterialTheme.colorScheme
 
     Surface(
-        shape = RoundedCornerShape(18.dp),
+        shape = MaterialTheme.shapes.large,
         color = asterColors.surfaceContainerLow,
         border = BorderStroke(0.8.dp, colorScheme.outlineVariant.copy(alpha = 0.3f)),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(MaterialTheme.shapes.large)
             .clickable { onClick() }
             .testTag("search_result_${book.id}")
     ) {
@@ -2520,7 +2465,7 @@ private fun SearchBookResultCard(
                 modifier = Modifier
                     .width(72.dp)
                     .height(104.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(MaterialTheme.shapes.small)
                     .background(asterColors.surfaceContainerHigh)
             ) {
                 AsterBookCover(
@@ -2543,7 +2488,7 @@ private fun SearchBookResultCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Surface(
-                            shape = RoundedCornerShape(5.dp),
+                            shape = MaterialTheme.shapes.extraSmall,
                             color = colorScheme.secondaryContainer
                         ) {
                             Text(
@@ -2668,12 +2613,12 @@ private fun SearchAnnotationResultCard(
     val colorScheme = MaterialTheme.colorScheme
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.medium,
         color = asterColors.surfaceContainerLow,
         border = BorderStroke(0.8.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable { onClick() }
     ) {
         Column(
@@ -2744,7 +2689,7 @@ fun RepositoryCreationWizardDialog(
     val colorScheme = MaterialTheme.colorScheme
     var step by remember { mutableIntStateOf(1) }
     var repoName by remember { mutableStateOf("SD 扩展卡 / MangaArchive") }
-    var scanRule by remember { mutableStateOf("按目录识别作品") }
+    var scanRule by remember { mutableStateOf("每个文件作为作品") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2753,7 +2698,7 @@ fun RepositoryCreationWizardDialog(
                 text = when (step) {
                     1 -> "选择本地目录 (1/3)"
                     2 -> "扫描规则 (2/3)"
-                    else -> "扫描预览 (3/3)"
+                    else -> "授权说明 (3/3)"
                 },
                 maxLines = 1
             )
@@ -2772,17 +2717,15 @@ fun RepositoryCreationWizardDialog(
                     }
                     2 -> {
                         listOf(
-                            "按目录识别作品",
-                            "单文件单作品",
-                            "按卷号自动合并系列"
+                            "每个文件作为作品"
                         ).forEach { rule ->
                             val selected = scanRule == rule
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = MaterialTheme.shapes.medium,
                                 color = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainerLow,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(MaterialTheme.shapes.medium)
                                     .clickable { scanRule = rule }
                             ) {
                                 Text(
@@ -2797,7 +2740,7 @@ fun RepositoryCreationWizardDialog(
                     }
                     else -> {
                         Surface(
-                            shape = RoundedCornerShape(14.dp),
+                            shape = MaterialTheme.shapes.medium,
                             color = asterColors.surfaceContainerLow,
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -2806,13 +2749,13 @@ fun RepositoryCreationWizardDialog(
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
-                                    text = "识别结果：12 部作品 · 96 话",
+                                    text = "授权目录后开始真实扫描",
                                     style = MaterialTheme.typography.titleSmall,
                                     color = colorScheme.primary,
                                     maxLines = 1
                                 )
                                 Text(
-                                    text = "├─ 葬送的芙莉莲 (11 卷)\n├─ 迷宫饭 (12 卷)\n└─ 基地三部曲.epub",
+                                    text = "扫描子目录中的 CBZ 与 PDF 漫画。结果以实际可读取的文件为准。",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = colorScheme.onSurfaceVariant
                                 )

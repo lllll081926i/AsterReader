@@ -90,14 +90,7 @@ val AsterOnPrimaryFixed = Color(0xFF002116)
 val AsterVaultSecureTint = Color(0xFF284D3D)
 
 // Decoupled Reader Color Space (Never shifts with system Monet wallpaper)
-val PaperLight = Color(0xFFFBF9F5)
-val PaperWarm = Color(0xFFF3EAD8)
-val PaperDarkGray = Color(0xFF1F2021)
-val PaperOledBlack = Color(0xFF000000)
 
-val InkLight = Color(0xFF191C1B)
-val InkWarm = Color(0xFF2D261C)
-val InkDark = Color(0xFFE1E3DF)
 
 // Highlight Annotation Tint Palettes
 val HighlightYellow = Color(0xFFFFF176)
@@ -137,3 +130,9 @@ val LocalAsterColors = staticCompositionLocalOf {
         isDark = false
     )
 }
+
+// 漫画页笔记的低眩光语义色。
+val AnnotationYellow = Color(0xFFF7E69C)
+val AnnotationGreen = Color(0xFFC4E8C2)
+val AnnotationBlue = Color(0xFFC0DCF5)
+val AnnotationPink = Color(0xFFF6C8D6)

@@ -94,7 +94,7 @@ class AsterDatabaseTest {
             title = "迷宫饭",
             author = "九井谅子",
             series = "迷宫饭",
-            format = "EPUB",
+            format = "CBZ",
             coverUrl = "https://example.com/meshi.jpg",
             currentPage = 1,
             totalPages = 200,
@@ -103,7 +103,7 @@ class AsterDatabaseTest {
             statusBadge = "未读",
             seriesBadge = "连载中",
             fileSizeText = "12 MB",
-            filePath = "/storage/emulated/0/Books/meshi.epub",
+            filePath = "content://comics/meshi.cbz",
             repositoryName = "内部存储 / Books",
             updatedTimeText = "昨天",
             synopsis = "舌尖上的地下城",
@@ -172,7 +172,7 @@ class AsterDatabaseTest {
             bookCount = 42,
             sizeText = "1.2 GB",
             lastScanText = "10 分钟前",
-            scanRule = "*.cbz;*.epub",
+            scanRule = "*.cbz;*.pdf",
             isHealthy = true
         )
 

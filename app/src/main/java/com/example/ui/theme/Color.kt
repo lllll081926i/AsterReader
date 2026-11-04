@@ -1,138 +1,98 @@
 package com.example.ui.theme
 
-import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.graphics.Color
 
 // ============================================================================
 // Aster System Canonical Palette (from Image_21_2e04b0d2.markdown & HTML specs)
 // ============================================================================
 
 // Light Tokens
-val AsterPrimaryLight = Color(0xFF2B4D40)
-val AsterOnPrimaryLight = Color(0xFFFFFFFF)
-val AsterPrimaryContainerLight = Color(0xFF436557)
-val AsterOnPrimaryContainerLight = Color(0xFFBBE1CF)
-val AsterInversePrimaryLight = Color(0xFFAACFBD)
+val AsterPrimaryLight = com.asterreader.core.designsystem.AsterPrimaryLight
+val AsterOnPrimaryLight = com.asterreader.core.designsystem.AsterOnPrimaryLight
+val AsterPrimaryContainerLight = com.asterreader.core.designsystem.AsterPrimaryContainerLight
+val AsterOnPrimaryContainerLight = com.asterreader.core.designsystem.AsterOnPrimaryContainerLight
+val AsterInversePrimaryLight = com.asterreader.core.designsystem.AsterInversePrimaryLight
 
-val AsterSecondaryLight = Color(0xFF506359)
-val AsterOnSecondaryLight = Color(0xFFFFFFFF)
-val AsterSecondaryContainerLight = Color(0xFFD2E8DB)
-val AsterOnSecondaryContainerLight = Color(0xFF384B41)
+val AsterSecondaryLight = com.asterreader.core.designsystem.AsterSecondaryLight
+val AsterOnSecondaryLight = com.asterreader.core.designsystem.AsterOnSecondaryLight
+val AsterSecondaryContainerLight = com.asterreader.core.designsystem.AsterSecondaryContainerLight
+val AsterOnSecondaryContainerLight = com.asterreader.core.designsystem.AsterOnSecondaryContainerLight
 
-val AsterTertiaryLight = Color(0xFF244B58)
-val AsterOnTertiaryLight = Color(0xFFFFFFFF)
-val AsterTertiaryContainerLight = Color(0xFF3D6370)
-val AsterOnTertiaryContainerLight = Color(0xFFB6DEED)
+val AsterTertiaryLight = com.asterreader.core.designsystem.AsterTertiaryLight
+val AsterOnTertiaryLight = com.asterreader.core.designsystem.AsterOnTertiaryLight
+val AsterTertiaryContainerLight = com.asterreader.core.designsystem.AsterTertiaryContainerLight
+val AsterOnTertiaryContainerLight = com.asterreader.core.designsystem.AsterOnTertiaryContainerLight
 
-val AsterErrorLight = Color(0xFFBA1A1A)
-val AsterOnErrorLight = Color(0xFFFFFFFF)
-val AsterErrorContainerLight = Color(0xFFFFDAD6)
-val AsterOnErrorContainerLight = Color(0xFF93000A)
+val AsterErrorLight = com.asterreader.core.designsystem.AsterErrorLight
+val AsterOnErrorLight = com.asterreader.core.designsystem.AsterOnErrorLight
+val AsterErrorContainerLight = com.asterreader.core.designsystem.AsterErrorContainerLight
+val AsterOnErrorContainerLight = com.asterreader.core.designsystem.AsterOnErrorContainerLight
 
-val AsterSurfaceLight = Color(0xFFF3FBF5)
-val AsterSurfaceDimLight = Color(0xFFD4DCD6)
-val AsterSurfaceBrightLight = Color(0xFFF3FBF5)
-val AsterSurfaceContainerLowestLight = Color(0xFFFFFFFF)
-val AsterSurfaceContainerLowLight = Color(0xFFEEF6EF)
-val AsterSurfaceContainerLight = Color(0xFFE8F0EA)
-val AsterSurfaceContainerHighLight = Color(0xFFE2EAE4)
-val AsterSurfaceContainerHighestLight = Color(0xFFDCE4DE)
-val AsterOnSurfaceLight = Color(0xFF161D1A)
-val AsterOnSurfaceVariantLight = Color(0xFF414844)
-val AsterOutlineLight = Color(0xFF717974)
-val AsterOutlineVariantLight = Color(0xFFC1C8C3)
-val AsterInverseSurfaceLight = Color(0xFF2A322E)
-val AsterInverseOnSurfaceLight = Color(0xFFEBF3EC)
+val AsterSurfaceLight = com.asterreader.core.designsystem.AsterSurfaceLight
+val AsterSurfaceDimLight = com.asterreader.core.designsystem.AsterSurfaceDimLight
+val AsterSurfaceBrightLight = com.asterreader.core.designsystem.AsterSurfaceBrightLight
+val AsterSurfaceContainerLowestLight = com.asterreader.core.designsystem.AsterSurfaceContainerLowestLight
+val AsterSurfaceContainerLowLight = com.asterreader.core.designsystem.AsterSurfaceContainerLowLight
+val AsterSurfaceContainerLight = com.asterreader.core.designsystem.AsterSurfaceContainerLight
+val AsterSurfaceContainerHighLight = com.asterreader.core.designsystem.AsterSurfaceContainerHighLight
+val AsterSurfaceContainerHighestLight = com.asterreader.core.designsystem.AsterSurfaceContainerHighestLight
+val AsterOnSurfaceLight = com.asterreader.core.designsystem.AsterOnSurfaceLight
+val AsterOnSurfaceVariantLight = com.asterreader.core.designsystem.AsterOnSurfaceVariantLight
+val AsterOutlineLight = com.asterreader.core.designsystem.AsterOutlineLight
+val AsterOutlineVariantLight = com.asterreader.core.designsystem.AsterOutlineVariantLight
+val AsterInverseSurfaceLight = com.asterreader.core.designsystem.AsterInverseSurfaceLight
+val AsterInverseOnSurfaceLight = com.asterreader.core.designsystem.AsterInverseOnSurfaceLight
 
 // Dark Tokens (Botanical Sage Dark Mode)
-val AsterPrimaryDark = Color(0xFFAACFBD)
-val AsterOnPrimaryDark = Color(0xFF003828)
-val AsterPrimaryContainerDark = Color(0xFF2B4D40)
-val AsterOnPrimaryContainerDark = Color(0xFFC5EBD9)
-val AsterInversePrimaryDark = Color(0xFF2B4D40)
+val AsterPrimaryDark = com.asterreader.core.designsystem.AsterPrimaryDark
+val AsterOnPrimaryDark = com.asterreader.core.designsystem.AsterOnPrimaryDark
+val AsterPrimaryContainerDark = com.asterreader.core.designsystem.AsterPrimaryContainerDark
+val AsterOnPrimaryContainerDark = com.asterreader.core.designsystem.AsterOnPrimaryContainerDark
+val AsterInversePrimaryDark = com.asterreader.core.designsystem.AsterInversePrimaryDark
 
-val AsterSecondaryDark = Color(0xFFB7CBBF)
-val AsterOnSecondaryDark = Color(0xFF22352C)
-val AsterSecondaryContainerDark = Color(0xFF384B41)
-val AsterOnSecondaryContainerDark = Color(0xFFD2E8DB)
+val AsterSecondaryDark = com.asterreader.core.designsystem.AsterSecondaryDark
+val AsterOnSecondaryDark = com.asterreader.core.designsystem.AsterOnSecondaryDark
+val AsterSecondaryContainerDark = com.asterreader.core.designsystem.AsterSecondaryContainerDark
+val AsterOnSecondaryContainerDark = com.asterreader.core.designsystem.AsterOnSecondaryContainerDark
 
-val AsterTertiaryDark = Color(0xFFA5CDDC)
-val AsterOnTertiaryDark = Color(0xFF073541)
-val AsterTertiaryContainerDark = Color(0xFF244B58)
-val AsterOnTertiaryContainerDark = Color(0xFFC1E9F8)
+val AsterTertiaryDark = com.asterreader.core.designsystem.AsterTertiaryDark
+val AsterOnTertiaryDark = com.asterreader.core.designsystem.AsterOnTertiaryDark
+val AsterTertiaryContainerDark = com.asterreader.core.designsystem.AsterTertiaryContainerDark
+val AsterOnTertiaryContainerDark = com.asterreader.core.designsystem.AsterOnTertiaryContainerDark
 
-val AsterErrorDark = Color(0xFFFFB4AB)
-val AsterOnErrorDark = Color(0xFF690005)
-val AsterErrorContainerDark = Color(0xFF93000A)
-val AsterOnErrorContainerDark = Color(0xFFFFDAD6)
+val AsterErrorDark = com.asterreader.core.designsystem.AsterErrorDark
+val AsterOnErrorDark = com.asterreader.core.designsystem.AsterOnErrorDark
+val AsterErrorContainerDark = com.asterreader.core.designsystem.AsterErrorContainerDark
+val AsterOnErrorContainerDark = com.asterreader.core.designsystem.AsterOnErrorContainerDark
 
-val AsterSurfaceDark = Color(0xFF101512)
-val AsterSurfaceDimDark = Color(0xFF101512)
-val AsterSurfaceBrightDark = Color(0xFF353B37)
-val AsterSurfaceContainerLowestDark = Color(0xFF0B0F0D)
-val AsterSurfaceContainerLowDark = Color(0xFF181D1A)
-val AsterSurfaceContainerDark = Color(0xFF1C211E)
-val AsterSurfaceContainerHighDark = Color(0xFF262B28)
-val AsterSurfaceContainerHighestDark = Color(0xFF313633)
-val AsterOnSurfaceDark = Color(0xFFE0E4DF)
-val AsterOnSurfaceVariantDark = Color(0xFFC1C8C3)
-val AsterOutlineDark = Color(0xFF8B938E)
-val AsterOutlineVariantDark = Color(0xFF414844)
-val AsterInverseSurfaceDark = Color(0xFFE0E4DF)
-val AsterInverseOnSurfaceDark = Color(0xFF2A322E)
+val AsterSurfaceDark = com.asterreader.core.designsystem.AsterSurfaceDark
+val AsterSurfaceDimDark = com.asterreader.core.designsystem.AsterSurfaceDimDark
+val AsterSurfaceBrightDark = com.asterreader.core.designsystem.AsterSurfaceBrightDark
+val AsterSurfaceContainerLowestDark = com.asterreader.core.designsystem.AsterSurfaceContainerLowestDark
+val AsterSurfaceContainerLowDark = com.asterreader.core.designsystem.AsterSurfaceContainerLowDark
+val AsterSurfaceContainerDark = com.asterreader.core.designsystem.AsterSurfaceContainerDark
+val AsterSurfaceContainerHighDark = com.asterreader.core.designsystem.AsterSurfaceContainerHighDark
+val AsterSurfaceContainerHighestDark = com.asterreader.core.designsystem.AsterSurfaceContainerHighestDark
+val AsterOnSurfaceDark = com.asterreader.core.designsystem.AsterOnSurfaceDark
+val AsterOnSurfaceVariantDark = com.asterreader.core.designsystem.AsterOnSurfaceVariantDark
+val AsterOutlineDark = com.asterreader.core.designsystem.AsterOutlineDark
+val AsterOutlineVariantDark = com.asterreader.core.designsystem.AsterOutlineVariantDark
+val AsterInverseSurfaceDark = com.asterreader.core.designsystem.AsterInverseSurfaceDark
+val AsterInverseOnSurfaceDark = com.asterreader.core.designsystem.AsterInverseOnSurfaceDark
 
 // Fixed & Special Semantic Tokens
-val AsterPrimaryFixed = Color(0xFFC5EBD9)
-val AsterPrimaryFixedDim = Color(0xFFAACFBD)
-val AsterOnPrimaryFixed = Color(0xFF002116)
-val AsterVaultSecureTint = Color(0xFF284D3D)
+val AsterPrimaryFixed = com.asterreader.core.designsystem.AsterPrimaryFixed
+val AsterPrimaryFixedDim = com.asterreader.core.designsystem.AsterPrimaryFixedDim
+val AsterOnPrimaryFixed = com.asterreader.core.designsystem.AsterOnPrimaryFixed
+val AsterVaultSecureTint = com.asterreader.core.designsystem.AsterVaultSecureTint
 
 // Decoupled Reader Color Space (Never shifts with system Monet wallpaper)
-val PaperLight = Color(0xFFFBF9F5)
-val PaperWarm = Color(0xFFF3EAD8)
-val PaperDarkGray = Color(0xFF1F2021)
-val PaperOledBlack = Color(0xFF000000)
 
-val InkLight = Color(0xFF191C1B)
-val InkWarm = Color(0xFF2D261C)
-val InkDark = Color(0xFFE1E3DF)
 
 // Low-glare Annotation Palette
-val AnnotationYellow = Color(0xFFF7E69C)
-val AnnotationGreen = Color(0xFFC4E8C2)
-val AnnotationBlue = Color(0xFFC0DCF5)
-val AnnotationPink = Color(0xFFF6C8D6)
+val AnnotationYellow = com.asterreader.core.designsystem.AnnotationYellow
+val AnnotationGreen = com.asterreader.core.designsystem.AnnotationGreen
+val AnnotationBlue = com.asterreader.core.designsystem.AnnotationBlue
+val AnnotationPink = com.asterreader.core.designsystem.AnnotationPink
 
-@Immutable
-data class AsterExtendedColors(
-    val surfaceContainerLowest: Color,
-    val surfaceContainerLow: Color,
-    val surfaceContainer: Color,
-    val surfaceContainerHigh: Color,
-    val surfaceContainerHighest: Color,
-    val surfaceDim: Color,
-    val surfaceBright: Color,
-    val primaryFixed: Color,
-    val primaryFixedDim: Color,
-    val onPrimaryFixed: Color,
-    val vaultSecureTint: Color,
-    val isDark: Boolean
-)
-
-val LocalAsterColors = staticCompositionLocalOf {
-    AsterExtendedColors(
-        surfaceContainerLowest = AsterSurfaceContainerLowestLight,
-        surfaceContainerLow = AsterSurfaceContainerLowLight,
-        surfaceContainer = AsterSurfaceContainerLight,
-        surfaceContainerHigh = AsterSurfaceContainerHighLight,
-        surfaceContainerHighest = AsterSurfaceContainerHighestLight,
-        surfaceDim = AsterSurfaceDimLight,
-        surfaceBright = AsterSurfaceBrightLight,
-        primaryFixed = AsterPrimaryFixed,
-        primaryFixedDim = AsterPrimaryFixedDim,
-        onPrimaryFixed = AsterOnPrimaryFixed,
-        vaultSecureTint = AsterVaultSecureTint,
-        isDark = false
-    )
-}
+typealias AsterExtendedColors = com.asterreader.core.designsystem.AsterExtendedColors
+val LocalAsterColors = com.asterreader.core.designsystem.LocalAsterColors

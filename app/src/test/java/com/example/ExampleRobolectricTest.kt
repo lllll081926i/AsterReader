@@ -24,7 +24,7 @@ class ExampleRobolectricTest {
     @Test
     fun `mainActivity launches and renders without error`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
-        val activity = controller.get()
-        assertNotNull(activity)
+        try { assertNotNull(controller.get()) }
+        finally { controller.pause().stop().destroy() }
     }
 }

@@ -1,6 +1,18 @@
 package com.example
 
 import android.os.Bundle
+import android.app.KeyguardManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.Button
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.CompositionLocalProvider
+import com.asterreader.core.designsystem.LocalAsterReduceMotion
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -68,15 +80,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenOffReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        else registerReceiver(screenOffReceiver, filter)
         enableEdgeToEdge()
         setContent {
-            val uiState by viewModel.uiState.collectAsState()
+            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-            // Note: Do not set hardware WindowManager.LayoutParams.FLAG_SECURE on the window
-            // because AI Studio streams the emulator display via virtual screen capture, and
-            // SurfaceFlinger renders FLAG_SECURE windows as a solid black screen in the browser stream.
-            LaunchedEffect(Unit) {
-                window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            LaunchedEffect(uiState.flagSecureEnabled, uiState.hideRecentsPreview, uiState.isAppLockedNow) {
+                if (uiState.flagSecureEnabled || uiState.hideRecentsPreview || uiState.isAppLockedNow)
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(!uiState.hideRecentsPreview)
             }
 
             val darkTheme = when (uiState.themeMode) {
@@ -89,10 +105,44 @@ class MainActivity : ComponentActivity() {
                 darkTheme = darkTheme,
                 dynamicColor = uiState.useDynamicColor
             ) {
-                AsterReaderAppRoot(viewModel = viewModel, uiState = uiState)
+                CompositionLocalProvider(LocalAsterReduceMotion provides (uiState.reduceMotion || !android.animation.ValueAnimator.areAnimatorsEnabled())) {
+                    AsterReaderAppRoot(viewModel = viewModel, uiState = uiState)
+                }
             }
         }
     }
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_OFF) viewModel.onScreenOff()
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val manager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        viewModel.onForeground(manager.isDeviceLocked)
+    }
+
+    override fun onStop() {
+        viewModel.onBackground()
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        unregisterReceiver(screenOffReceiver)
+        super.onDestroy()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) viewModel.releaseReaderResources()
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        viewModel.releaseReaderResources()
+    }
+
 }
 
 @Composable
@@ -100,18 +150,44 @@ fun AsterReaderAppRoot(
     viewModel: AsterViewModel,
     uiState: AsterUiState
 ) {
-    val allBooks by viewModel.allBooks.collectAsState()
-    val allShelves by viewModel.allShelves.collectAsState()
-    val allAnnotations by viewModel.allAnnotations.collectAsState()
-    val allRepositories by viewModel.allRepositories.collectAsState()
+    val reduceMotion = LocalAsterReduceMotion.current
+    if (!uiState.settingsLoaded || uiState.isAppLockedNow || uiState.showQuickAuthSheet) {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            Box(contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (uiState.settingsLoaded) "Aster Reader 已锁定" else "正在加载设置")
+                    if (uiState.settingsLoaded) Button(onClick = { viewModel.requestVaultUnlock() }) { Text("解锁") }
+                }
+            }
+        }
+        if (uiState.settingsLoaded && uiState.showQuickAuthSheet) SystemSecurityAuthPromptSheet(
+            onAuthenticated = viewModel::unlockAppAndVault,
+            onDismiss = viewModel::dismissQuickAuthSheet,
+            onAuthenticationStarted = viewModel::onSystemAuthenticationStarted,
+            onAuthenticationFailed = viewModel::onSystemAuthenticationFailed
+        )
+        return
+    }
+    val allBooks by viewModel.allBooks.collectAsStateWithLifecycle()
+    val allShelves by viewModel.allShelves.collectAsStateWithLifecycle()
+    val allAnnotations by viewModel.allAnnotations.collectAsStateWithLifecycle()
+    val allRepositories by viewModel.allRepositories.collectAsStateWithLifecycle()
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             viewModel.importLocalFileUri(uri, "本地导入图书")
-        } else {
-            viewModel.importLocalFileUri(null, "北极星建筑手稿集")
+        }
+    }
+
+    val directoryPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
+        viewModel.onDirectorySelected(it)
+    }
+    LaunchedEffect(uiState.requestDirectoryPicker) {
+        if (uiState.requestDirectoryPicker) {
+            try { directoryPickerLauncher.launch(null) }
+            catch (_: Exception) { viewModel.onDirectorySelected(null); viewModel.showSnackbar("无法打开目录选择器") }
         }
     }
 
@@ -119,16 +195,15 @@ fun AsterReaderAppRoot(
         try {
             filePickerLauncher.launch(
                 arrayOf(
-                    "application/epub+zip",
                     "application/pdf",
                     "application/vnd.comicbook+zip",
                     "application/x-cbz",
-                    "text/plain",
-                    "*/*"
+                    "application/zip",
+                    "application/octet-stream"
                 )
             )
         } catch (_: Exception) {
-            viewModel.importLocalFileUri(null, "北极星建筑手稿集")
+            viewModel.showSnackbar("无法打开系统文件选择器，请重试")
         }
     }
 
@@ -156,7 +231,7 @@ fun AsterReaderAppRoot(
                 targetState = activeSub to uiState.currentTab,
                 transitionSpec = {
                     AsterMotion.pageTransition(
-                        reduceMotion = uiState.reduceMotion,
+                        reduceMotion = reduceMotion,
                         forward = targetState.first != null
                     )
                 },
@@ -170,6 +245,7 @@ fun AsterReaderAppRoot(
                                 books = allBooks,
                                 annotations = allAnnotations,
                                 openFilterInitially = subScreen.openFilterSheetInitially,
+                                initialScope = subScreen.initialScope,
                                 viewModel = viewModel,
                                 onBack = { viewModel.popSubScreen() }
                             )
@@ -177,7 +253,7 @@ fun AsterReaderAppRoot(
 
                         is SubScreen.PublicationDetail -> {
                             val targetBook = allBooks.find { it.id == subScreen.bookId }
-                                ?: allBooks.firstOrNull()
+
                             if (targetBook != null) {
                                 PublicationDetailScreen(
                                     book = targetBook,
@@ -193,12 +269,18 @@ fun AsterReaderAppRoot(
                                         )
                                     }
                                 )
+                            } else {
+                                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("作品不可用，请返回资料库检查来源或访问权限")
+                                    Button(onClick = { viewModel.popSubScreen() }) { Text("返回资料库") }
+                                }
                             }
                         }
 
                         is SubScreen.Reader -> {
                             val targetBook = allBooks.find { it.id == subScreen.bookId }
-                                ?: allBooks.firstOrNull()
+
                             if (targetBook != null) {
                                 ReaderScreen(
                                     book = targetBook,
@@ -208,6 +290,12 @@ fun AsterReaderAppRoot(
                                     viewModel = viewModel,
                                     onBack = { viewModel.popSubScreen() }
                                 )
+                            } else {
+                                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("作品不可用，请返回资料库检查来源或访问权限")
+                                    Button(onClick = { viewModel.popSubScreen() }) { Text("返回资料库") }
+                                }
                             }
                         }
 
@@ -246,7 +334,7 @@ fun AsterReaderAppRoot(
                             OnboardingScreen(
                                 onImportFileClick = triggerSystemFilePicker,
                                 onCreateRepoClick = {
-                                    viewModel.addRepositoryAndScan("本地漫画与轻小说库", "按文件夹识别系列")
+                                    viewModel.addRepositoryAndScan("本地漫画库", "每个文件作为作品")
                                 },
                                 onOpenSecuritySettings = {
                                     viewModel.popSubScreen()
@@ -310,8 +398,8 @@ fun AsterReaderAppRoot(
             val showAppleBottomDock = activeSub == null && !uiState.isBatchSelectionMode
             AnimatedVisibility(
                 visible = showAppleBottomDock,
-                enter = slideInVertically { it } + fadeIn(),
-                exit = slideOutVertically { it } + fadeOut(),
+                enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically { it } + fadeIn(),
+                exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else slideOutVertically { it } + fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 val lastReadBook = allBooks.firstOrNull { !it.isVaultProtected && it.progressPercent > 0 }
@@ -333,27 +421,18 @@ fun AsterReaderAppRoot(
                 )
             }
 
-            // System Security / Biometric Recognition Module Sheet (No Separate Vault Page)
-            if (uiState.showQuickAuthSheet) {
-                SystemSecurityAuthPromptSheet(
-                    onAuthenticated = { viewModel.unlockAppAndVault() },
-                    onVerifyPin = { pin -> viewModel.verifyPin(pin) },
-                    onDismiss = { viewModel.dismissQuickAuthSheet() }
-                )
-            }
-
             // Floating Snackbar Feedback Pill
             AnimatedVisibility(
                 visible = uiState.snackbarMessage != null,
-                enter = fadeIn() + slideInVertically { it / 2 },
-                exit = fadeOut() + slideOutVertically { it / 2 },
+                enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else fadeIn() + slideInVertically { it / 2 },
+                exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else fadeOut() + slideOutVertically { it / 2 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
                     .padding(bottom = if (showAppleBottomDock) 78.dp else 24.dp, start = 20.dp, end = 20.dp)
             ) {
                 Surface(
-                    shape = RoundedCornerShape(999.dp),
+                    shape = androidx.compose.foundation.shape.CircleShape,
                     color = MaterialTheme.colorScheme.inverseSurface,
                     tonalElevation = 8.dp,
                     shadowElevation = 10.dp,

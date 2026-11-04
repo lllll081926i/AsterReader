@@ -2,14 +2,16 @@ package com.asterreader.core.database
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.ColumnInfo
+import androidx.room.Index
 
-@Entity(tableName = "books")
+@Entity(tableName = "books", indices = [Index("filePath"), Index("lastReadTimestamp"), Index("addedAt")])
 data class BookEntity(
     @PrimaryKey val id: String,
     val title: String,
     val author: String,
     val series: String,
-    val format: String, // "CBZ", "EPUB", "PDF", "MOBI"
+    val format: String, // 漫画容器格式。
     val coverUrl: String,
     val altCoverUrl: String = "",
     val currentPage: Int,
@@ -28,10 +30,13 @@ data class BookEntity(
     val isFavorite: Boolean = false,
     val isVaultProtected: Boolean = false,
     val isVaultEncrypted: Boolean = false,
-    val lastReadTimestamp: Long = 0L
+    val lastReadTimestamp: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val sizeBytes: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val addedAt: Long = 0L,
+    @ColumnInfo(defaultValue = "0") val sourceModifiedAt: Long = 0L
 )
 
-@Entity(tableName = "chapters")
+@Entity(tableName = "chapters", indices = [Index(value = ["bookId", "chapterNumber"])])
 data class ChapterEntity(
     @PrimaryKey val id: String,
     val bookId: String,
@@ -40,8 +45,7 @@ data class ChapterEntity(
     val startPage: Int,
     val endPage: Int,
     val isCompleted: Boolean,
-    val isCurrent: Boolean,
-    val textContent: String
+    val isCurrent: Boolean
 )
 
 @Entity(tableName = "shelves")
@@ -56,7 +60,7 @@ data class ShelfEntity(
     val sortOrder: Int = 0
 )
 
-@Entity(tableName = "annotations")
+@Entity(tableName = "annotations", indices = [Index(value = ["bookId", "pageNumber", "type"])])
 data class AnnotationEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val bookId: String,

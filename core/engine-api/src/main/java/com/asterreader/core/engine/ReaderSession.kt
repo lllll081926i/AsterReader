@@ -6,9 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 enum class ReaderCapability {
     NEXT_PREV,
     SEEK,
-    RENDER_CANVAS,
-    TEXT_SELECTION,
-    REFLOW_STYLING
+    RENDER_CANVAS
 }
 
 data class ReaderState(

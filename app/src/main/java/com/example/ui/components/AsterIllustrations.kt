@@ -1,11 +1,5 @@
 package com.example.ui.components
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -58,16 +52,7 @@ fun BotanicalGrimoireIllustration(
     val tertiary = MaterialTheme.colorScheme.tertiary
     val outline = MaterialTheme.colorScheme.outline
 
-    val infiniteTransition = rememberInfiniteTransition(label = "grimoire_float")
-    val floatOffset by infiniteTransition.animateFloat(
-        initialValue = -3f,
-        targetValue = 3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "float_y"
-    )
+    val floatOffset = 0f
 
     Canvas(
         modifier = modifier
@@ -296,16 +281,7 @@ fun VaultGeometricShieldIllustration(
     val onPrimaryContainer = MaterialTheme.colorScheme.onPrimaryContainer
     val outlineVariant = MaterialTheme.colorScheme.outlineVariant
 
-    val infiniteTransition = rememberInfiniteTransition(label = "vault_drift")
-    val driftY by infiniteTransition.animateFloat(
-        initialValue = -3f,
-        targetValue = 3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2600, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "drift"
-    )
+    val driftY = 0f
 
     Canvas(
         modifier = modifier

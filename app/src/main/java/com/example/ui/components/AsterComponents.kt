@@ -1,6 +1,10 @@
 package com.example.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.ui.semantics.selected
+import com.asterreader.core.designsystem.AsterMotion
+import com.asterreader.core.designsystem.LocalAsterReduceMotion
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
@@ -107,7 +111,7 @@ fun AppleFloatingBottomDock(
         contentAlignment = Alignment.Center
     ) {
         Surface(
-            shape = RoundedCornerShape(999.dp),
+            shape = androidx.compose.foundation.shape.CircleShape,
             color = asterColors.surfaceContainerHigh.copy(alpha = 0.96f),
             tonalElevation = 6.dp,
             shadowElevation = 14.dp,
@@ -126,27 +130,28 @@ fun AppleFloatingBottomDock(
                     val selected = dest == currentDestination
                     val pillBg by animateColorAsState(
                         targetValue = if (selected) colorScheme.secondaryContainer else Color.Transparent,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        animationSpec = AsterMotion.effectsSpec(LocalAsterReduceMotion.current),
                         label = "dock_bg_${dest.name}"
                     )
                     val contentColor by animateColorAsState(
                         targetValue = if (selected) colorScheme.onSecondaryContainer else colorScheme.onSurfaceVariant,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        animationSpec = AsterMotion.effectsSpec(LocalAsterReduceMotion.current),
                         label = "dock_fg_${dest.name}"
                     )
                     val iconTint by animateColorAsState(
                         targetValue = if (selected) colorScheme.primary else colorScheme.onSurfaceVariant,
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                        animationSpec = AsterMotion.effectsSpec(LocalAsterReduceMotion.current),
                         label = "dock_icon_${dest.name}"
                     )
 
                     Column(
                         modifier = Modifier
                             .widthIn(min = 68.dp)
-                            .clip(RoundedCornerShape(999.dp))
+                            .clip(androidx.compose.foundation.shape.CircleShape)
                             .background(pillBg)
                             .asterBounceClick { onSelectDestination(dest) }
                             .padding(horizontal = 18.dp, vertical = 6.dp)
+                            .semantics { this.selected = selected }
                             .testTag("nav_dock_${dest.route}"),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -311,21 +316,21 @@ fun SafeProtectedBookCard(
 
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable { onClick() }
-            .semantics { contentDescription = "已加密书籍，点击解锁" }
+            .semantics { contentDescription = "受保护书籍，点击解锁" }
             .testTag("vault_protected_card")
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .clip(RoundedCornerShape(12.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .background(asterColors.surfaceContainerHigh)
                 .border(
                     width = 1.dp,
                     color = colorScheme.outlineVariant.copy(alpha = 0.45f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = MaterialTheme.shapes.medium
                 )
                 .padding(12.dp),
             contentAlignment = Alignment.Center
@@ -367,7 +372,7 @@ fun SafeProtectedBookCard(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "已加密",
+                    text = "受保护",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = colorScheme.onSurface,
                     textAlign = TextAlign.Center,
@@ -431,7 +436,7 @@ fun AsterSettingsGroup(
             )
         }
         Surface(
-            shape = RoundedCornerShape(24.dp),
+            shape = MaterialTheme.shapes.large,
             color = asterColors.surfaceContainerLow,
             modifier = Modifier.fillMaxWidth()
         ) {

@@ -5,27 +5,15 @@ data class Locator(
     val resourceId: String? = null,
     val progression: Double? = null,
     val position: Long? = null,
-    val textAnchor: TextAnchor? = null,
     val imagePageId: String? = null,
     val updatedAtEpochMs: Long = System.currentTimeMillis(),
-)
-
-data class TextAnchor(
-    val selector: String? = null,
-    val before: String? = null,
-    val exact: String? = null,
-    val after: String? = null,
 )
 
 enum class PublicationFormat(val extension: String, val mimeType: String) {
     CBZ("cbz", "application/vnd.comicbook+zip"),
     CBR("cbr", "application/vnd.comicbook-rar"),
-    EPUB("epub", "application/epub+zip"),
+    CB7("cb7", "application/x-7z-compressed"),
     PDF("pdf", "application/pdf"),
-    TXT("txt", "text/plain"),
-    MD("md", "text/markdown"),
-    MOBI("mobi", "application/x-mobipocket-ebook"),
-    FB2("fb2", "application/x-fictionbook+xml"),
     IMAGE_DIR("", "application/x-directory")
 }
 

@@ -5,11 +5,28 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AnnotationEntity
-import com.example.data.local.AsterDatabase
+import com.example.data.local.LibraryRepository
+import com.example.data.local.ReaderPreferences
+import android.app.KeyguardManager
+import android.content.Context
+import android.os.SystemClock
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.example.data.local.BookEntity
 import com.example.data.local.ChapterEntity
 import com.example.data.local.RepositoryEntity
-import com.example.data.local.SeedData
 import com.example.data.local.ShelfEntity
 import com.example.ui.components.MainNavDestination
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,12 +64,6 @@ enum class ShelvesViewMode(val label: String) {
     BOOKSHELF_ROW("展架")
 }
 
-enum class ReaderPaperTheme(val label: String) {
-    DARK_GRAY("深灰阅读纸"),
-    OLED_BLACK("纯黑 OLED"),
-    LIGHT_PAPER("明纸白昼"),
-    WARM_PAPER("暖调羊皮纸")
-}
 
 enum class SortOption(val label: String) {
     RECENT_READ("最近阅读"),
@@ -63,7 +74,7 @@ enum class SortOption(val label: String) {
 }
 
 sealed interface SubScreen {
-    data class Search(val openFilterSheetInitially: Boolean = false) : SubScreen
+    data class Search(val openFilterSheetInitially: Boolean = false, val initialScope: String = "全部") : SubScreen
     data class PublicationDetail(val bookId: String) : SubScreen
     data class Reader(val bookId: String, val initialPage: Int? = null) : SubScreen
     data class ShelfDetail(
@@ -80,7 +91,7 @@ sealed interface SubScreen {
 data class AsterUiState(
     val currentTab: MainNavDestination = MainNavDestination.LIBRARY,
     val subScreenStack: List<SubScreen> = emptyList(),
-    val tabletInspectedBookId: String = "frieren_11",
+    val tabletInspectedBookId: String = "",
 
     // Theme & Appearance (Monet Dynamic Color is global default as per design.md & ADR-001)
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -92,25 +103,26 @@ data class AsterUiState(
     val showRecentReading: Boolean = true,
 
     // Security & Biometric Auth
-    val isAppLockEnabled: Boolean = true,
-    val isAppLockedNow: Boolean = false,
+    val isAppLockEnabled: Boolean = false,
+    val isAppLockedNow: Boolean = true,
+    val settingsLoaded: Boolean = false,
     val isVaultUnlocked: Boolean = false,
     val showQuickAuthSheet: Boolean = false,
-    val unlockMethodLabel: String = "生物识别",
+    val unlockMethodLabel: String = "系统锁屏凭据",
     val autoLockPolicyLabel: String = "立即锁定",
     val lockOnScreenOff: Boolean = true,
     val secondaryAuthForVault: Boolean = true,
     val flagSecureEnabled: Boolean = true,
     val hideRecentsPreview: Boolean = true,
     val hideMetadataWhenLocked: Boolean = true,
-    val recoveryKeyConfigured: Boolean = true,
-    val appPin: String = "1234",
-    val lastIntegrityCheckResult: String = "校验通过",
+    val recoveryKeyConfigured: Boolean = false,
+
+    val lastIntegrityCheckResult: String = "尚未校验",
 
     // Library Filter & Search
     val libraryQuickStatusFilter: String = "全部格式", // "全部格式", "未读", "在读", "已完结"
     val searchQuery: String = "",
-    val recentSearches: List<String> = listOf("芙莉莲", "迷宫饭", "阿西莫夫", "建筑空间"),
+    val recentSearches: List<String> = emptyList(),
     val sortOption: SortOption = SortOption.RECENT_READ,
     val searchStatusFilter: String = "全部", // "全部", "未读", "在读", "已读完"
     val searchFormatFilters: Set<String> = emptySet(), // empty = all
@@ -121,21 +133,18 @@ data class AsterUiState(
     val isBatchSelectionMode: Boolean = false,
     val selectedBookIds: Set<String> = emptySet(),
 
-    // Reader Settings (Separated E-book & Comic Preferences)
+    // 漫画阅读设置
     val readerLayoutMode: ReaderLayoutMode = ReaderLayoutMode.VERTICAL_SCROLL,
-    val readerPaperTheme: ReaderPaperTheme = ReaderPaperTheme.DARK_GRAY,
-    val readerFontSizeSp: Int = 18,
-    val readerLineHeightMultiplier: Float = 1.65f,
-    val readerFontFamily: String = "Roboto Flex",
     val smartSpreadStitch: Boolean = true,
     val volumeKeyPageTurn: Boolean = true,
-    val autoCropMargins: Boolean = true,
-    val fitModeLabel: String = "适合宽度",
+    val fitModeLabel: String = "适合屏幕",
 
     // Cache & Diagnostics
-    val coverCacheMb: Float = 42.6f,
-    val pageDecodeCacheMb: Float = 128.4f,
-    val lastBackupTimeText: String = "昨天 23:10",
+    val lastBackupTimeText: String = "尚无备份",
+    val isScanning: Boolean = false,
+    val requestDirectoryPicker: Boolean = false,
+    val pendingRepositoryName: String = "本地目录",
+    val pendingScanRule: String = "每个文件作为作品",
     val snackbarMessage: String? = null
 ) {
     val activeSubScreen: SubScreen?
@@ -152,40 +161,102 @@ data class AsterUiState(
         }
 }
 
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class AsterViewModel(application: Application) : AndroidViewModel(application) {
-    private val dao = AsterDatabase.getDatabase(application).asterDao()
+    private val repository = LibraryRepository(application)
+    private val preferences = ReaderPreferences(application)
+    private val annotationMutex = Mutex()
+    private val progressMutex = Mutex()
+    private val pendingProgress = java.util.concurrent.ConcurrentHashMap<String, Pair<Int, String?>>()
+    private var progressSaveJob: kotlinx.coroutines.Job? = null
+    private val cleanupScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+    private var scanJob: kotlinx.coroutines.Job? = null
+    private var backgroundAt: Long? = null
+    private var backgroundLock: kotlinx.coroutines.Job? = null
+    private val operationErrors = CoroutineExceptionHandler { _, _ ->
+        showSnackbar("操作失败，请检查来源授权、文件和可用空间后重试")
+    }
 
     private val _uiState = MutableStateFlow(AsterUiState())
     val uiState: StateFlow<AsterUiState> = _uiState.asStateFlow()
 
     private var pendingPostAuthAction: (() -> Unit)? = null
+    private var systemAuthenticationInProgress = false
 
-    val allBooks: StateFlow<List<BookEntity>> = dao.observeAllBooks()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SeedData.initialBooks)
+    val allBooks: StateFlow<List<BookEntity>> = uiState
+        .distinctUntilChangedBy { Triple(it.settingsLoaded, it.isAppLockedNow, it.isVaultUnlocked) }
+        .flatMapLatest { state ->
+            when {
+                !state.settingsLoaded || state.isAppLockedNow -> flowOf(emptyList())
+                state.isVaultUnlocked -> repository.observeAllBooks()
+                else -> repository.observePublicBooks()
+            }
+        }.sample(150).stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
 
-    val allShelves: StateFlow<List<ShelfEntity>> = dao.observeAllShelves()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SeedData.initialShelves)
+    val allShelves: StateFlow<List<ShelfEntity>> = uiState
+        .distinctUntilChangedBy { it.isAppLockedNow to it.isVaultUnlocked }
+        .flatMapLatest { state ->
+            if (state.isAppLockedNow) flowOf(emptyList())
+            else repository.observeAllShelves().map { shelves ->
+                shelves.map { shelf -> if (shelf.isProtected && !state.isVaultUnlocked)
+                    shelf.copy(name = "受保护书架", subtitle = "访问锁，不加密文件", coverUrlsCsv = "", itemCountDisplay = 0)
+                else shelf }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
 
-    val allAnnotations: StateFlow<List<AnnotationEntity>> = dao.observeAllAnnotations()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SeedData.initialAnnotations)
+    val allAnnotations: StateFlow<List<AnnotationEntity>> = uiState
+        .distinctUntilChangedBy { it.isAppLockedNow to it.isVaultUnlocked }
+        .flatMapLatest { state ->
+            if (state.isAppLockedNow) flowOf(emptyList())
+            else repository.observeVisibleAnnotations(state.isVaultUnlocked)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
 
-    val allRepositories: StateFlow<List<RepositoryEntity>> = dao.observeAllRepositories()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SeedData.initialRepositories)
+    val allRepositories: StateFlow<List<RepositoryEntity>> = uiState
+        .distinctUntilChangedBy { it.isAppLockedNow }
+        .flatMapLatest { state -> if (state.isAppLockedNow) flowOf(emptyList()) else repository.observeAllRepositories() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
 
     init {
-        viewModelScope.launch {
-            if (dao.getBookCount() == 0) {
-                dao.insertBooks(SeedData.initialBooks)
-                dao.insertChapters(SeedData.buildInitialChapters())
-                dao.insertShelves(SeedData.initialShelves)
-                dao.insertAnnotations(SeedData.initialAnnotations)
-                dao.insertRepositories(SeedData.initialRepositories)
+        viewModelScope.launch(operationErrors) {
+            try { _uiState.value = preferences.load() }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                _uiState.update { it.copy(settingsLoaded = true, isAppLockEnabled = true,
+                    isAppLockedNow = true, snackbarMessage = "无法读取设置，请先验证身份") }
+                return@launch
+            }
+            uiState.filter { it.settingsLoaded }.distinctUntilChangedBy { state ->
+                listOf(state.isAppLockEnabled, state.themeMode, state.reduceMotion, state.libraryLayoutMode,
+                    state.shelvesViewMode, state.showRecentReading, state.readerLayoutMode,
+                    state.autoLockPolicyLabel, state.lockOnScreenOff, state.flagSecureEnabled,
+                    state.hideRecentsPreview, state.volumeKeyPageTurn, state.smartSpreadStitch, state.fitModeLabel)
+            }.debounce(200).collect {
+                try { preferences.save(it) }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { showSnackbar("设置保存失败，请检查可用空间后重试") }
             }
         }
     }
 
-    fun observeChapters(bookId: String) = dao.observeChaptersForBook(bookId)
-    fun observeBookAnnotations(bookId: String) = dao.observeAnnotationsForBook(bookId)
+    suspend fun renderPage(id: String, page: Int) = repository.renderPage(id, page)
+
+    fun observeChapters(bookId: String) = uiState
+        .distinctUntilChangedBy { Triple(it.settingsLoaded, it.isAppLockedNow, it.isVaultUnlocked) }
+        .flatMapLatest { state ->
+            if (!state.settingsLoaded || state.isAppLockedNow) flowOf(emptyList())
+            else repository.observeAccessibleBookById(bookId, state.isVaultUnlocked).flatMapLatest { book ->
+                if (book == null) flowOf(emptyList()) else repository.observeChaptersForBook(bookId)
+            }
+        }
+
+    fun observeBookAnnotations(bookId: String) = uiState
+        .distinctUntilChangedBy { Triple(it.settingsLoaded, it.isAppLockedNow, it.isVaultUnlocked) }
+        .flatMapLatest { state ->
+            if (!state.settingsLoaded || state.isAppLockedNow) flowOf(emptyList())
+            else repository.observeAccessibleBookById(bookId, state.isVaultUnlocked).flatMapLatest { book ->
+                if (book == null) flowOf(emptyList()) else repository.observeAnnotationsForBook(bookId)
+            }
+        }
 
     // ========================================================================
     // Navigation & Backstack
@@ -263,11 +334,11 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun openSearch(openFilterInitially: Boolean = false, initialQuery: String? = null) {
+    fun openSearch(openFilterInitially: Boolean = false, initialQuery: String? = null, initialScope: String = "全部") {
         _uiState.update { state ->
             state.copy(
                 searchQuery = initialQuery ?: state.searchQuery,
-                subScreenStack = state.subScreenStack + SubScreen.Search(openFilterInitially)
+                subScreenStack = state.subScreenStack + SubScreen.Search(openFilterInitially, initialScope)
             )
         }
     }
@@ -276,78 +347,93 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     // Security & System Biometric Authentication
     // ========================================================================
     fun lockAppImmediately() {
-        _uiState.update {
-            it.copy(
-                isAppLockedNow = false,
-                isVaultUnlocked = false,
-                showQuickAuthSheet = false,
-                snackbarMessage = "加密书籍已锁定"
-            )
-        }
+        releaseReaderResources()
+        systemAuthenticationInProgress = false
+        pendingPostAuthAction = null
+        _uiState.update { it.copy(isAppLockedNow = it.isAppLockEnabled, isVaultUnlocked = false,
+            showQuickAuthSheet = false, subScreenStack = emptyList(), tabletInspectedBookId = "",
+            selectedBookIds = emptySet(), isBatchSelectionMode = false, searchQuery = "",
+            recentSearches = emptyList(), snackbarMessage = null) }
     }
 
     fun unlockAppAndVault() {
-        val callback = pendingPostAuthAction
+        if (!systemAuthenticationInProgress || !_uiState.value.showQuickAuthSheet) return
+        systemAuthenticationInProgress = false
+        backgroundAt = null
+        val action = pendingPostAuthAction
         pendingPostAuthAction = null
-        _uiState.update {
-            it.copy(
-                isAppLockedNow = false,
-                isVaultUnlocked = true,
-                showQuickAuthSheet = false,
-                snackbarMessage = "系统身份验证通过，已解锁加密书籍"
-            )
-        }
-        callback?.invoke()
+        _uiState.update { it.copy(isAppLockedNow = false, isVaultUnlocked = true, showQuickAuthSheet = false) }
+        action?.invoke()
     }
 
     fun requestVaultUnlock(onUnlocked: (() -> Unit)? = null) {
-        if (_uiState.value.isVaultUnlocked) {
-            onUnlocked?.invoke()
-            return
-        }
+        if (_uiState.value.isVaultUnlocked && !_uiState.value.isAppLockedNow) { onUnlocked?.invoke(); return }
         pendingPostAuthAction = onUnlocked
-        _uiState.update { it.copy(showQuickAuthSheet = true, isAppLockedNow = false) }
+        _uiState.update { it.copy(showQuickAuthSheet = true) }
     }
 
     fun dismissQuickAuthSheet() {
+        systemAuthenticationInProgress = false
         pendingPostAuthAction = null
-        _uiState.update { it.copy(showQuickAuthSheet = false, isAppLockedNow = false) }
+        _uiState.update { it.copy(showQuickAuthSheet = false) }
+        onForeground(false)
     }
 
-    fun lockVaultSession() {
-        _uiState.update {
-            it.copy(
-                isVaultUnlocked = false,
-                showQuickAuthSheet = false,
-                snackbarMessage = "已重新锁定加密书籍"
-            )
-        }
+    fun onSystemAuthenticationStarted() { systemAuthenticationInProgress = true }
+
+    fun onSystemAuthenticationFailed() {
+        systemAuthenticationInProgress = false
+        onForeground(false)
     }
 
-    fun verifyPin(inputPin: String): Boolean {
-        return if (inputPin == _uiState.value.appPin || inputPin == "1234") {
-            unlockAppAndVault()
-            true
-        } else {
-            false
-        }
-    }
-
-    fun updateAppPin(newPin: String) {
-        if (newPin.length >= 4) {
-            _uiState.update {
-                it.copy(
-                    appPin = newPin,
-                    recoveryKeyConfigured = true,
-                    snackbarMessage = "密码已更新"
-                )
-            }
-        }
-    }
+    fun lockVaultSession() { lockAppImmediately() }
 
     fun setAppLockEnabled(enabled: Boolean) {
-        _uiState.update { it.copy(isAppLockEnabled = enabled) }
+        val manager = getApplication<Application>().getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        if (enabled && !manager.isDeviceSecure) { showSnackbar("请先配置系统安全锁屏"); return }
+        pendingPostAuthAction = {
+            viewModelScope.launch(operationErrors) {
+                val updated = _uiState.value.copy(isAppLockEnabled = enabled)
+                preferences.save(updated)
+                _uiState.update { it.copy(isAppLockEnabled = enabled) }
+            }
+        }
+        _uiState.update { it.copy(showQuickAuthSheet = true) }
     }
+
+    fun onBackground() {
+        if (scanJob?.isActive == true) cancelScanning(false)
+        releaseReaderResources()
+        backgroundAt = SystemClock.elapsedRealtime()
+        backgroundLock?.cancel()
+        if (systemAuthenticationInProgress) return
+        val timeout = lockTimeout()
+        if (timeout == 0L) lockAppImmediately()
+        else if (timeout != Long.MAX_VALUE) backgroundLock = viewModelScope.launch {
+            kotlinx.coroutines.delay(timeout)
+            lockAppImmediately()
+        }
+    }
+
+    private fun lockTimeout(): Long = when (_uiState.value.autoLockPolicyLabel) {
+        "30 秒后" -> 30_000L
+        "1 分钟后" -> 60_000L
+        "5 分钟后" -> 300_000L
+        "仅息屏锁定" -> Long.MAX_VALUE
+        else -> 0L
+    }
+
+    fun onForeground(deviceLocked: Boolean) {
+        if (systemAuthenticationInProgress) return
+        backgroundLock?.cancel()
+        val state = _uiState.value
+        val timeout = lockTimeout()
+        val expired = backgroundAt?.let { SystemClock.elapsedRealtime() - it >= timeout } ?: false
+        backgroundAt = null
+        if ((state.lockOnScreenOff && deviceLocked) || expired) lockAppImmediately()
+    }
+
+    fun onScreenOff() { if (_uiState.value.lockOnScreenOff) lockAppImmediately() }
 
     fun setUnlockMethodLabel(label: String) {
         _uiState.update { it.copy(unlockMethodLabel = label) }
@@ -378,13 +464,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun runVaultIntegrityCheck() {
-        val encryptedCount = allBooks.value.count { it.isVaultProtected }
-        _uiState.update {
-            it.copy(
-                lastIntegrityCheckResult = "已加密 $encryptedCount 项作品 · 校验通过",
-                snackbarMessage = "完整性校验通过：$encryptedCount 项加密书籍完好"
-            )
-        }
+        _uiState.update { it.copy(lastIntegrityCheckResult = "未执行：当前版本没有可验证的保险库实现") }
+        showSnackbar("当前版本尚不支持保险库校验，未验证任何密文")
     }
 
     // ========================================================================
@@ -446,34 +527,61 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleFavorite(bookId: String) {
-        viewModelScope.launch {
-            val book = dao.getBookById(bookId) ?: return@launch
+        viewModelScope.launch(operationErrors) {
+            val book = repository.getBookById(bookId) ?: return@launch
+            repository.toggleFavorite(bookId)
             val updated = book.copy(isFavorite = !book.isFavorite)
-            dao.updateBook(updated)
             showSnackbar(if (updated.isFavorite) "已加入收藏《${book.title}》" else "已取消收藏《${book.title}》")
         }
     }
 
     fun updateReadingProgress(bookId: String, newPage: Int, chapterTitle: String? = null) {
-        viewModelScope.launch {
-            val book = dao.getBookById(bookId) ?: return@launch
-            val clampedPage = newPage.coerceIn(1, book.totalPages.coerceAtLeast(1))
-            val pct = ((clampedPage.toFloat() / book.totalPages.coerceAtLeast(1)) * 100).toInt().coerceIn(0, 100)
-            val badge = when {
-                pct >= 100 -> "已读完"
-                pct > 0 -> "在读"
-                else -> "未读"
+        pendingProgress[bookId] = newPage to chapterTitle
+        if (progressSaveJob?.isActive == true) return
+        progressSaveJob = viewModelScope.launch(operationErrors) {
+            while (pendingProgress.isNotEmpty()) {
+                kotlinx.coroutines.delay(1000)
+                flushReadingProgress()
             }
-            dao.updateBook(
-                book.copy(
-                    currentPage = clampedPage,
-                    progressPercent = pct,
-                    statusBadge = badge,
-                    currentChapterTitle = chapterTitle ?: book.currentChapterTitle,
-                    lastReadTimestamp = System.currentTimeMillis()
-                )
-            )
         }
+    }
+
+    private suspend fun flushReadingProgress() = progressMutex.withLock {
+        val snapshot = pendingProgress.entries.map { it.key to it.value }
+        for ((id, requested) in snapshot) {
+            val book = repository.getBookById(id)
+            if (book != null) {
+                val page = requested.first.coerceIn(1, book.totalPages.coerceAtLeast(1))
+                val percent = (page.toLong() * 100 / book.totalPages.coerceAtLeast(1)).toInt().coerceIn(0, 100)
+                if (book.currentPage != page || book.lastReadTimestamp == 0L ||
+                    (requested.second != null && book.currentChapterTitle != requested.second)) {
+                    repository.updateProgress(id, page, percent, if (percent >= 100) "已读完" else "在读",
+                        requested.second, System.currentTimeMillis())
+                }
+            }
+            pendingProgress.remove(id, requested)
+        }
+    }
+
+    fun releaseReaderResources() {
+        repository.trimPageMemory()
+        cleanupScope.launch {
+            try { flushReadingProgress() }
+            catch (_: Exception) { showSnackbar("阅读进度保存失败，请检查可用空间") }
+            finally { runCatching { repository.closeReadSession() } }
+        }
+    }
+
+    override fun onCleared() {
+        cleanupScope.launch {
+            try { flushReadingProgress() }
+            catch (_: Exception) { /* 关闭时保留已有进度，不把失败写成成功。 */ }
+            finally {
+                try { runCatching { repository.closeReadSession() } }
+                finally { cleanupScope.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
+            }
+        }
+        super.onCleared()
     }
 
     fun updateBookMetadata(
@@ -484,9 +592,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         newSynopsis: String,
         newTagsCsv: String
     ) {
-        viewModelScope.launch {
-            val book = dao.getBookById(bookId) ?: return@launch
-            dao.updateBook(
+        viewModelScope.launch(operationErrors) {
+            val book = repository.getBookById(bookId) ?: return@launch
+            repository.updateBook(
                 book.copy(
                     title = newTitle.trim().ifEmpty { book.title },
                     author = newAuthor.trim().ifEmpty { book.author },
@@ -500,26 +608,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleBookVaultProtection(bookId: String, encryptToVault: Boolean) {
-        viewModelScope.launch {
-            val book = dao.getBookById(bookId) ?: return@launch
-            val updatedShelves = if (encryptToVault) {
-                (book.shelfIdsCsv.split(",").filter { it.isNotBlank() } + "shelf_private").distinct().joinToString(",")
-            } else {
-                book.shelfIdsCsv.split(",").filter { it.isNotBlank() && it != "shelf_private" }.joinToString(",")
-            }
-            dao.updateBook(
-                book.copy(
-                    isVaultProtected = encryptToVault,
-                    isVaultEncrypted = encryptToVault,
-                    shelfIdsCsv = updatedShelves,
-                    filePath = if (encryptToVault) "vault://encrypted/${book.id}.enc" else "/storage/emulated/0/Books/${book.id}.${book.format.lowercase()}"
-                )
-            )
-            showSnackbar(
-                if (encryptToVault) "已加密并移入 V-07 保险库：《${book.title}》"
-                else "已解密并解除保险库保护：《${book.title}》"
-            )
-        }
+        showSnackbar("当前版本尚不支持安全的加密迁移或解密导出，原文件与索引未更改")
     }
 
     // ========================================================================
@@ -566,12 +655,12 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun batchAddSelectedToShelf(shelfId: String, shelfName: String) {
         val ids = _uiState.value.selectedBookIds.toList()
         if (ids.isEmpty()) return
-        viewModelScope.launch {
+        viewModelScope.launch(operationErrors) {
             ids.forEach { id ->
-                val book = dao.getBookById(id) ?: return@forEach
+                val book = repository.getBookById(id) ?: return@forEach
                 val currentShelves = book.shelfIdsCsv.split(",").filter { it.isNotBlank() }.toMutableSet()
                 currentShelves.add(shelfId)
-                dao.updateBook(book.copy(shelfIdsCsv = currentShelves.joinToString(",")))
+                repository.updateBook(book.copy(shelfIdsCsv = currentShelves.joinToString(",")))
             }
             exitBatchSelection()
             showSnackbar("已将 ${ids.size} 部作品加入书架「$shelfName」")
@@ -579,32 +668,14 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun batchEncryptSelectedToVault() {
-        val ids = _uiState.value.selectedBookIds.toList()
-        if (ids.isEmpty()) return
-        viewModelScope.launch {
-            ids.forEach { id ->
-                val book = dao.getBookById(id) ?: return@forEach
-                val currentShelves = book.shelfIdsCsv.split(",").filter { it.isNotBlank() }.toMutableSet()
-                currentShelves.add("shelf_private")
-                dao.updateBook(
-                    book.copy(
-                        isVaultProtected = true,
-                        isVaultEncrypted = true,
-                        shelfIdsCsv = currentShelves.joinToString(","),
-                        filePath = "vault://encrypted/${book.id}.enc"
-                    )
-                )
-            }
-            exitBatchSelection()
-            showSnackbar("已完成 ${ids.size} 部作品 AES-256-GCM 加密入库")
-        }
+        showSnackbar("当前版本尚不支持安全的批量加密，未修改任何文件")
     }
 
     fun batchRemoveSelectedFromLibrary() {
         val ids = _uiState.value.selectedBookIds.toList()
         if (ids.isEmpty()) return
-        viewModelScope.launch {
-            dao.deleteBooksByIds(ids)
+        viewModelScope.launch(operationErrors) {
+            repository.removeBooks(ids)
             exitBatchSelection()
             showSnackbar("已从资料库移除 ${ids.size} 部作品索引（保留外部源文件）")
         }
@@ -689,7 +760,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun createCustomShelf(name: String, subtitle: String, isProtected: Boolean) {
         val cleanName = name.trim()
         if (cleanName.isBlank()) return
-        viewModelScope.launch {
+        viewModelScope.launch(operationErrors) {
             val id = "shelf_${System.currentTimeMillis()}"
             val newShelf = ShelfEntity(
                 id = id,
@@ -697,30 +768,30 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 subtitle = subtitle.trim().ifBlank { "0 本 · 刚刚创建" },
                 itemCountDisplay = 0,
                 updatedLabel = "刚刚创建",
-                coverUrlsCsv = "${SeedData.URL_COLLAGE_FANTASY_1},${SeedData.URL_COLLAGE_SCIFI_1}",
+                coverUrlsCsv = "",
                 isProtected = isProtected,
                 sortOrder = allShelves.value.size
             )
-            dao.insertShelf(newShelf)
+            repository.insertShelf(newShelf)
             showSnackbar("已新建书架「$cleanName」")
         }
     }
 
     fun deleteCustomShelf(shelfId: String) {
-        viewModelScope.launch {
-            dao.deleteShelfById(shelfId)
+        viewModelScope.launch(operationErrors) {
+            repository.deleteShelfById(shelfId)
             showSnackbar("已删除书架分类（书籍本体保留在资料库）")
         }
     }
 
     fun moveShelfUp(shelf: ShelfEntity) {
-        viewModelScope.launch {
+        viewModelScope.launch(operationErrors) {
             val currentList = allShelves.value.toMutableList()
             val index = currentList.indexOfFirst { it.id == shelf.id }
             if (index > 0) {
                 val prev = currentList[index - 1]
-                dao.updateShelf(shelf.copy(sortOrder = prev.sortOrder))
-                dao.updateShelf(prev.copy(sortOrder = shelf.sortOrder))
+                repository.updateShelf(shelf.copy(sortOrder = prev.sortOrder))
+                repository.updateShelf(prev.copy(sortOrder = shelf.sortOrder))
             }
         }
     }
@@ -737,8 +808,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         colorName: String,
         type: String
     ) {
-        viewModelScope.launch {
-            dao.insertAnnotation(
+        viewModelScope.launch(operationErrors) {
+            repository.insertAnnotation(
                 AnnotationEntity(
                     bookId = bookId,
                     chapterTitle = chapterTitle,
@@ -760,8 +831,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteAnnotation(id: Int) {
-        viewModelScope.launch {
-            dao.deleteAnnotationById(id)
+        viewModelScope.launch(operationErrors) {
+            repository.deleteAnnotationById(id)
             showSnackbar("已移除该条标记")
         }
     }
@@ -770,93 +841,61 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     // Content Import & Repositories (I-01 ~ I-06)
     // ========================================================================
     fun importLocalFileUri(uri: Uri?, fallbackName: String = "新导入作品") {
-        viewModelScope.launch {
-            val rawSeg = uri?.lastPathSegment?.substringAfterLast('/') ?: "$fallbackName.epub"
-            val ext = rawSeg.substringAfterLast('.', "epub").uppercase()
-            val format = if (ext in listOf("CBZ", "CBR", "EPUB", "PDF", "MOBI", "TXT")) {
-                if (ext == "TXT") "EPUB" else ext
-            } else "EPUB"
-            val cleanTitle = rawSeg.substringBeforeLast('.').ifBlank { fallbackName }
-            val newId = "imported_${System.currentTimeMillis()}"
-            val newBook = BookEntity(
-                id = newId,
-                title = cleanTitle,
-                author = "本地 SAF 导入",
-                series = "用户授权文档",
-                format = format,
-                coverUrl = if (format == "CBZ") SeedData.URL_COLLAGE_FANTASY_2 else SeedData.URL_COLLAGE_SCIFI_2,
-                currentPage = 1,
-                totalPages = 140,
-                progressPercent = 0,
-                currentChapterTitle = "第一章 导入正文",
-                statusBadge = "未读",
-                seriesBadge = "$format 本地文档",
-                fileSizeText = "24.6 MB",
-                filePath = uri?.toString() ?: "/storage/emulated/0/Download/$rawSeg",
-                repositoryName = "内部存储 / Books",
-                updatedTimeText = "刚刚导入",
-                synopsis = "通过 Android Storage Access Framework (SAF) 零权限越界安全导入的本地文档，索引已持久化至 Room 数据库。",
-                tagsCsv = "本地仓库,新导入",
-                shelfIdsCsv = "shelf_fantasy",
-                lastReadTimestamp = System.currentTimeMillis()
-            )
-            dao.insertBook(newBook)
-            dao.insertChapters(
-                listOf(
-                    ChapterEntity(
-                        id = "${newId}_ch_1",
-                        bookId = newId,
-                        chapterNumber = 1,
-                        title = "第一章 $cleanTitle 开篇",
-                        startPage = 1,
-                        endPage = 70,
-                        isCompleted = false,
-                        isCurrent = true,
-                        textContent = "【$cleanTitle · 第一章】\n\n这是通过本地 SAF 导入的书籍内容。Aster Reader 支持离线重排排版、字号调节、纸张色彩切换、书内全文检索与 TTS 语音朗读。"
-                    ),
-                    ChapterEntity(
-                        id = "${newId}_ch_2",
-                        bookId = newId,
-                        chapterNumber = 2,
-                        title = "第二章 深入阅读与批注",
-                        startPage = 71,
-                        endPage = 140,
-                        isCompleted = false,
-                        isCurrent = false,
-                        textContent = "【$cleanTitle · 第二章】\n\n在阅读器内点击任意段落即可添加四色低眩光高亮或私人阅读札记，所有数据均保存在设备本地沙盒中。"
-                    )
-                )
-            )
-            showSnackbar("成功导入《$cleanTitle》($format)")
+        if (uri == null) return
+        viewModelScope.launch(operationErrors) {
+            repository.importDocument(uri)
+            showSnackbar("文件已解析并加入资料库")
         }
     }
 
     fun addRepositoryAndScan(repoName: String, scanRule: String) {
-        viewModelScope.launch {
-            val id = "repo_${System.currentTimeMillis()}"
-            dao.insertRepository(
-                RepositoryEntity(
-                    id = id,
-                    name = repoName.ifBlank { "新建本地漫画仓库" },
-                    pathUri = "content://com.android.externalstorage.documents/tree/primary%3A${repoName.take(10)}",
-                    storageType = "SMARTPHONE",
-                    bookCount = 12,
-                    sizeText = "1.8 GB",
-                    lastScanText = "刚刚完成增量扫描",
-                    scanRule = scanRule,
-                    isHealthy = true
-                )
-            )
-            showSnackbar("已建立仓库「$repoName」并完成索引同步")
+        _uiState.update { it.copy(pendingRepositoryName = repoName, pendingScanRule = scanRule, requestDirectoryPicker = true) }
+    }
+
+    private fun startScan(operation: suspend () -> Unit) {
+        if (_uiState.value.isScanning) { showSnackbar("正在扫描，可取消当前扫描后重试"); return }
+        _uiState.update { it.copy(isScanning = true) }
+        scanJob = viewModelScope.launch(operationErrors) {
+            try { operation() }
+            finally { _uiState.update { it.copy(isScanning = false) } }
+        }
+    }
+
+    fun cancelScanning(notify: Boolean = true) {
+        scanJob?.cancel()
+        if (notify) showSnackbar("已取消扫描，已导入的漫画保留")
+    }
+
+    fun onDirectorySelected(uri: Uri?) {
+        val state = _uiState.value
+        _uiState.update { it.copy(requestDirectoryPicker = false) }
+        if (uri == null) return
+        startScan {
+            val (success, failed) = repository.scanRepository(uri, state.pendingRepositoryName, state.pendingScanRule)
+            showSnackbar("扫描完成：已识别 $success 项，失败 $failed 项")
         }
     }
 
     fun rescanRepositories() {
-        showSnackbar("已完成全部本地仓库增量扫描：0 冲突，索引健康")
+        if (_uiState.value.isScanning) { cancelScanning(); return }
+        startScan {
+            val repos = repository.observeAllRepositories().first()
+            if (repos.isEmpty()) { showSnackbar("尚无仓库，请先选择目录"); return@startScan }
+            var success = 0
+            var failed = 0
+            repos.forEach { repo ->
+                try {
+                    val result = repository.scanRepository(Uri.parse(repo.pathUri), repo.name, repo.scanRule)
+                    success += result.first; failed += result.second
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { failed++ }
+            }
+            showSnackbar("扫描完成：已识别 $success 项，失败 $failed 项")
+        }
     }
 
     // ========================================================================
-    // Reader & Theme Preferences (R-04, R-06, T-02, T-04)
+    // 漫画阅读与主题设置（R-04、T-02、T-04）
     // ========================================================================
     fun cycleReaderLayoutMode() {
         _uiState.update { state ->
@@ -870,21 +909,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(readerLayoutMode = mode) }
     }
 
-    fun setReaderPaperTheme(theme: ReaderPaperTheme) {
-        _uiState.update { it.copy(readerPaperTheme = theme) }
-    }
-
-    fun setReaderFontSize(sp: Int) {
-        _uiState.update { it.copy(readerFontSizeSp = sp.coerceIn(13, 30)) }
-    }
-
-    fun setReaderLineHeight(mult: Float) {
-        _uiState.update { it.copy(readerLineHeightMultiplier = mult.coerceIn(1.2f, 2.2f)) }
-    }
-
-    fun setReaderFontFamily(family: String) {
-        _uiState.update { it.copy(readerFontFamily = family) }
-    }
 
     fun setSmartSpreadStitch(enabled: Boolean) {
         _uiState.update { it.copy(smartSpreadStitch = enabled) }
@@ -894,9 +918,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(volumeKeyPageTurn = enabled) }
     }
 
-    fun setAutoCropMargins(enabled: Boolean) {
-        _uiState.update { it.copy(autoCropMargins = enabled) }
-    }
 
     fun setFitModeLabel(label: String) {
         _uiState.update { it.copy(fitModeLabel = label) }
@@ -907,37 +928,39 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setUseDynamicColor(enabled: Boolean) {
-        _uiState.update {
-            it.copy(
-                useDynamicColor = enabled,
-                snackbarMessage = if (enabled) "已启用系统 Monet 动态壁纸取色" else "已切换为 Aster 植物鼠尾草绿基准色板"
-            )
-        }
+        _uiState.update { it.copy(useDynamicColor = true) }
+        if (!enabled) showSnackbar("全局主题使用系统动态取色，备用色板仅用于异常兜底")
     }
 
     fun setReduceMotion(enabled: Boolean) {
         _uiState.update { it.copy(reduceMotion = enabled) }
     }
 
+    @OptIn(coil.annotation.ExperimentalCoilApi::class)
     fun clearRegenerableCache() {
-        val total = _uiState.value.coverCacheMb + _uiState.value.pageDecodeCacheMb
-        _uiState.update {
-            it.copy(
-                coverCacheMb = 2.4f,
-                pageDecodeCacheMb = 0.0f,
-                snackbarMessage = "已安全清理 ${String.format("%.1f", total - 2.4f)} MB 可再生解码缓存（保险库密文完好）"
-            )
+        viewModelScope.launch(operationErrors) {
+            repository.trimPageMemory()
+            coil.Coil.imageLoader(getApplication()).memoryCache?.clear()
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                coil.Coil.imageLoader(getApplication()).diskCache?.clear()
+            }
+            showSnackbar("已清理图片缓存，未修改原文件")
+        }
+    }
+
+    fun toggleBookmark(bookId: String, page: Int, chapter: String) {
+        viewModelScope.launch(operationErrors) {
+            annotationMutex.withLock {
+                val marks = repository.observeAnnotationsForBook(bookId).first()
+                if (marks.any { it.type == "BOOKMARK" && it.pageNumber == page }) repository.removeBookmark(bookId, page)
+                else repository.insertAnnotation(AnnotationEntity(bookId = bookId, chapterTitle = chapter,
+                    pageNumber = page, quoteText = "", noteText = "", colorName = "GREEN", type = "BOOKMARK", createdAtText = "刚刚"))
+            }
         }
     }
 
     fun createLocalBackup(includeVault: Boolean) {
-        val scopeLabel = if (includeVault) "全量加密备份 (含保险库密文)" else "书架与阅读进度备份"
-        _uiState.update {
-            it.copy(
-                lastBackupTimeText = "刚刚 ($scopeLabel)",
-                snackbarMessage = "已导出 $scopeLabel 至本地安全目录"
-            )
-        }
+        showSnackbar("当前版本尚不支持可恢复的加密备份，未生成备份文件")
     }
 
     fun showSnackbar(msg: String) {

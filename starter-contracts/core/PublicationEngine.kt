@@ -14,6 +14,6 @@ data class ProbeResult(
 )
 
 enum class EngineCapability {
-    PAGED, SCROLL, SEARCH, TEXT_SELECTION, ANNOTATION, TTS,
+    PAGED, SCROLL, ANNOTATION,
     RTL, DOUBLE_PAGE, ZOOM, TABLE_OF_CONTENTS
 }

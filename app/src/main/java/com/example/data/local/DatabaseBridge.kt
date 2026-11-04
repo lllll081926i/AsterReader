@@ -7,4 +7,3 @@ typealias AnnotationEntity = com.asterreader.core.database.AnnotationEntity
 typealias RepositoryEntity = com.asterreader.core.database.RepositoryEntity
 typealias AsterDao = com.asterreader.core.database.AsterDao
 typealias AsterDatabase = com.asterreader.core.database.AsterDatabase
-val SeedData = com.asterreader.core.database.SeedData

@@ -10,12 +10,12 @@ plugins {
 
 android {
   namespace = "com.example"
-  compileSdk { version = release(36) { minorApiLevel = 1 } }
+  compileSdk { version = release(37) }
 
   defaultConfig {
     applicationId = "com.aistudio.asterreader.vqxkpm"
-    minSdk = 24
-    targetSdk = 36
+    minSdk = 31
+    targetSdk = 37
     versionCode = 1
     versionName = "2.4.0"
 
@@ -43,7 +43,8 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.

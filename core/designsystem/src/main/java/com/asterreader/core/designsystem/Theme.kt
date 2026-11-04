@@ -101,7 +101,8 @@ fun AsterReaderTheme(
     val context = LocalContext.current
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            runCatching { if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context) }
+                .getOrElse { if (darkTheme) AsterDarkColorScheme else AsterLightColorScheme }
         }
         darkTheme -> AsterDarkColorScheme
         else -> AsterLightColorScheme

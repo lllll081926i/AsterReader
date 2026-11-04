@@ -5,13 +5,20 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.ui.AsterViewModel
 import com.example.ui.LibraryLayoutMode
 import com.example.ui.ReaderLayoutMode
-import com.example.ui.ReaderPaperTheme
 import com.example.ui.ShelvesViewMode
 import com.example.ui.SortOption
 import com.example.ui.SubScreen
 import com.example.ui.ThemeMode
 import com.example.ui.components.MainNavDestination
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
+import androidx.lifecycle.ViewModelStore
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -27,15 +34,25 @@ import org.robolectric.annotation.Config
 class AsterViewModelFeatureTest {
 
     private lateinit var viewModel: AsterViewModel
+    private val store = ViewModelStore()
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Before
     fun setup() {
         val app = ApplicationProvider.getApplicationContext<Application>()
+        app.getSharedPreferences("reader_settings", 0).edit().clear().commit()
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         viewModel = AsterViewModel(app)
+        store.put("被测模型", viewModel)
+        runBlocking { withTimeout(5000) { viewModel.uiState.first { it.settingsLoaded } } }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @After
+    fun tearDown() { store.clear(); Dispatchers.resetMain() }
+
     @Test
-    fun testInitialSeedDataAndLibraryState() = runBlocking {
+    fun testInitialEmptyLibraryState() = runBlocking {
         val uiState = viewModel.uiState.value
         assertEquals(MainNavDestination.LIBRARY, uiState.currentTab)
         assertTrue(uiState.useDynamicColor) // 确保默认开启原生 Monet 动态取色
@@ -138,33 +155,66 @@ class AsterViewModelFeatureTest {
         viewModel.setReaderLayoutMode(ReaderLayoutMode.DUAL_PAGE)
         assertEquals(ReaderLayoutMode.DUAL_PAGE, viewModel.uiState.value.readerLayoutMode)
 
-        viewModel.setReaderFontSize(20)
-        assertEquals(20, viewModel.uiState.value.readerFontSizeSp)
 
-        viewModel.setReaderPaperTheme(ReaderPaperTheme.OLED_BLACK)
-        assertEquals(ReaderPaperTheme.OLED_BLACK, viewModel.uiState.value.readerPaperTheme)
-
-        viewModel.setFitModeLabel("适合高度")
-        assertEquals("适合高度", viewModel.uiState.value.fitModeLabel)
+        viewModel.setFitModeLabel("原始比例")
+        assertEquals("原始比例", viewModel.uiState.value.fitModeLabel)
     }
 
     @Test
     fun testSecurityAndAppLockOperations() {
         // 初始应用锁状态
-        assertTrue(viewModel.uiState.value.isAppLockEnabled)
+        assertFalse(viewModel.uiState.value.isAppLockEnabled)
         assertFalse(viewModel.uiState.value.isVaultUnlocked)
 
-        // PIN 码校验
-        assertTrue(viewModel.verifyPin("1234"))
-        assertFalse(viewModel.verifyPin("9999"))
-
         // 解锁与锁定流程
+        viewModel.requestVaultUnlock()
+        viewModel.onSystemAuthenticationStarted()
         viewModel.unlockAppAndVault()
         assertTrue(viewModel.uiState.value.isVaultUnlocked)
         assertFalse(viewModel.uiState.value.isAppLockedNow)
 
         viewModel.lockAppImmediately()
         assertFalse(viewModel.uiState.value.isVaultUnlocked)
+    }
+
+    @Test
+    fun unsolicitedOrCancelledAuthenticationNeverUnlocksVault() {
+        viewModel.unlockAppAndVault()
+        assertFalse(viewModel.uiState.value.isVaultUnlocked)
+        viewModel.requestVaultUnlock()
+        viewModel.onSystemAuthenticationStarted()
+        viewModel.onSystemAuthenticationFailed()
+        viewModel.unlockAppAndVault()
+        assertFalse(viewModel.uiState.value.isVaultUnlocked)
+    }
+
+    @Test
+    fun screenOffInvalidatesAnOutstandingAuthenticationResult() {
+        viewModel.requestVaultUnlock()
+        viewModel.onSystemAuthenticationStarted()
+        viewModel.onScreenOff()
+        viewModel.unlockAppAndVault()
+        assertFalse(viewModel.uiState.value.isVaultUnlocked)
+    }
+
+    @Test
+    fun unsupportedEncryptionNeverChangesSourceOrProtectionFlags() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val dao = com.example.data.local.AsterDatabase.getDatabase(app).asterDao()
+        val book = comicFixture().copy(id = "原件保护回归",
+            filePath = "content://documents/original", isVaultProtected = false, isVaultEncrypted = false)
+        dao.insertBook(book)
+        viewModel.toggleBookVaultProtection(book.id, true)
+        viewModel.enterBatchSelection(book.id)
+        viewModel.batchEncryptSelectedToVault()
+        viewModel.runVaultIntegrityCheck()
+        assertEquals(book, dao.getBookById(book.id))
+        assertTrue(viewModel.uiState.value.lastIntegrityCheckResult.startsWith("未执行"))
+        val count = dao.getBookCount()
+        viewModel.importLocalFileUri(null)
+        assertEquals(count, dao.getBookCount())
+        viewModel.createLocalBackup(true)
+        assertEquals("尚无备份", viewModel.uiState.value.lastBackupTimeText)
     }
 
     @Test
@@ -176,7 +226,7 @@ class AsterViewModelFeatureTest {
         assertTrue(viewModel.uiState.value.reduceMotion)
 
         viewModel.setUseDynamicColor(false)
-        assertFalse(viewModel.uiState.value.useDynamicColor)
+        assertTrue(viewModel.uiState.value.useDynamicColor)
 
         viewModel.setShowRecentReading(false)
         assertFalse(viewModel.uiState.value.showRecentReading)

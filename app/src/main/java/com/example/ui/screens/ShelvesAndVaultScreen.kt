@@ -67,7 +67,6 @@ import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -101,7 +100,6 @@ import com.example.ui.AsterUiState
 import com.example.ui.AsterViewModel
 import com.example.ui.LibraryLayoutMode
 import com.example.ui.ReaderLayoutMode
-import com.example.ui.ReaderPaperTheme
 import com.example.ui.ShelvesViewMode
 import com.example.ui.SubScreen
 import com.example.ui.ThemeMode
@@ -118,7 +116,6 @@ import com.example.ui.theme.RobotoMonoFontFamily
 /**
  * 1. Shelves & Collections Screen
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShelvesScreen(
     shelves: List<ShelfEntity>,
@@ -172,7 +169,7 @@ fun ShelvesScreen(
             ) {
                 Surface(
                     onClick = { isReorderMode = !isReorderMode },
-                    shape = RoundedCornerShape(999.dp),
+                    shape = androidx.compose.foundation.shape.CircleShape,
                     color = if (isReorderMode) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
                 ) {
                     Row(
@@ -197,7 +194,7 @@ fun ShelvesScreen(
 
                 Button(
                     onClick = { showCreateDialog = true },
-                    shape = RoundedCornerShape(999.dp),
+                    shape = androidx.compose.foundation.shape.CircleShape,
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 7.dp),
                     modifier = Modifier.testTag("create_shelf_button")
                 ) {
@@ -264,7 +261,8 @@ fun ShelvesScreen(
                                 tile = tile,
                                 isSelected = activeQuickFilter == tile.key,
                                 onClick = {
-                                    activeQuickFilter = if (activeQuickFilter == tile.key) null else tile.key
+                                    if (tile.key == "BOOKMARKS") viewModel.openSearch(initialQuery = "", initialScope = "书签札记")
+                                    else activeQuickFilter = if (activeQuickFilter == tile.key) null else tile.key
                                 },
                                 modifier = Modifier.weight(1f)
                             )
@@ -279,7 +277,8 @@ fun ShelvesScreen(
                                 tile = tile,
                                 isSelected = activeQuickFilter == tile.key,
                                 onClick = {
-                                    activeQuickFilter = if (activeQuickFilter == tile.key) null else tile.key
+                                    if (tile.key == "BOOKMARKS") viewModel.openSearch(initialQuery = "", initialScope = "书签札记")
+                                    else activeQuickFilter = if (activeQuickFilter == tile.key) null else tile.key
                                 },
                                 modifier = Modifier.weight(1f)
                             )
@@ -297,7 +296,7 @@ fun ShelvesScreen(
                         else -> allBooks.filter { !it.isVaultProtected || uiState.isVaultUnlocked }
                     }
                     Surface(
-                        shape = RoundedCornerShape(20.dp),
+                        shape = MaterialTheme.shapes.large,
                         color = MaterialTheme.colorScheme.surfaceContainerLow,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
                         modifier = Modifier.fillMaxWidth()
@@ -324,7 +323,7 @@ fun ShelvesScreen(
                             filteredBooks.take(4).forEach { b ->
                                 Surface(
                                     onClick = { viewModel.openBookDetail(b.id) },
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = MaterialTheme.shapes.medium,
                                     color = MaterialTheme.colorScheme.surfaceContainerHigh
                                 ) {
                                     Row(
@@ -341,7 +340,7 @@ fun ShelvesScreen(
                                             modifier = Modifier
                                                 .width(42.dp)
                                                 .aspectRatio(0.71f)
-                                                .clip(RoundedCornerShape(6.dp))
+                                                .clip(MaterialTheme.shapes.extraSmall)
                                         )
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(b.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -374,7 +373,7 @@ fun ShelvesScreen(
                     )
 
                     Surface(
-                        shape = RoundedCornerShape(999.dp),
+                        shape = androidx.compose.foundation.shape.CircleShape,
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
                         modifier = Modifier.testTag("shelves_layout_switcher")
@@ -394,7 +393,7 @@ fun ShelvesScreen(
                                 }
                                 Surface(
                                     onClick = { viewModel.setShelvesViewMode(mode) },
-                                    shape = RoundedCornerShape(999.dp),
+                                    shape = androidx.compose.foundation.shape.CircleShape,
                                     color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
                                     modifier = Modifier.testTag("shelves_mode_${mode.name.lowercase()}")
                                 ) {
@@ -532,7 +531,7 @@ fun ShelvesScreen(
                     )
                     Surface(
                         onClick = { newShelfPrivate = !newShelfPrivate },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surfaceContainerHighest
                     ) {
                         Row(
@@ -543,7 +542,7 @@ fun ShelvesScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "加密保护",
+                                text = "锁定书架入口（不加密文件）",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.weight(1f),
@@ -594,7 +593,7 @@ private fun QuickCategoryTile(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
         border = BorderStroke(
             1.dp,
@@ -656,7 +655,7 @@ private fun ShelfCollageGridCard(
 ) {
     Surface(
         onClick = onOpenShelf,
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(
             1.dp,
@@ -675,7 +674,7 @@ private fun ShelfCollageGridCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1.1f)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             ) {
                 if (isLockedPrivateShelf) {
@@ -695,7 +694,7 @@ private fun ShelfCollageGridCard(
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Lock,
-                                    contentDescription = "已加密",
+                                    contentDescription = "受保护",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp)
                                 )
@@ -703,7 +702,7 @@ private fun ShelfCollageGridCard(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "已加密",
+                            text = "受保护",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -731,11 +730,11 @@ private fun ShelfCollageGridCard(
                                     AsterBookCover(
                                         coverUrl = url,
                                         title = shelf.name,
-                                        format = "EPUB",
+                                        format = "CBZ",
                                         modifier = Modifier
                                             .weight(1f)
                                             .fillMaxHeight()
-                                            .clip(RoundedCornerShape(10.dp))
+                                            .clip(MaterialTheme.shapes.small)
                                     )
                                 }
                             }
@@ -792,11 +791,11 @@ private fun ShelfCollageGridCard(
                 Spacer(modifier = Modifier.width(6.dp))
 
                 Surface(
-                    shape = RoundedCornerShape(999.dp),
+                    shape = androidx.compose.foundation.shape.CircleShape,
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Text(
-                        text = if (isLockedPrivateShelf) "加密" else "$shelfBookCount 本",
+                        text = if (isLockedPrivateShelf) "访问锁" else "$shelfBookCount 本",
                         style = MaterialTheme.typography.labelSmall,
                         fontFamily = RobotoMonoFontFamily,
                         fontWeight = FontWeight.Bold,
@@ -823,7 +822,7 @@ private fun ShelfCompactGridCard(
 ) {
     Surface(
         onClick = onOpenShelf,
-        shape = RoundedCornerShape(18.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
         modifier = Modifier
@@ -838,14 +837,14 @@ private fun ShelfCompactGridCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(0.75f)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             ) {
                 if (isLockedPrivateShelf) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Lock,
-                            contentDescription = "已加密",
+                            contentDescription = "受保护",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(26.dp)
                         )
@@ -854,20 +853,20 @@ private fun ShelfCompactGridCard(
                     AsterBookCover(
                         coverUrl = collageUrls.firstOrNull().orEmpty(),
                         title = shelf.name,
-                        format = "EPUB",
+                        format = "CBZ",
                         modifier = Modifier.fillMaxSize()
                     )
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(999.dp),
+                    shape = androidx.compose.foundation.shape.CircleShape,
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(6.dp)
                 ) {
                     Text(
-                        text = if (isLockedPrivateShelf) "加密" else "${shelfBookCount}本",
+                        text = if (isLockedPrivateShelf) "访问锁" else "${shelfBookCount}本",
                         style = MaterialTheme.typography.labelSmall,
                         fontFamily = RobotoMonoFontFamily,
                         fontWeight = FontWeight.Bold,
@@ -920,7 +919,7 @@ private fun ShelfHorizontalListCard(
 ) {
     Surface(
         onClick = onOpenShelf,
-        shape = RoundedCornerShape(20.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
         modifier = Modifier
@@ -936,14 +935,14 @@ private fun ShelfHorizontalListCard(
         ) {
             if (isLockedPrivateShelf) {
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
+                    shape = MaterialTheme.shapes.medium,
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     modifier = Modifier.size(64.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Lock,
-                            contentDescription = "已加密",
+                            contentDescription = "受保护",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -954,11 +953,11 @@ private fun ShelfHorizontalListCard(
                         AsterBookCover(
                             coverUrl = url,
                             title = shelf.name,
-                            format = "EPUB",
+                            format = "CBZ",
                             modifier = Modifier
                                 .width(44.dp)
                                 .aspectRatio(0.71f)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(MaterialTheme.shapes.small)
                         )
                     }
                 }
@@ -989,7 +988,7 @@ private fun ShelfHorizontalListCard(
                     }
                 }
                 Text(
-                    text = if (isLockedPrivateShelf) "受加密保护" else "${shelf.subtitle} · 共 $shelfBookCount 本",
+                    text = if (isLockedPrivateShelf) "入口已锁定，不加密成员文件" else "${shelf.subtitle} · 共 $shelfBookCount 本",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -1029,7 +1028,7 @@ private fun ShelfShowcasePlankCard(
 ) {
     Surface(
         onClick = onOpenShelf,
-        shape = RoundedCornerShape(24.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
         modifier = Modifier
@@ -1066,11 +1065,11 @@ private fun ShelfShowcasePlankCard(
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(999.dp),
+                    shape = androidx.compose.foundation.shape.CircleShape,
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Text(
-                        text = if (isLockedPrivateShelf) "已加密" else "$shelfBookCount 本 · 展开",
+                        text = if (isLockedPrivateShelf) "访问锁" else "$shelfBookCount 本 · 展开",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -1083,7 +1082,7 @@ private fun ShelfShowcasePlankCard(
 
             if (isLockedPrivateShelf) {
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = MaterialTheme.shapes.medium,
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1101,7 +1100,7 @@ private fun ShelfShowcasePlankCard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "点击验证指纹或 PIN 解锁书架",
+                            text = "验证系统锁屏凭据以解锁书架",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -1137,7 +1136,7 @@ private fun ShelfShowcasePlankCard(
                                 AsterBookCover(
                                     coverUrl = url,
                                     title = shelf.name,
-                                    format = "EPUB",
+                                    format = "CBZ",
                                     modifier = Modifier
                                         .width(82.dp)
                                         .aspectRatio(0.71f)
@@ -1223,7 +1222,7 @@ fun ShelfDetailScreen(
 
             // Layout Switcher inside Shelf Detail
             Surface(
-                shape = RoundedCornerShape(999.dp),
+                shape = androidx.compose.foundation.shape.CircleShape,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
                 Row(
@@ -1235,7 +1234,7 @@ fun ShelfDetailScreen(
                         val selected = uiState.libraryLayoutMode == mode
                         Surface(
                             onClick = { viewModel.setLibraryLayoutMode(mode) },
-                            shape = RoundedCornerShape(999.dp),
+                            shape = androidx.compose.foundation.shape.CircleShape,
                             color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
                         ) {
                             Text(
@@ -1286,7 +1285,7 @@ fun ShelfDetailScreen(
                     } else if (uiState.libraryLayoutMode == LibraryLayoutMode.LIST) {
                         Surface(
                             onClick = { viewModel.openBookDetail(book.id) },
-                            shape = RoundedCornerShape(18.dp),
+                            shape = MaterialTheme.shapes.large,
                             color = MaterialTheme.colorScheme.surfaceContainerLow,
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                         ) {
@@ -1304,7 +1303,7 @@ fun ShelfDetailScreen(
                                     modifier = Modifier
                                         .width(56.dp)
                                         .aspectRatio(0.71f)
-                                        .clip(RoundedCornerShape(10.dp))
+                                        .clip(MaterialTheme.shapes.small)
                                 )
                                 Column(
                                     modifier = Modifier.weight(1f),
@@ -1317,7 +1316,7 @@ fun ShelfDetailScreen(
                                         modifier = Modifier
                                             .fillMaxWidth(0.7f)
                                             .height(4.dp)
-                                            .clip(RoundedCornerShape(999.dp))
+                                            .clip(androidx.compose.foundation.shape.CircleShape)
                                     )
                                 }
                                 Button(
@@ -1327,7 +1326,7 @@ fun ShelfDetailScreen(
                                             preferDualPageOnTablet = isExpandedTablet
                                         )
                                     },
-                                    shape = RoundedCornerShape(999.dp),
+                                    shape = androidx.compose.foundation.shape.CircleShape,
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
                                     Text("阅读", style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false)
@@ -1376,7 +1375,7 @@ fun ShelfDetailScreen(
                                                 preferDualPageOnTablet = isExpandedTablet
                                             )
                                         },
-                                        shape = RoundedCornerShape(999.dp),
+                                        shape = androidx.compose.foundation.shape.CircleShape,
                                         modifier = Modifier.fillMaxWidth(),
                                         contentPadding = PaddingValues(vertical = 6.dp)
                                     ) {
@@ -1435,7 +1434,7 @@ fun VaultOverviewScreen(
             if (uiState.isVaultUnlocked) {
                 Button(
                     onClick = { viewModel.lockVaultSession() },
-                    shape = RoundedCornerShape(999.dp),
+                    shape = androidx.compose.foundation.shape.CircleShape,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer
@@ -1457,7 +1456,7 @@ fun VaultOverviewScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
-                    shape = RoundedCornerShape(28.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                     modifier = Modifier.widthIn(max = 460.dp)
@@ -1470,58 +1469,14 @@ fun VaultOverviewScreen(
                         VaultGeometricShieldIllustration(modifier = Modifier.size(120.dp))
 
                         Text(
-                            text = "已加密 (${protectedBooks.size})",
+                            text = "受保护 (${protectedBooks.size})",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
 
-                        OutlinedTextField(
-                            value = pinInput,
-                            onValueChange = {
-                                if (it.length <= 6 && it.all(Char::isDigit)) {
-                                    pinInput = it
-                                    pinError = false
-                                    if (it.length >= 4 && viewModel.verifyPin(it)) {
-                                        pinInput = ""
-                                    }
-                                }
-                            },
-                            label = { Text("输入 PIN 码") },
-                            isError = pinError,
-                            singleLine = true,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("vault_pin_input")
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Button(
-                                onClick = { viewModel.unlockAppAndVault() },
-                                shape = RoundedCornerShape(999.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(46.dp)
-                                    .testTag("vault_biometric_unlock_btn")
-                            ) {
-                                Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("指纹解锁", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
-                            }
-                            OutlinedButton(
-                                onClick = {
-                                    val ok = viewModel.verifyPin(pinInput.ifBlank { "1234" })
-                                    if (!ok) pinError = true
-                                },
-                                shape = RoundedCornerShape(999.dp),
-                                modifier = Modifier.height(46.dp)
-                            ) {
-                                Text("解锁", maxLines = 1, softWrap = false)
-                            }
+                        Button(onClick = { viewModel.requestVaultUnlock() }) {
+                            Text("验证系统锁屏凭据")
                         }
                     }
                 }
@@ -1581,7 +1536,7 @@ fun PrivacySecuritySettingsScreen(
         ) {
             // Hardware Cryptography Status Banner
             Surface(
-                shape = RoundedCornerShape(24.dp),
+                shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.secondaryContainer,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
             ) {
@@ -1593,7 +1548,7 @@ fun PrivacySecuritySettingsScreen(
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(14.dp),
+                        shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(46.dp)
                     ) {
@@ -1608,7 +1563,7 @@ fun PrivacySecuritySettingsScreen(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "端侧加密已开启",
+                            text = "本地隐私与访问控制",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -1632,10 +1587,11 @@ fun PrivacySecuritySettingsScreen(
                     onCheckedChange = { viewModel.setAppLockEnabled(it) }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSwitchRow(
-                    title = "生物识别解锁",
-                    checked = uiState.secondaryAuthForVault,
-                    onCheckedChange = { viewModel.setSecondaryAuthForVault(it) }
+                AsterSettingsRow(
+                    leadingIcon = Icons.Outlined.Key,
+                    title = "验证方式",
+                    badgeText = "系统锁屏凭据",
+                    onClick = { viewModel.showSnackbar("使用系统配置的 PIN、密码或图案验证身份") }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
@@ -1647,7 +1603,7 @@ fun PrivacySecuritySettingsScreen(
             }
 
             // Group 2: 加密防护
-            AsterSettingsGroup(title = "防窥与加密") {
+            AsterSettingsGroup(title = "防窥与访问控制") {
                 AsterSwitchRow(
                     title = "防截屏保护",
                     checked = uiState.flagSecureEnabled,
@@ -1662,14 +1618,14 @@ fun PrivacySecuritySettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.RemoveRedEye,
-                    title = "隐藏加密封面",
+                    title = "锁定时隐藏封面",
                     badgeText = "已开启",
                     onClick = {}
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.SearchOff,
-                    title = "隐藏加密搜索",
+                    title = "锁定时隐藏搜索结果",
                     badgeText = "已开启",
                     onClick = {}
                 )
@@ -1744,11 +1700,11 @@ fun PrivacySecuritySettingsScreen(
             title = { Text("应急恢复密钥", fontWeight = FontWeight.Bold, maxLines = 1) },
             text = {
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
+                    shape = MaterialTheme.shapes.medium,
                     color = MaterialTheme.colorScheme.surfaceContainerHighest
                 ) {
                     Text(
-                        text = "ASTR-94F2-7B1E-C803-55D9-K2M8",
+                        text = "尚未配置可恢复保险库。当前版本不提供恢复密钥。",
                         fontFamily = RobotoMonoFontFamily,
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium,
@@ -1826,7 +1782,7 @@ fun SettingsScreen(
             }
             OutlinedButton(
                 onClick = { viewModel.pushSubScreen(SubScreen.Onboarding) },
-                shape = RoundedCornerShape(999.dp),
+                shape = androidx.compose.foundation.shape.CircleShape,
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
             ) {
                 Text("向导", maxLines = 1, softWrap = false)
@@ -1866,7 +1822,7 @@ fun SettingsScreen(
                             val selected = uiState.themeMode == mode
                             Surface(
                                 onClick = { viewModel.setThemeMode(mode) },
-                                shape = RoundedCornerShape(999.dp),
+                                shape = androidx.compose.foundation.shape.CircleShape,
                                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -1917,7 +1873,7 @@ fun SettingsScreen(
                             val selected = uiState.libraryLayoutMode == mode
                             Surface(
                                 onClick = { viewModel.setLibraryLayoutMode(mode) },
-                                shape = RoundedCornerShape(999.dp),
+                                shape = androidx.compose.foundation.shape.CircleShape,
                                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -1943,12 +1899,7 @@ fun SettingsScreen(
                     onClick = { activeModal = "COMIC_PREFS" }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.AutoMirrored.Outlined.LibraryBooks,
-                    title = "电子书排版",
-                    badgeText = "${uiState.readerFontSizeSp}sp · ${uiState.readerPaperTheme.label.take(4)}",
-                    onClick = { activeModal = "EBOOK_PREFS" }
-                )
+
             }
 
             // Group 2: 本地书库
@@ -1982,7 +1933,7 @@ fun SettingsScreen(
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.Storage,
                     title = "清理图片缓存",
-                    badgeText = "${uiState.coverCacheMb + uiState.pageDecodeCacheMb} MB",
+                    badgeText = "清理可再生成缓存",
                     onClick = { viewModel.clearRegenerableCache() }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
@@ -2023,7 +1974,7 @@ fun SettingsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     repositories.forEach { repo ->
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
+                            shape = MaterialTheme.shapes.medium,
                             color = MaterialTheme.colorScheme.surfaceContainerHigh
                         ) {
                             Column(
@@ -2055,7 +2006,7 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         if (newRepoName.isNotBlank()) {
-                            viewModel.addRepositoryAndScan(newRepoName.trim(), "按文件夹识别")
+                            viewModel.addRepositoryAndScan(newRepoName.trim(), "每个文件作为作品")
                             newRepoName = ""
                         } else {
                             viewModel.rescanRepositories()
@@ -2088,7 +2039,7 @@ fun SettingsScreen(
                             val selected = uiState.readerLayoutMode == mode
                             Surface(
                                 onClick = { viewModel.setReaderLayoutMode(mode) },
-                                shape = RoundedCornerShape(10.dp),
+                                shape = MaterialTheme.shapes.small,
                                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -2111,11 +2062,11 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        listOf("适合宽度", "适合高度", "原始比例").forEach { fit ->
+                        listOf("适合屏幕", "原始比例").forEach { fit ->
                             val selected = uiState.fitModeLabel == fit
                             Surface(
                                 onClick = { viewModel.setFitModeLabel(fit) },
-                                shape = RoundedCornerShape(10.dp),
+                                shape = MaterialTheme.shapes.small,
                                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
                                 modifier = Modifier.weight(1f)
                             ) {
@@ -2133,17 +2084,6 @@ fun SettingsScreen(
                         }
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("自动裁切白边", style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = uiState.autoCropMargins,
-                            onCheckedChange = { viewModel.setAutoCropMargins(it) }
-                        )
-                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2166,91 +2106,6 @@ fun SettingsScreen(
         )
     }
 
-    // Dedicated E-Book Default Settings Modal
-    if (activeModal == "EBOOK_PREFS") {
-        AlertDialog(
-            onDismissRequest = { activeModal = null },
-            title = { Text("电子书默认排版设置", fontWeight = FontWeight.Bold, maxLines = 1) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("默认纸张背景", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        ReaderPaperTheme.entries.forEach { paper ->
-                            val selected = uiState.readerPaperTheme == paper
-                            Surface(
-                                onClick = { viewModel.setReaderPaperTheme(paper) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    text = paper.label.take(4),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Text("默认字体", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        listOf("衬线" to "Lora", "无衬线" to "Roboto Flex", "等宽" to "Roboto Mono").forEach { (label, key) ->
-                            val selected = uiState.readerFontFamily == key
-                            Surface(
-                                onClick = { viewModel.setReaderFontFamily(key) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("默认字号 (${uiState.readerFontSizeSp}sp)", style = MaterialTheme.typography.bodyMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { viewModel.setReaderFontSize(uiState.readerFontSizeSp - 1) }) {
-                                Text("A-", maxLines = 1, softWrap = false)
-                            }
-                            OutlinedButton(onClick = { viewModel.setReaderFontSize(uiState.readerFontSizeSp + 1) }) {
-                                Text("A+", maxLines = 1, softWrap = false)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = { activeModal = null }) {
-                    Text("完成", maxLines = 1, softWrap = false)
-                }
-            }
-        )
-    }
 
     // Diagnostics / Backup / About Modals
     if (activeModal == "BACKUP" || activeModal == "DIAGNOSTICS" || activeModal == "ABOUT") {
@@ -2259,7 +2114,7 @@ fun SettingsScreen(
             title = {
                 Text(
                     text = when (activeModal) {
-                        "BACKUP" -> "备份完成"
+                        "BACKUP" -> "备份状态"
                         "DIAGNOSTICS" -> "运行状态"
                         else -> "Aster Reader"
                     },
@@ -2277,9 +2132,9 @@ fun SettingsScreen(
                     }
                     Text(
                         text = when (activeModal) {
-                            "BACKUP" -> "已生成本地备份：aster_backup_2026.zip"
-                            "DIAGNOSTICS" -> "EPUB / CBZ / PDF 渲染引擎运行正常"
-                            else -> "Aster Reader v2.4.0\n本地电子书与漫画阅读器"
+                            "BACKUP" -> "当前版本尚未提供可恢复的加密备份，请保留原始文件。"
+                            "DIAGNOSTICS" -> "文件可用性以实际打开结果为准；受保护内容默认隐藏。"
+                            else -> "Aster Reader v2.4.0\n本地漫画阅读器"
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

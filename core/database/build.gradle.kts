@@ -5,12 +5,14 @@ plugins {
 
 android {
     namespace = "com.asterreader.core.database"
-    compileSdk { version = release(36) { minorApiLevel = 1 } }
+    compileSdk { version = release(37) }
 
     defaultConfig {
-        minSdk = 24
+        minSdk = 31
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    sourceSets.getByName("test").resources.srcDir("schemas")
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -30,4 +32,8 @@ dependencies {
     testImplementation(libs.androidx.core)
     testImplementation(libs.robolectric)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }

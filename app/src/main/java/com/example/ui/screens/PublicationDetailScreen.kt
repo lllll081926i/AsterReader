@@ -57,12 +57,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
+import com.asterreader.core.designsystem.AsterModalBottomSheet as ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -86,7 +85,6 @@ import com.example.data.local.ChapterEntity
 import com.example.ui.AsterUiState
 import com.example.ui.AsterViewModel
 import com.example.ui.ReaderLayoutMode
-import com.example.ui.ReaderPaperTheme
 import com.example.ui.components.AsterBookCover
 import com.example.ui.theme.AnnotationBlue
 import com.example.ui.theme.AnnotationGreen
@@ -94,7 +92,7 @@ import com.example.ui.theme.AnnotationPink
 import com.example.ui.theme.AnnotationYellow
 import com.example.ui.theme.LocalAsterColors
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PublicationDetailScreen(
     book: BookEntity,
@@ -279,12 +277,12 @@ fun PublicationDetailScreen(
 
                     // Synopsis Card
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.medium,
                         color = asterColors.surfaceContainerLow,
                         border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .animateContentSize()
+                            .animateContentSize(animationSpec = com.asterreader.core.designsystem.AsterMotion.effectsSpec(com.asterreader.core.designsystem.LocalAsterReduceMotion.current))
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
                             Row(
@@ -342,7 +340,7 @@ fun PublicationDetailScreen(
 
                     // Table of Contents Preview Card
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.medium,
                         color = asterColors.surfaceContainerLow,
                         border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
                         modifier = Modifier.fillMaxWidth()
@@ -425,7 +423,7 @@ fun PublicationDetailScreen(
 
                     // Bookmarks & Annotations Summary Card
                     Surface(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.medium,
                         color = asterColors.surfaceContainerLow,
                         border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
                         modifier = Modifier.fillMaxWidth()
@@ -471,11 +469,11 @@ fun PublicationDetailScreen(
                             } else {
                                 annotations.take(2).forEach { item ->
                                     Surface(
-                                        shape = RoundedCornerShape(12.dp),
+                                        shape = MaterialTheme.shapes.medium,
                                         color = asterColors.surfaceContainer,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
+                                            .clip(MaterialTheme.shapes.medium)
                                             .clickable { onStartReading(item.pageNumber) }
                                     ) {
                                         Column(
@@ -539,7 +537,7 @@ fun PublicationDetailScreen(
             contentAlignment = Alignment.Center
         ) {
             Surface(
-                shape = RoundedCornerShape(26.dp),
+                shape = MaterialTheme.shapes.extraLarge,
                 color = asterColors.surfaceContainerHigh.copy(alpha = 0.96f),
                 tonalElevation = 8.dp,
                 shadowElevation = 12.dp,
@@ -775,11 +773,11 @@ fun PublicationDetailScreen(
                             else -> AnnotationGreen
                         }
                         Surface(
-                            shape = RoundedCornerShape(14.dp),
+                            shape = MaterialTheme.shapes.medium,
                             color = asterColors.surfaceContainerLow,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
+                                .clip(MaterialTheme.shapes.medium)
                                 .clickable {
                                     showAnnotationsSheet = false
                                     onStartReading(item.pageNumber)
@@ -841,7 +839,6 @@ fun PublicationDetailScreen(
 
     // Quick Reader Preferences Sheet from Island [设置] (Separated by Comic vs E-Book)
     if (showQuickReaderSettingsSheet) {
-        val isComicBook = book.format.equals("CBZ", ignoreCase = true)
         ModalBottomSheet(
             onDismissRequest = { showQuickReaderSettingsSheet = false },
             containerColor = asterColors.surfaceBright
@@ -854,13 +851,13 @@ fun PublicationDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
-                    text = if (isComicBook) "漫画阅读设置" else "电子书排版设置",
+                    text = "漫画阅读设置",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     maxLines = 1,
                     softWrap = false
                 )
 
-                if (isComicBook) {
+
                     Text("翻页方向", style = MaterialTheme.typography.labelLarge, color = colorScheme.primary)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -869,11 +866,11 @@ fun PublicationDetailScreen(
                         ReaderLayoutMode.entries.forEach { mode ->
                             val selected = uiState.readerLayoutMode == mode
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = MaterialTheme.shapes.medium,
                                 color = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainer,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(MaterialTheme.shapes.medium)
                                     .clickable { viewModel.setReaderLayoutMode(mode) }
                             ) {
                                 Text(
@@ -894,14 +891,14 @@ fun PublicationDetailScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("适合宽度", "适合高度", "原始比例").forEach { fit ->
+                        listOf("适合屏幕", "原始比例").forEach { fit ->
                             val selected = uiState.fitModeLabel == fit
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
+                                shape = MaterialTheme.shapes.medium,
                                 color = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainer,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .clip(MaterialTheme.shapes.medium)
                                     .clickable { viewModel.setFitModeLabel(fit) }
                             ) {
                                 Text(
@@ -916,63 +913,7 @@ fun PublicationDetailScreen(
                             }
                         }
                     }
-                } else {
-                    Text("纸张背景", style = MaterialTheme.typography.labelLarge, color = colorScheme.primary)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ReaderPaperTheme.entries.forEach { paper ->
-                            val selected = uiState.readerPaperTheme == paper
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainer,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { viewModel.setReaderPaperTheme(paper) }
-                            ) {
-                                Text(
-                                    text = paper.label.take(4),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (selected) colorScheme.onSecondaryContainer else colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(vertical = 10.dp),
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            }
-                        }
-                    }
 
-                    Text("字体与字号 (${uiState.readerFontSizeSp}sp)", style = MaterialTheme.typography.labelLarge, color = colorScheme.primary)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("衬线" to "Lora", "无衬线" to "Roboto Flex", "等宽" to "Roboto Mono").forEach { (label, key) ->
-                            val selected = uiState.readerFontFamily == key
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainer,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { viewModel.setReaderFontFamily(key) }
-                            ) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (selected) colorScheme.onSecondaryContainer else colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(vertical = 10.dp),
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            }
-                        }
-                    }
-                }
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
@@ -1063,7 +1004,7 @@ fun PublicationDetailScreen(
                     Text("目录：${book.repositoryName}", style = MaterialTheme.typography.bodyMedium)
                     Text("路径：${book.filePath}", style = MaterialTheme.typography.bodySmall, color = colorScheme.onSurfaceVariant)
                     Text(
-                        text = if (book.isVaultEncrypted) "状态：已加密" else "状态：未加密",
+                        text = if (book.isVaultEncrypted) "状态：旧加密标记（未经验证）" else "状态：未加密",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.primary
                     )
@@ -1079,40 +1020,11 @@ fun PublicationDetailScreen(
 
     // Encrypt or Decrypt Dialog
     if (showVaultEncryptWizard) {
-        val targetEncrypt = !book.isVaultProtected
         AlertDialog(
             onDismissRequest = { showVaultEncryptWizard = false },
-            title = {
-                Text(
-                    text = if (targetEncrypt) "设为加密书籍" else "取消加密保护",
-                    maxLines = 1
-                )
-            },
-            text = {
-                Text(
-                    text = if (targetEncrypt) {
-                        "设为加密后，未解锁时在书库与书架中将显示为已加密状态。"
-                    } else {
-                        "取消加密后，本书将直接显示封面与标题。"
-                    },
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.toggleBookVaultProtection(book.id, targetEncrypt)
-                        showVaultEncryptWizard = false
-                    }
-                ) {
-                    Text(if (targetEncrypt) "确认加密" else "确认取消", maxLines = 1, softWrap = false)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showVaultEncryptWizard = false }) {
-                    Text("取消", maxLines = 1, softWrap = false)
-                }
-            }
+            title = { Text("加密迁移尚不可用") },
+            text = { Text("此版本没有完成可验证的保险库与恢复流程，因此不能加密、解密或更改文件保护标记。原始文件保持不变。") },
+            confirmButton = { TextButton(onClick = { showVaultEncryptWizard = false }) { Text("知道了") } }
         )
     }
 }
@@ -1128,7 +1040,7 @@ private fun DetailCoverCard(
     Box(
         modifier = modifier
             .aspectRatio(2f / 3f)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(asterColors.surfaceContainerHigh)
     ) {
         AsterBookCover(
@@ -1147,7 +1059,7 @@ private fun DetailCoverCard(
                     .padding(8.dp)
             ) {
                 Text(
-                    text = "已加密",
+                    text = "受保护",
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                     color = colorScheme.primary,
                     maxLines = 1,
@@ -1175,7 +1087,7 @@ private fun DetailMetadataColumn(
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (book.isVaultEncrypted) {
                 Text(
-                    text = "已加密",
+                    text = "受保护",
                     style = MaterialTheme.typography.labelSmall,
                     color = colorScheme.primary,
                     maxLines = 1,
@@ -1263,12 +1175,12 @@ private fun ChapterPreviewChip(
     val colorScheme = MaterialTheme.colorScheme
 
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         color = if (chapter.isCurrent) asterColors.primaryFixed.copy(alpha = 0.35f) else asterColors.surfaceContainer,
         border = if (chapter.isCurrent) BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.35f)) else null,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable { onClick() }
     ) {
         Row(

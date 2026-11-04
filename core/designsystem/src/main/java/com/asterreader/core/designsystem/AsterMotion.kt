@@ -3,6 +3,7 @@ package com.asterreader.core.designsystem
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -16,6 +17,9 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.snap
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -35,7 +39,11 @@ import androidx.compose.ui.input.pointer.pointerInput
  * Aster Reader Material 3 Expressive Motion Tokens
  * As specified in design.md Section 5 and docs/21_MOTION_ANIMATION_SPEC.md.
  */
+val LocalAsterReduceMotion = staticCompositionLocalOf { false }
+
 object AsterMotion {
+    fun <T> effectsSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
+        if (reduceMotion) snap() else tween(durationMillis = 150, easing = FastOutSlowInEasing)
 
     // Spatial Specs (Positional, Bounds, Resizing)
     val fastSpatialSpec = spring<Float>(
@@ -66,7 +74,7 @@ object AsterMotion {
         forward: Boolean = true
     ): ContentTransform {
         if (reduceMotion) {
-            return fadeIn(animationSpec = tween(150)) togetherWith fadeOut(animationSpec = tween(150))
+            return androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
         }
 
         val slideOffset = if (forward) 1 else -1
@@ -85,7 +93,7 @@ object AsterMotion {
      */
     fun sheetTransition(reduceMotion: Boolean = false): ContentTransform {
         if (reduceMotion) {
-            return fadeIn(animationSpec = tween(120)) togetherWith fadeOut(animationSpec = tween(100))
+            return androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
         }
         return (slideInVertically(
             animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessMediumLow),
@@ -107,32 +115,19 @@ fun Modifier.asterBounceClick(
     targetScale: Float = 0.975f,
     onClick: (() -> Unit)? = null
 ): Modifier = composed {
-    if (!enabled) return@composed this
-
-    var isPressed by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val reduceMotion = LocalAsterReduceMotion.current
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) targetScale else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
+        targetValue = if (isPressed && !reduceMotion) targetScale else 1f,
+        animationSpec = if (reduceMotion) snap() else AsterMotion.fastSpatialSpec,
         label = "aster_bounce_scale"
     )
-
-    this
-        .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
-        }
-        .pointerInput(enabled) {
-            awaitEachGesture {
-                awaitFirstDown(requireUnconsumed = false)
-                isPressed = true
-                val up = waitForUpOrCancellation()
-                isPressed = false
-                if (up != null && onClick != null) {
-                    onClick()
-                }
-            }
-        }
+    this.graphicsLayer { scaleX = scale; scaleY = scale }
+        .clickable(
+            interactionSource = interactionSource,
+            indication = androidx.compose.foundation.LocalIndication.current,
+            enabled = enabled && onClick != null,
+            onClick = { onClick?.invoke() }
+        )
 }
