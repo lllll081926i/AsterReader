@@ -46,7 +46,7 @@
 
 - Coil 保留候选。
 - libarchive-android 保留候选。
-- pdfium/Readium 统一评估，避免重复 PDF 引擎。
+- PdfRenderer 统一评估，避免重复 PDF 引擎。
 - dav4jvm 可作为 WebDAV 实现候选。
 - MMKV 不必引入，DataStore + Room 已能覆盖需求。
 - Moshi 可避免，若全项目以 kotlinx.serialization 统一更一致。
@@ -59,7 +59,7 @@
 
 ## 07 本地仓库文档
 
-截图显示支持：图片目录、ZIP/CBZ、7Z/CB7、RAR/CBR、TAR/CBT、EPUB、MOBI、AZW3、PDF。这正是统一漫画引擎应覆盖的格式边界。
+截图显示支持：图片目录、ZIP/CBZ、7Z/CB7、RAR/CBR、TAR/CBT、PDF。这正是漫画格式规划参考，实际支持以格式矩阵为准。
 
 我们的改进：不要依赖固定文件夹命名规则，扫描前提供 Profile 和预览。
 
@@ -78,6 +78,5 @@
 我们保留壳层，并让 tool island 根据 engine capabilities 动态变化：
 
 - 漫画：页面模式 / 目录 / 书签 / 显示设置。
-- 文字：排版 / 目录 / 书签 / 搜索 / TTS。
 
 Reader Shell 应统一，避免每个格式各写一套手势和 overlay。

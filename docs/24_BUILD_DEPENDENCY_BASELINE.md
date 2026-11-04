@@ -70,7 +70,7 @@ https://developer.android.com/jetpack/androidx/releases/navigation3
 
 ## Material3 Adaptive
 
-截至 2026-08-12 stable：`1.3.0`。  
+截至 2026-08-12 stable：`1.3.0`。
 1.4 系列仍为 alpha。
 
 https://developer.android.com/jetpack/androidx/releases/compose-material3-adaptive
@@ -107,13 +107,11 @@ https://developer.android.com/jetpack/androidx/releases/biometric
 
 ## 已确认的核心第三方基线
 
-- Readium Kotlin Toolkit：`3.4.0`（2026-09-11；官方表中 compileSdk 37，最低 SDK 24，因此兼容本项目 minSdk 31）。
 - Dagger/Hilt：Dagger `2.60.1` 为当前最新 release；工程初始化时锁定对应 Hilt 依赖并跑 KSP/AGP 兼容构建。
 - Coil：`3.6.3`（2026-09-18，包含针对 AGP 9.4/R8 的构建修复）。
 
 来源：
 
-- https://github.com/readium/kotlin-toolkit
 - https://dagger.dev/
 - https://coil-kt.github.io/coil/changelog/
 
@@ -138,4 +136,4 @@ Material3 `1.5.0-alpha29`：因为项目明确追求最新 M3 Expressive `Motion
 
 ### 不写死的库
 
-Hilt、Coil、Readium、dav4jvm、libarchive 等在真正初始化工程时根据各自官方 release 再锁版本，并记录 commit/tag/license。
+Hilt、Coil、dav4jvm、libarchive 等在真正初始化工程时根据各自官方 release 再锁版本，并记录 commit/tag/license。

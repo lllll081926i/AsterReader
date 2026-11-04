@@ -339,8 +339,8 @@ setRecentsScreenshotEnabled(false)
 
 ## 18. Navigation 3
 
-顶级：Library / Shelves。  
-详情、Settings、Vault 为二级 destination。  
+顶级：Library / Shelves。
+详情、Settings、Vault 为二级 destination。
 Reader 可作为全屏 destination，但保持单 Activity。
 
 不要第一版用多个 Activity 分功能，否则 predictive back、共享元素、状态管理都更复杂。
@@ -360,7 +360,7 @@ Reader 可作为全屏 destination，但保持单 Activity。
 - Add local repository SAF
 - Room 写入 Source
 
-此时还不需要 EPUB。
+此阶段只实现已明确的漫画范围。
 
 ---
 

@@ -3,7 +3,7 @@
 ## 产品
 
 - [x] Local-first 定位确定。
-- [x] 统一漫画/电子书资料库确定。
+- [x] 漫画专用资料库确定。
 - [x] v1.0 scope 与 P1 延后项确定。
 - [x] App Lock / Encrypt & Lock 语义确定。
 
@@ -68,4 +68,3 @@
 10. `LIB-001 Library fake-data vertical slice`
 
 **完成这 10 项后，再进入真实 Scanner 和 Vault。**
-

@@ -1,6 +1,6 @@
 # 27 Final Architecture Decisions — 架构冻结清单
 
-> 状态：**FINAL / 开发前冻结** · 2026-09-29  
+> 状态：**FINAL / 开发前冻结** · 2026-09-29
 > 目的：把后续最容易反复争论、最容易造成返工的决策提前固定。普通 Feature PR 不得修改这些决策；确需修改时必须新建 ADR、写迁移影响和回滚方案。
 
 ## ADR-001 平台基线
@@ -44,7 +44,7 @@ DataSource / SourceProvider / PublicationEngine / Vault
 
 规则：
 
-- UI 不直接访问 Room、ContentResolver、WebDAV、libarchive 或 Readium。
+- UI 不直接访问 Room、ContentResolver、WebDAV、libarchive 或 PdfRenderer。
 - Feature 不直接引用具体 Reader engine 实现。
 - Repository 是数据层公开入口。
 - State 使用 UDF；持久状态必须有 Single Source of Truth。
@@ -63,7 +63,7 @@ DataSource / SourceProvider / PublicationEngine / Vault
 
 ## ADR-005 统一 Publication 模型
 
-“漫画”和“电子书”不是两个互相隔离的产品子系统，统一抽象为 `Publication`：
+漫画使用统一 `Publication` 模型：
 
 ```text
 Publication
@@ -77,9 +77,7 @@ Publication
 
 实际打开时由 `PublicationEngineRegistry` 选择：
 
-- Reflow/Text：EPUB/TXT/MD/HTML/FB2/MOBI。
 - Fixed/Image：image folder/CBZ/CBR/CB7/CBT/PDF comic。
-- Document：PDF document。
 
 ## ADR-006 Reader Shell 与 Reader Engine 分离
 
@@ -159,7 +157,7 @@ Vault V1：
 - Android 12+ 正常路径始终 `dynamicLightColorScheme()` / `dynamicDarkColorScheme()`。
 - 不提供强品牌 seed 默认覆盖壁纸色。
 - fallback palette 只用于异常兜底和测试。
-- Reader 内容主题独立，不把 Monet 强行灌进纸张色/漫画背景。
+- Reader 内容主题独立，不把 Monet 强行灌进漫画背景。
 
 官方参考：
 - https://developer.android.com/develop/ui/compose/designsystems/material3
@@ -233,7 +231,6 @@ Foundation
 → Library/SAF/Data
 → Security/Vault
 → Comic Reader
-→ Text/EPUB
 → PDF
 → Backup/Recovery/Performance
 → Remote/WebDAV
@@ -249,7 +246,6 @@ v1.0 必须做到“本地强大且可靠”，不追求无限功能：
 P0：
 - 本地 Library/Repository
 - 漫画主流压缩格式
-- EPUB/TXT/MD/HTML/FB2/MOBI
 - PDF
 - 阅读进度/书签/高亮/笔记（格式支持时）
 - App Lock + Encrypt & Lock
@@ -263,3 +259,10 @@ P1（可以 1.0 后）：
 - 跨设备同步
 - 插件系统
 
+## ADR-021 漫画专用与开发数据库（2026-11-04）
+
+用户明确要求产品只做漫画，并取消开发数据迁移。代码、UI、设置、契约、任务表仅保留漫画范围。当前只开放 CBZ 与 PDF 漫画；其他容器不得显示为已支持。
+
+开发库改用 `aster_comics.db`，从 schema v1 新建，不注册旧开发库迁移，不读取或搬运旧开发数据。不调用 destructive migration，不删除用户源文件。正式发布后的数据兼容规则仍须单独设计。
+
+回滚以 Git 提交为边界。旧开发库保留在原位置，回滚代码可重新使用旧库；当前库和旧库互不覆盖。

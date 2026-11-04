@@ -69,4 +69,3 @@ Monet 负责 UI 色；状态不能只用颜色表达：
 - UI 根据 locale RTL。
 - Reader reading direction 根据 Publication/user setting。
 - 不把两者直接绑定。
-

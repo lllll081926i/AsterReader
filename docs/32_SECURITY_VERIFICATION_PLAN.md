@@ -96,4 +96,3 @@ read source
 ```
 
 如果 SAF provider 不保证 atomic rename，则以数据库 transaction + immutable final object + recovery journal 保证可恢复，而不是假设 POSIX 原子语义。
-

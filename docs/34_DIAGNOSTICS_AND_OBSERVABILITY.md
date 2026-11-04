@@ -15,7 +15,6 @@
 - READER
 - ARCHIVE
 - PDF
-- EPUB
 - VAULT
 - AUTH
 - BACKUP
@@ -79,4 +78,3 @@ UI 根据类型给出可操作建议。
 - Vault random read overhead。
 
 不需要上线 telemetry 才能做好性能。
-

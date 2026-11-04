@@ -30,7 +30,7 @@
 支持以下范围：
 
 - 整个 App
-- 单个 Publication（一本漫画/电子书/PDF）
+- 单个 Publication（一本漫画或 PDF 漫画）
 - 单个文件
 - 文件夹 / Repository path
 - Shelf（书架）

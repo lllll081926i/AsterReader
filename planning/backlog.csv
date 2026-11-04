@@ -1,4 +1,4 @@
-﻿priority,area,task,phase,size
+priority,area,task,phase,size
 P0,ARCH,建立多模块工程与 Version Catalog,Phase 0,M
 P0,UI,实现 M3E Theme + Dynamic Color + Adaptive Navigation,Phase 0,M
 P0,CORE,定义 SourceProvider / PublicationEngine / ReaderSession,Phase 0,M
@@ -11,11 +11,6 @@ P0,COMIC,图片目录引擎,Phase 3,M
 P0,COMIC,CBZ/ZIP 引擎,Phase 3,M
 P0,COMIC,RAR/7Z/TAR libarchive adapter,Phase 3,L
 P0,READER,漫画 Reader Shell + 预取/缓存,Phase 3,XL
-P0,TEXT,TXT/Markdown Engine,Phase 4,L
-P0,EPUB,Readium EPUB adapter,Phase 4,XL
-P0,FB2,FB2 Engine,Phase 4,L
-P0,MOBI,MOBI/KF8 Engine,Phase 4,XL
-P0,TEXT,全文搜索/高亮/笔记/TTS,Phase 4,XL
 P0,PDF,PDF document/comic mode,Phase 5,XL
 P0,META,详情页 + 元数据编辑 + 自定义封面,Phase 5,L
 P0,BACKUP,data-only/full backup restore,Phase 6,L

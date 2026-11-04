@@ -47,7 +47,7 @@
 - local SAF repository
 - scanner
 
-不要同时做 EPUB parser。
+优先完善漫画主链的资源管理与错误处理。
 
 ---
 
@@ -69,7 +69,7 @@
 
 ## 第 4 阶段：先把漫画做完整
 
-原因：图片目录 + CBZ 比 EPUB 分页/排版简单，可最快得到真正可用 App。
+原因：漫画主链范围明确，可先交付可靠的 CBZ 阅读。
 
 完成：
 
@@ -84,20 +84,6 @@
 
 ---
 
-## 第 5 阶段：电子书
-
-顺序：
-
-1. TXT/MD
-2. EPUB
-3. FB2
-4. MOBI/KF8
-5. PDF
-
-每加格式只实现 `PublicationEngine`，不要修改 Library UI 业务逻辑。
-
----
-
 ## 第 6 阶段：性能
 
 不要等“全部功能做完”才测试。
@@ -108,7 +94,6 @@
 - 10000 metadata records
 - 50MP image
 - 2GB comic archive
-- long EPUB
 - large PDF
 
 跑 Macrobenchmark。

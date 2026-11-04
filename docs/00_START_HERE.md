@@ -7,7 +7,6 @@
 做一个 **Android 原生、Local-first、以本地资料库为核心的强大阅读器**：
 
 - 漫画：图片目录、CBZ/ZIP、CBR/RAR、CB7/7Z、CBT/TAR、PDF Comic。
-- 电子书：EPUB、TXT、Markdown、HTML、FB2、MOBI/KF8、PDF Document。
 - Library：仓库、书架、标签、收藏、历史、搜索、筛选、元数据。
 - Reader：统一 Shell + 不同 Engine。
 - Privacy：App Lock、局部保护、真加密 Vault、受保护 metadata 隐藏。
@@ -47,7 +46,7 @@ UI
 
 ### 4. 不在 Reader 完成后才补安全
 
-Security/Vault 在 Comic/Text Reader 之前进入架构，以 `SecureDocumentSource` 方式成为普通 IO 路径的一部分。
+Security/Vault 在 Comic Reader 之前进入架构，以 `SecureDocumentSource` 方式成为普通 IO 路径的一部分。
 
 ---
 
@@ -104,7 +103,6 @@ Phase 0  工程 / Design System / Monet / Navigation / Adaptive
 Phase 1  Room / SAF / Scanner / Library
 Phase 2  App Lock / Keystore / Vault
 Phase 3  Comic Reader
-Phase 4  Text / EPUB / FB2 / MOBI
 Phase 5  PDF
 Phase 6  Backup / Recovery / Performance / Accessibility
 Phase 7  WebDAV（若 1.0 本地质量不足则延期）
@@ -115,7 +113,6 @@ Phase 8  1.0 Hardening / Release Candidate
 
 # 开发第一天不要做什么
 
-- 不要先写 EPUB parser。
 - 不要先接 WebDAV。
 - 不要一次创建 40 个空模块。
 - 不要先做“全功能设置页”。

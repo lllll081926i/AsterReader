@@ -1,11 +1,8 @@
-> **2026-11-04 UI/UX 补充版 v4**：全页面规格与导航/动效/安全/验收已新增至 [`docs/36_COMPLETE_UI_UX_SPEC.md`](docs/36_COMPLETE_UI_UX_SPEC.md)。设计系统令牌见 [`design.md`](design.md)，逐屏任务见 [`planning/UI_SCREEN_TASK_MATRIX.csv`](planning/UI_SCREEN_TASK_MATRIX.csv)。此补充不改变 v3 的平台/安全架构冻结决策。
+# Aster Reader — 漫画阅读器
 
-# Aster Reader Engineering Dossier — FINAL v3.0
+> 2026-11-04：产品仅做漫画阅读。当前实际支持 CBZ 与 PDF 漫画。应用仍在开发。
 
-> 2026-09-29 · 正式开发前冻结版  
-> **Android 原生 · Local-first · Material 3 Expressive · Monet · 统一电子书/漫画 · App Lock · 真加密 Vault · 手机/平板/折叠屏**
-
-这不是一份“概念 PRD”，而是一套直接用于创建 Android Studio 工程、拆 Issue、让人类开发者或 Coding Agent 按阶段实现的工程档案。
+本轮审查、修复、性能措施与验收限制见 `docs/38_AUDIT_FIXES_AND_PERFORMANCE.md`。开发库从 `aster_comics.db` schema v1 新建，不迁移旧开发数据。Vault、加密备份及恢复密钥尚未实现，入口拒绝执行并保留原文件。
 
 ## 1. 已冻结的核心决策
 
@@ -15,7 +12,7 @@
 - Material 3 Expressive 只通过 Design System 单点封装，避免 alpha API 污染业务层。
 - Navigation 3 + Material3 Adaptive。
 - 本地文件通过 SAF，不依赖真实路径、不把“所有文件访问”当常规前提。
-- 统一 `Publication` 模型，漫画/电子书共享 Library、Detail、Progress、Security。
+- 统一 `Publication` 模型，漫画共用 Library、Detail、Progress、Security。
 - `ReaderShell` 与实际 Reader Engine 分离。
 - App Lock + 单本/文件夹/书架/仓库保护。
 - **Access Lock ≠ Encrypt & Lock**：后者必须把持久文件变成 Vault 密文。
@@ -129,8 +126,6 @@ Library + SAF + Room
 App Lock + Keystore + Vault
   ↓
 Comic Reader
-  ↓
-Text / EPUB / FB2 / MOBI
   ↓
 PDF
   ↓

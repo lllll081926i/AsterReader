@@ -1,155 +1,36 @@
-# 06 阅读引擎设计
+# 06 漫画阅读引擎
 
-## 总体策略：两类渲染内核，一个统一 Session
+## 范围与分层
 
-### A. Reflow/Text Engine
+产品只处理漫画。Reader Shell 负责工具栏、页码、手势、返回和安全遮盖；Repository 负责 SAF、压缩包、PDF 和资源生命周期。Composable 通过 ViewModel 请求页面，不访问文件或数据库。
 
-适合 EPUB、FB2、MOBI/KF8、TXT、MD、HTML。
+当前实现 CBZ 与 PDF 漫画。PDF 采用 Android PdfRenderer，只提供图像页阅读。其他漫画容器见格式矩阵，不提前承诺支持。
 
-能力：
+## 文件与解码
 
-- 章节/目录
-- 分页与连续滚动
-- CSS/字体/段落排版
-- 文本选择
-- 全文搜索
-- 高亮/笔记
-- TTS
+- SAF URI 是持久来源，不假定真实路径。
+- 普通文件复制到会话临时文件，单文件上限 512 MiB。复制按 64 KiB 分块，可取消。
+- CBZ 使用 ZipFile 随机访问，不全量解压。最多索引 10000 个条目，页名按自然数字顺序排序。
+- 单张压缩图像最多 32 MiB；先读取尺寸，再采样到不超过约 200 万像素。
+- PDF 只渲染当前需要的页面，目标不超过 1200 × 1600 像素。
+- 同一会话复用文件、ZipFile/PdfRenderer 和条目索引。Mutex 串行化初始化与解码。
+- Bitmap LRU 上限为 24 MiB、进程堆预算的十分之一、设备 memoryClass 的十分之一三者最小值；最低 2 MiB。内存不足时清缓存并降低采样后重试一次。
+- 不主动预解码额外页面，不运行后台轮询或常驻扫描。LRU 淘汰不回收仍由 UI 引用的 Bitmap。
 
-### B. Fixed/Image Engine
+## 页码与交互
 
-适合图片目录、CBZ/CBR/CB7/CBT、扫描 PDF、固定版式 EPUB。
+单页、横向 LTR/RTL、条漫、双页使用相同的真实页码。封面可独立成页。双页必须覆盖奇偶末页；切换模式保留目标页。滑块只在松手时提交跳页。缩放支持双指、双击和平移。
 
-能力：
+页加载失败提供重试。取消请求不显示为失败。受保护文件不得交给普通文档渲染会话。
 
-- 逐页图像
-- 横翻/竖翻/条漫
-- RTL
-- 双页
-- Zoom/Pan
-- 裁边与 fit policy
-- 预取
+## 生命周期与进度
 
-## EPUB
+阅读进度按一秒合并写入。离开阅读、进入后台、锁定和 ViewModel 清理时提交最后进度并关闭会话。关闭时释放 PDF、压缩包、临时文件、索引和缓存。内存压力通知清理缓存。
 
-建议使用 Readium Kotlin Toolkit 作为兼容性底座。原因：EPUB 2/3、固定版式、RTL、搜索、TTS、偏好等已有成熟实现，且许可证宽松。
+Locator 仅保留作品、资源、页码、进度和时间信息。书签按作品与页码保存。扫描只更新来源信息，不覆盖用户收藏和阅读状态。
 
-注意：Readium 的 Compose-based web navigator 仍可能处于演进状态，因此业务层必须通过 `engine:readium` 适配，不让 feature 依赖其具体 Navigator 类型。
+## 安全边界与后续项
 
-## FB2 / MOBI / TXT / Markdown
+普通漫画临时文件仅用于随机读取。Vault 必须经过独立安全来源，不得复用普通明文临时文件链路。目前真实 Vault 未实现，受保护文件拒绝打开。
 
-可走自有文本 pipeline，参考 FrogReader 的能力边界：
-
-`bytes -> encoding -> parser -> semantic blocks -> style tree -> layout -> page cache`
-
-MOBI/KF8 推荐两条路线：
-
-1. 审查并复用 MIT 许可实现思路/代码，保留 NOTICE；
-2. 独立实现 PalmDoc/PDB/MOBI/KF8 解析。
-
-不建议把一个 LGPL native 库直接定为首发硬依赖，除非团队明确接受对应合规成本。
-
-## PDF
-
-PDF 必须区分两种 UX：
-
-- **Document mode**：保留 PDF 页，支持目录、文本选择能力（视引擎能力）。
-- **Comic mode**：按图像页优化，强调预读、双页、RTL、裁边。
-
-底层尽量共用 PDFium/Readium adapter，避免打包两个完整 PDF engine。
-
-## 漫画压缩包
-
-### ZIP / CBZ
-
-- 首选随机访问 ZipFile。
-- 读取中央目录并自然排序 entry。
-- 不全量解压。
-
-### RAR / CBR、7Z / CB7、TAR / CBT
-
-- 通过 libarchive adapter。
-- 建立 entry index。
-- 对不适合随机访问的格式采用“窗口缓存”：当前位置前 2 页、后 6–12 页。
-- 对 solid archive 明确提示首次跳页可能较慢。
-
-## 图片目录
-
-支持 JPG/JPEG/PNG/WEBP/BMP/HEIC/GIF。动画 GIF 首发按静态首帧显示；后续可选原动图。
-
-排序规则默认 natural sort：`1, 2, 10` 而不是 `1, 10, 2`；支持用户覆盖。
-
-## Locator 设计
-
-统一 Locator 不能只存“页码”。建议：
-
-```text
-Locator
-- publicationId
-- resourceId/chapterId
-- progression: 0..1
-- position: optional integer
-- textAnchor: optional (cfi/css selector/text quote)
-- imagePageId: optional stable entry id
-- timestamp
-```
-
-这样 EPUB 重排后仍可尽量恢复，漫画重命名后也能通过 stable entry id 匹配。
-
-## 分页缓存
-
-文字分页缓存 key 至少包含：
-
-`publication hash + chapter + viewport + font + size + line height + margins + theme-affecting-layout flags`
-
-主题颜色变化不应让分页缓存失效；字号变化必须失效。
-
-## Reader 预取
-
-漫画：
-
-- 当前页高优先级。
-- 后 2 页立即预解码缩略/适配尺寸。
-- 后 6–12 页做 I/O 预取。
-- 反向 2 页保留。
-- 内存压力时先丢全分辨率 bitmap，再丢缩略。
-
-文字：预解析下一章，分页只对邻近页做 warmup。
-
-## 大图策略
-
-禁止默认按原始分辨率整图解码。根据 viewport 计算目标采样尺寸；放大时再触发 tile/region decode。PDF 采用 page tile/cache，而不是一次 render 超大 bitmap。
-
-## 阅读进度可靠性
-
-写入时机：
-
-- 翻页/滚动 debounce 1–2 秒
-- Activity `onStop`
-- Session close
-- 切换章节
-- 进入后台
-
-数据库写入使用单独 coroutine dispatcher；UI 不等待落盘。
-
-## v2.0 SecureDocumentSource
-
-Reader Engine 不知道“这是明文文件还是 Vault 文件”。统一接收 `PublicationInput/DocumentSource` 抽象。
-
-受保护内容链路：
-
-```text
-ReaderSession
- -> Engine
- -> SecureDocumentSource
- -> DecryptingSeekableSource
- -> encrypted ASV1 chunks
-```
-
-硬规则：
-
-- Engine 不拿 raw key。
-- Engine 不要求永久明文 path。
-- PDF/Archive adapter 优先支持 seekable/random read。
-- 若第三方 engine 强制 real plaintext file，必须先做 security architecture review；默认不允许用于 Vault 内容。
-- Reader close 时关闭 SecureDocumentSource，并释放明文 page/text caches。
+区域解码、触点中心缩放、条漫精确 offset 恢复和设备性能基准仍需后续实施与验收。不得将当前采样解码称为完整分块解码。

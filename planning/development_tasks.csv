@@ -1,4 +1,4 @@
-﻿id,phase,sprint,priority,area,task,depends_on,deliverable,acceptance
+id,phase,sprint,priority,area,task,depends_on,deliverable,acceptance
 BOOT-001,Phase 0,S0,P0,BUILD,Create Android project minSdk31 targetSdk37,,Clean project,API31/API37 launch
 BOOT-002,Phase 0,S0,P0,BUILD,Version Catalog + AGP/Kotlin/Gradle/JDK lock,BOOT-001,libs.versions.toml,clean build
 CI-001,Phase 0,S0,P0,CI,CI assemble/test/lint,BOOT-002,CI workflow,green on clean clone
@@ -33,12 +33,6 @@ READER-001,Phase 3,S12,P0,READER,Reader Shell/chrome/control island,COMIC-001,re
 COMIC-002,Phase 3,S13,P0,COMIC,Paging/vertical/webtoon/RTL/dual-page,READER-001,comic modes,mode persistence pass
 COMIC-003,Phase 3,S14,P0,COMIC,RAR/7Z/TAR adapters,COMIC-001,archive support,fixture suite pass
 PERF-001,Phase 3,S14,P0,PERF,Prefetch/decode sampling/memory budget,READER-001,reader performance,500-page soak no OOM
-TEXT-001,Phase 4,S15,P0,TEXT,TXT/Markdown/HTML engine,READER-001,reflow engine,locator restore pass
-EPUB-001,Phase 4,S16-S17,P0,EPUB,Readium EPUB adapter,TEXT-001,EPUB reader,TOC/search/progress pass
-NOTE-001,Phase 4,S18,P0,ANNOTATION,Highlight/note/bookmark model,EPUB-001,annotations,roundtrip + migration pass
-TTS-001,Phase 4,S18,P0,TTS,TTS session lifecycle,EPUB-001;SEC-001,TTS,locked content never speaks
-FB2-001,Phase 4,S19,P0,FB2,FB2 adapter,TEXT-001,FB2 reader,fixture suite pass
-MOBI-001,Phase 4,S19,P0,MOBI,MOBI/KF8 adapter spike and implementation,TEXT-001,MOBI reader,quality gate or mark experimental
 PDF-001,Phase 5,S20,P0,PDF,PDF document mode,READER-001,PDF document reader,large PDF usable
 PDF-002,Phase 5,S21,P0,PDF,PDF comic mode + tile strategy,PDF-001,PDF comic reader,zoom/memory pass
 BACKUP-001,Phase 6,S22,P0,BACKUP,Metadata backup + restore dry-run,DATA-001,backup format,roundtrip pass

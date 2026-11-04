@@ -34,7 +34,7 @@ Root UI 必须先做 `SecurityBootstrap -> AuthGate`，不能先绘制书库再�
 - 书架
 - Repository
 
-主安全动作叫 **“加密并上锁”**：迁移至 Vault，磁盘保存密文。  
+主安全动作叫 **“加密并上锁”**：迁移至 Vault，磁盘保存密文。
 另有高级 **“访问锁”**：只在 App 内要求认证，不宣称文件加密。
 
 ## 4. 文件加密
@@ -66,13 +66,6 @@ Root UI 必须先做 `SecurityBootstrap -> AuthGate`，不能先绘制书库再�
 - 不默认请求 all-files access。
 - 只 persist 用户明确授权的 URI。
 - 删除原文件必须 source 具有 DELETE 能力 + 用户明确确认。
-
-## 8. Web/EPUB 安全
-
-- 默认禁止任意 JS。
-- 默认禁止 publication 内资源自动访问互联网。
-- URL scheme 白名单。
-- 外链交给系统浏览器/明确用户动作。
 
 ## 9. 压缩包安全
 

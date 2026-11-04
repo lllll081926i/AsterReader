@@ -49,7 +49,7 @@
 - title
 - orderIndex
 - mediaType
-- duration/pageCount optional
+- pageCount optional
 
 ### ReadingProgressEntity
 
@@ -73,7 +73,6 @@
 - id
 - publicationId
 - locatorJson
-- selectedText
 - note
 - colorRole
 - createdAt/updatedAt
@@ -92,12 +91,11 @@
 
 ## FTS
 
-两个索引：
+元数据索引规划：
 
-1. `PublicationFts`：title, authors, series, description, tags。
-2. `ContentFts`：publicationId, resourceId, normalizedText, anchorMap。
+`PublicationFts`：title, authors, series, description, tags。漫画不建立正文索引。
 
-全文索引是可重建派生数据，不进入关键备份也可以；备份时只保留用户数据。
+元数据索引是可重建派生数据，不进入关键备份也可以；备份时只保留用户数据。
 
 ## 删除语义
 
@@ -162,4 +160,4 @@
 
 ### Protected metadata
 
-对 `isProtected=true` 的 publication，普通 `PublicationEntity` 只保留非敏感 shell；真实 title/author/cover/private notes 使用 encrypted payload。保护内容不得进入普通 `PublicationFts` / `ContentFts`。
+对 `isProtected=true` 的 publication，普通 `PublicationEntity` 只保留非敏感 shell；真实 title/author/cover/private notes 使用 encrypted payload。保护内容不得进入普通 `PublicationFts`。

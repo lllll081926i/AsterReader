@@ -1,16 +1,13 @@
 flowchart LR
   UI[Feature UI] --> VM[ViewModel / Use Cases]
-  VM --> DB[(Room / DataStore)]
-  VM --> SA[Source API]
-  VM --> EA[Engine API]
+  VM --> RP[Repository]
+  RP --> DB[(Room / Preferences)]
+  RP --> SA[Source API]
+  RP --> EA[Engine API]
   SA --> LS[Local SAF Source]
   SA --> WD[WebDAV Source]
-  EA --> RE[Readium Engine]
-  EA --> TE[Text/FB2/MOBI Engine]
   EA --> CE[Comic Archive Engine]
   EA --> PE[PDF Engine]
-  RE --> RS[Unified ReaderSession]
-  TE --> RS
-  CE --> RS
+  CE --> RS[Unified ReaderSession]
   PE --> RS
   RS --> UI

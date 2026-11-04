@@ -15,10 +15,6 @@ aster-reader/
 │  ├─ source-api/
 │  └─ reader-session/
 ├─ engine/
-│  ├─ readium/
-│  ├─ text/
-│  ├─ fb2/
-│  ├─ mobi/
 │  ├─ comic/
 │  └─ pdf/
 ├─ source/

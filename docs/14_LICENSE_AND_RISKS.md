@@ -18,7 +18,6 @@
 
 ## 第三方库候选
 
-- Readium Kotlin Toolkit：BSD-3-Clause
 - Coil：Apache-2.0
 - libarchive-android：Apache-2.0
 - AndroidX / Compose：Apache-2.0 体系
@@ -30,7 +29,7 @@
 
 ### 1. 格式长尾
 
-电子书“能打开”很容易，“各种野生文件都不炸”最难。解决：fixture corpus + Engine 隔离 + 失败降级。
+漫画容器兼容性必须用真实损坏样本验证。解决：fixture corpus + Engine 隔离 + 失败降级。
 
 ### 2. 超大漫画/PDF 内存
 

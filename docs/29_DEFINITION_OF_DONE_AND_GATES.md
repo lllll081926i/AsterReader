@@ -49,7 +49,7 @@
 
 ## 4. Database Change Gate
 
-每次 schema change：
+开发阶段按 ADR-021 使用独立新库，不迁移旧开发数据。以下门禁适用于正式发布后的 schema change：
 
 - [ ] version +1。
 - [ ] migration 明确。
@@ -81,10 +81,10 @@
 
 ## 7. Beta Gate
 
-- 电子书与 PDF 主链完成。
+- 漫画与 PDF 漫画主链完成。
 - 备份/恢复完成。
 - API 31/33/35/37 测试矩阵完成。
-- 迁移测试完整。
+- 正式版存在升级路径时，迁移测试完整。
 - Baseline Profile 有基准验证。
 - TalkBack/字体放大/横屏/平板/折叠屏完成一轮系统审计。
 
@@ -95,7 +95,7 @@
 - P2 有明确 release note / workaround 才可放行。
 - 7 天以上日常自用 soak test。
 - 10k library 压力测试。
-- 典型超大漫画/超大 PDF/复杂 EPUB 测试。
+- 典型超大漫画/超大 PDF 测试。
 - 密钥丢失/损坏/恢复路径演练。
 - Release build + R8 + baseline profile 真机性能通过。
 
@@ -119,4 +119,3 @@
 [ ] API 37 target behavior smoke test green
 [ ] Release artifact hash recorded
 ```
-

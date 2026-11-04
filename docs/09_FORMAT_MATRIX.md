@@ -1,35 +1,19 @@
-# 09 格式支持矩阵
+# 09 漫画格式支持矩阵
 
-| 格式 | MVP | 解析/渲染 | 目录 | 全文搜索 | 元数据编辑 | 远程流式策略 |
-|---|---:|---|---:|---:|---:|---|
-| EPUB 2/3 | ✓ | Readium | ✓ | ✓ | P1 | Range/缓存 |
-| EPUB FXL | ✓ | Readium/Fixed | ✓ | 部分 | P1 | Range/缓存 |
-| FB2 | ✓ | 自有/可参考 MIT | ✓ | ✓ | ✓ | 下载/缓存 |
-| MOBI/KF8 | ✓ | 自有/可参考 MIT | ✓ | ✓ | ✓ | 下载/缓存 |
-| AZW3 | P1 | KF8 路线 | ✓ | ✓ | P1 | 下载/缓存 |
-| TXT | ✓ | Text Engine | 自动章节 | ✓ | n/a | 流/缓存 |
-| Markdown | ✓ | CommonMark | H1-H6 | ✓ | n/a | 流/缓存 |
-| HTML/HTM | ✓ | sanitized HTML | 视文档 | ✓ | n/a | 流/缓存 |
-| PDF | ✓ | PDFium/Readium | ✓ | 引擎允许时 | 否 | Range 优先 |
-| Image Folder | ✓ | Comic Engine | 文件/目录 | 否 | n/a | provider dependent |
-| ZIP/CBZ | ✓ | ZipFile | ✓ | 否 | n/a | 可做 Range |
-| RAR/CBR | ✓ | libarchive | ✓ | 否 | n/a | 通常缓存 |
-| 7Z/CB7 | ✓ | libarchive | ✓ | 否 | n/a | 通常完整缓存 |
-| TAR/CBT | ✓ | libarchive | ✓ | 否 | n/a | 顺序缓存 |
+状态以当前运行代码为准，不把规划当成已实现功能。
 
-## 图片编码
+| 格式 | 当前状态 | 解析与阅读 |
+|---|---|---|
+| CBZ | 已实现 | ZipFile 索引、自然排序、采样解码 |
+| PDF 漫画 | 已实现 | Android PdfRenderer 按页渲染，不提供文档编辑或文字处理 |
+| ZIP | 未开放 | 后续可复用 CBZ，需完善类型检测 |
+| 图片目录 | 未实现 | 需建立目录作品与页码索引 |
+| RAR / CBR | 未实现 | 需独立容器适配与授权审查 |
+| 7Z / CB7 | 未实现 | 需处理 solid archive 随机读取 |
+| TAR / CBT | 未实现 | 需独立容器适配 |
 
-首发：JPEG/JPG、PNG、WEBP、BMP、HEIC（系统支持时）、GIF 静态首帧。
+CBZ 当前接受 JPG/JPEG、PNG、WEBP、BMP 和 GIF 静态首帧。其他图片编码不提前承诺。动画逐帧播放未实现。
 
-P1：AVIF；动图逐帧播放仅作为可选能力。
+文件扩展名只做初步筛选。实际由 ZipFile 或 PdfRenderer 验证容器，损坏或不匹配的文件不得入库。加密或带密码的容器暂不支持。单文件上限 512 MiB，压缩包最多 10000 条目，单图像解压大小最多 32 MiB。
 
-## MIME/扩展名策略
-
-扩展名只能做快速筛选，最终 `probe()` 必须验证 magic bytes / container signature，避免用户把错误文件改后缀导致崩溃。
-
-## 失败降级
-
-- 不规范 EPUB：先正常解析，失败后启用兼容模式。
-- PDF 某页解码失败：显示单页错误占位，不让整本退出。
-- 压缩包某 entry 损坏：跳过并记录问题列表。
-- 编码不明 TXT：BOM -> UTF-8 -> UTF-16 -> 用户选择编码；不要静默乱码。
+解析失败保留源文件并说明错误。单页损坏显示页错误和重试入口，禁止静默替换为样图。

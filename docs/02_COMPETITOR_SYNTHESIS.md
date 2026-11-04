@@ -12,7 +12,6 @@
 
 ## Book's Story 给我们的启发
 
-公开信息显示它是 Kotlin + Jetpack Compose 的 Material You 本地电子书阅读器，支持 PDF/TXT/EPUB/FB2/HTML/MD，并使用 Storage Access Framework。它最大的价值不是某个独家功能，而是证明了“原生 Compose + 本地文件 + 干净 UI”在阅读器上是成立的。
 
 我们的使用方式：
 
@@ -24,7 +23,6 @@
 
 FrogReader 的价值更偏“工程内核”：
 
-- 自定义 EPUB/FB2/MOBI/TXT/Markdown 解析管线。
 - 分页/连续模式。
 - 全文搜索、目录、选择、引用、笔记。
 - 元数据编辑采用安全的 copy-on-write。
@@ -61,7 +59,7 @@ FrogReader 的价值更偏“工程内核”：
 
 ### 阅读器 Overlay
 
-顶部标题栏、侧面锁定按钮、底部进度条+控制岛的方式非常适合漫画。文字书也可复用壳层，但工具项换成排版/TTS/目录/书签。
+顶部标题栏、侧面锁定按钮、底部进度条+控制岛的方式非常适合漫画。工具项围绕页码、缩放与书签。
 
 ## 最终融合后的产品结构
 
@@ -71,12 +69,7 @@ FrogReader 的价值更偏“工程内核”：
 ├─ WebDAV 仓库 WebDavSource
 ├─ 书架 / 标签 / 收藏 / 历史
 └─ Publication
-   ├─ Text/Reflow Engine
-   │  ├─ EPUB
-   │  ├─ FB2
-   │  ├─ MOBI/KF8
-   │  ├─ TXT/MD/HTML
-   │  └─ PDF(Text mode, optional)
+
    └─ Fixed/Image Engine
       ├─ Image Folder
       ├─ CBZ/ZIP
@@ -88,4 +81,4 @@ FrogReader 的价值更偏“工程内核”：
 
 ## 我们要比三者再多做的一层
 
-真正拉开差距的是“**统一 Locator 和 Source/Engine 接口**”：无论内容来自本地文件夹还是 WebDAV，无论用文字引擎还是漫画引擎，书签、进度、详情页、历史记录都只认统一的 `PublicationId + Locator`，这样以后新增格式不会重写整个 App。
+真正拉开差距的是“**统一 Locator 和 Source/Engine 接口**”：无论内容来自本地文件夹还是 WebDAV，无论使用哪种漫画容器，书签、进度、详情页、历史记录都只认统一的 `PublicationId + Locator`，这样以后新增格式不会重写整个 App。

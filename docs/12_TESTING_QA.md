@@ -6,8 +6,6 @@
 
 - natural sort
 - fingerprint
-- TXT encoding
-- EPUB/FB2/MOBI parser fixtures
 - archive entry sanitizer
 - locator serialization
 - progress merge
@@ -43,12 +41,7 @@
 
 建立合法可分发 fixture corpus：
 
-- EPUB2/3 正常与不规范样本
-- RTL EPUB
 - 大字体/复杂 CSS
-- FB2 含诗歌/图片
-- MOBI PalmDoc/KF8
-- UTF-8/UTF-16/GBK 测试 TXT（若支持 GBK 需专门声明）
 - CBZ 多层目录
 - RAR/7z 大包
 - PDF 不同页尺寸、超长页、损坏页

@@ -1,6 +1,6 @@
 # Aster Reader — Design System / `design.md`
 
-> 版本：Final v3.0 · 2026-09-29  
+> 版本：Final v3.0 · 2026-09-29
 > 本文件是 **整个应用唯一的视觉、动效、交互设计真源（single source of truth）**。任何新页面、组件、动画、主题、平板适配都先改本文件，再写代码。
 
 ## 0. 设计总纲
@@ -17,7 +17,7 @@ Aster Reader 的视觉方向不是“做得像某个现有阅读器”，而是�
 ### 0.1 绝对规则
 
 1. **Android 12+ 全局默认使用 Monet / Dynamic Color。** 不另外发明一套强品牌主色去覆盖系统壁纸颜色。
-2. UI 主题与“书页主题”分离：用户壁纸变色，不应把 EPUB 的纸张色、漫画背景随意改掉。
+2. UI 主题与“书页主题”分离：用户壁纸变色，不应随意改变漫画阅读背景。
 3. 所有页面默认 edge-to-edge；所有交互必须避让 system bars / display cutout / gesture insets。
 4. 所有主要动效统一从 Material Theme 的 motion token 读取，禁止每个页面自己随手写 `tween(300)`。
 5. 任何安全锁定内容，在认证前不得先显示真实封面、标题、缩略图，再盖一层模糊。
@@ -122,7 +122,7 @@ M3 Expressive 组件支持动态 shape 时，优先使用组件官方 shape API�
 
 ## 4. Typography
 
-UI 使用系统字体与 Material 3 Typography；阅读正文完全独立。
+UI 使用系统字体与 Material 3 Typography；漫画页面保持原图。
 
 ### 4.1 UI 层级
 
@@ -133,21 +133,9 @@ UI 使用系统字体与 Material 3 Typography；阅读正文完全独立。
 - Secondary Metadata：`bodySmall`
 - Chips：`labelLarge`
 
-### 4.2 阅读正文
+### 4.2 漫画阅读画布
 
-由 Reader Typography Profile 控制：
-
-- 字体族
-- 字号
-- 行高
-- 字间距
-- 段距
-- 首行缩进
-- 页边距
-- 对齐
-- CJK 标点/断行策略
-
-不复用 UI Typography token。
+漫画使用原始页面图像。页码和工具栏使用 UI Typography。漫画背景使用阅读专用色，不随壁纸随意变化，不提供正文排版设置。
 
 ---
 
@@ -334,8 +322,7 @@ Reader 是一个“内容画布 + transient chrome”。
 - 底部：进度 + Control Island。
 - 漫画与文字书共享 Shell，但功能按钮随 capabilities 改变。
 
-漫画常用：显示模式 / 目录 / 书签 / 设置 / 跳页。  
-文本常用：排版 / 目录 / 书签 / 搜索 / TTS。
+漫画常用：显示模式 / 目录 / 书签 / 设置 / 跳页。
 
 ### 8.6 Vault / 受保护内容
 

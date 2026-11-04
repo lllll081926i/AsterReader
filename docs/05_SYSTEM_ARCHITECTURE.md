@@ -21,10 +21,6 @@
 :core:source-api
 :core:reader-session
 
-:engine:readium
-:engine:text
-:engine:fb2
-:engine:mobi
 :engine:comic
 :engine:pdf
 
@@ -139,7 +135,7 @@ WorkManager：
 
 ## 架构决策：为什么不是“一个超大 ReaderActivity”
 
-阅读器的复杂度最终来自格式和来源组合。若 EPUB、PDF、CBZ、WebDAV 的逻辑都写进 Activity/ViewModel，后期任何修复都会触碰所有格式。使用 Source/Engine 双抽象后，组合是 `Source × Engine`，但代码仍是线性扩展。
+阅读器的复杂度最终来自格式和来源组合。若 PDF、CBZ、WebDAV 的逻辑都写进 Activity/ViewModel，后期任何修复都会触碰所有格式。使用 Source/Engine 双抽象后，组合是 `Source × Engine`，但代码仍是线性扩展。
 
 ## v2.0 Security / Vault 模块
 
@@ -185,4 +181,4 @@ Vault       -> SecureDocumentSource -> DecryptingSeekableSource
 Remote      -> RemoteDocumentSource
 ```
 
-因此 EPUB/PDF/Comic engine 不需要知道密钥来自 Keystore 还是恢复密码。
+因此 PDF/Comic engine 不需要知道密钥来自 Keystore 还是恢复密码。

@@ -5,18 +5,16 @@
 ## Book's Story
 
 - GitHub: https://github.com/Acclorite/book-story
-- 公开说明：Material You、Jetpack Compose、SAF、PDF/TXT/EPUB/FB2/HTML/MD；GPL-3.0。
 
 ## FrogReader
 
 - GitHub: https://github.com/KNITIPKA/frog-reader
-- 公开说明：Kotlin + Compose + Material 3；EPUB/FB2/MOBI/TXT/MD；分页/连续、全文搜索、元数据编辑、备份、DataStore/WorkManager；MIT。
 
 ## MH-ARK
 
 - 官网：https://www.dlmenghu.cn/
 - Google Play: https://play.google.com/store/apps/details?id=com.mhdh.mh_ark
-- 公开说明：本地仓库、ZIP/CBZ/7Z/CB7/RAR/CBR/TAR/CBT、EPUB/MOBI/AZW3/PDF、WebDAV 流式、自定义书架、MD3E 适配。
+- 公开说明：本地仓库、ZIP/CBZ/7Z/CB7/RAR/CBR/TAR/CBT、PDF、WebDAV 流式、自定义书架、MD3E 适配。
 
 ## Android / Material
 
@@ -30,8 +28,6 @@
 
 ## 阅读与底层库
 
-- Readium Kotlin Toolkit: https://github.com/readium/kotlin-toolkit
-- Readium docs: https://readium.org/kotlin-toolkit/latest/
 - libarchive-android: https://github.com/zhanghai/libarchive-android
 - Coil: https://github.com/coil-kt/coil
 - dav4jvm: https://github.com/bitfireAT/dav4jvm

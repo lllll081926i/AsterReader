@@ -9,7 +9,6 @@ Phase 0  Project Foundation
 Phase 1  Library / SAF / Data
 Phase 2  Security Foundation / Vault
 Phase 3  Comic Reader
-Phase 4  Text / EPUB / FB2 / MOBI
 Phase 5  PDF
 Phase 6  Backup / Recovery / Performance / Accessibility
 Phase 7  WebDAV（允许延后到 1.1）
@@ -32,7 +31,6 @@ Phase 8  1.0 Hardening / RC
 - M1 Library Alpha
 - M2 Secure Alpha
 - M3 Comic Alpha
-- M4 Ebook Alpha
 - M5 Feature Complete Beta
 - M6 1.0 RC
 - M7 1.0

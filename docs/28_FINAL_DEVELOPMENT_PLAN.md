@@ -252,67 +252,16 @@ Exit Gate：
 
 ---
 
-## Phase 4 — Text / EPUB（S15–S19）
-
-### Sprint 15：TXT / Markdown / HTML
-
-先做可控格式，验证统一 Reader API：
-
-- encoding detection。
-- chapter split rules。
-- reflow settings。
-- locator/progress。
-
-### Sprint 16–17：EPUB / Readium adapter
-
-- open/close lifecycle。
-- TOC。
-- paginated / scroll。
-- locator restore。
-- theme/typography bridge。
-- search。
-- image viewer。
-- link navigation。
-
-Readium 3.4.0 当前要求 compile SDK 37，并提供 EPUB/PDF 相关 navigator 能力；具体依赖在工程初始化时锁定。
-
-### Sprint 18：Highlights / Notes / TTS
-
-- selection → locator。
-- highlight decoration。
-- notes。
-- bookmark unified model。
-- TTS session lifecycle。
-- protected publication 不在锁定时暴露 TTS 内容。
-
-### Sprint 19：FB2 / MOBI/KF8
-
-- adapter spike 先做格式风险验证。
-- 无法达到稳定质量的格式不得用“支持”字样蒙混发布，应标 Experimental。
-
-Exit Gate：核心电子书阅读可长期使用，旋转/进程重建能恢复位置。
-
----
-
 ## Phase 5 — PDF（S20–S21）
 
-### Sprint 20：PDF Document
+### Sprint 20–21：PDF 漫画
 
-- PDF engine adapter。
-- page/scroll。
-- outline/search（引擎支持时）。
-- bookmarks/progress。
-- password-protected PDF error UX。
+- PdfRenderer 按需渲染。
+- 页码、书签、单页、条漫、双页与阅读方向。
+- 密码或损坏容器显示明确错误，保留原件。
+- 后续完善区域解码和大文档缓存。
 
-### Sprint 21：PDF Comic Mode
-
-- fit-width/fit-page。
-- dual page。
-- reading direction。
-- tile/region rendering。
-- large document cache。
-
-Exit Gate：同一 PDF 可以按文档/漫画意图选择模式，而不是两套数据库记录。
+Exit Gate：PDF 与 CBZ 使用同一漫画阅读外壳，不创建独立文档模式。
 
 ---
 
@@ -342,7 +291,7 @@ Baseline Profile CUJ：
 2. search。
 3. open Detail。
 4. open CBZ Reader。
-5. open EPUB Reader。
+5. 打开 PDF 漫画 Reader。
 6. unlock protected publication。
 
 同时做：
@@ -428,10 +377,6 @@ App Lock + 单文件 Vault 完成。
 
 可真正拿来读漫画。
 
-## M4 — Ebook Alpha
-
-EPUB/TXT 等主链可用。
-
 ## M5 — Feature Complete Beta
 
 PDF/Backup/Recovery/Adaptive/Performance 到位。
@@ -469,4 +414,3 @@ PDF/Backup/Recovery/Adaptive/Performance 到位。
 - 真机走一次主路径。
 - 更新 backlog/status。
 - 记录技术债，不在最后一天偷偷扩大 Scope。
-

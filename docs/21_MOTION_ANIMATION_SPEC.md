@@ -118,12 +118,6 @@ Reader 是沉浸模式，因此不强制封面飞入正文。
 
 滚动本身就是 motion，不额外加 item enter animation。
 
-### EPUB
-
-分页切换默认轻 slide/fade；用户可关闭。
-
----
-
 ## 6. Predictive Back 规则
 
 - 所有能返回上一级的页面都要允许系统 back gesture 驱动动画。
