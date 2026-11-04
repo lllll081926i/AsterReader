@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from D:\Code\AsterReader\core\security-api\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17445278531593209699.xml:2:13-83
+INJECTED from D:\Code\AsterReader\core\security-api\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17445278531593209699.xml:2:13-83
+	package
+		INJECTED from D:\Code\AsterReader\core\security-api\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17445278531593209699.xml
+	xmlns:android
+		ADDED from D:\Code\AsterReader\core\security-api\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17445278531593209699.xml:2:23-81
+uses-sdk
+INJECTED from D:\Code\AsterReader\core\security-api\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17445278531593209699.xml reason: use-sdk injection requested
+INJECTED from D:\Code\AsterReader\core\security-api\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17445278531593209699.xml
+INJECTED from D:\Code\AsterReader\core\security-api\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17445278531593209699.xml
+	android:targetSdkVersion
+		INJECTED from D:\Code\AsterReader\core\security-api\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17445278531593209699.xml
+	android:minSdkVersion
+		INJECTED from D:\Code\AsterReader\core\security-api\build\intermediates\tmp\ProcessLibraryManifest\debug\tempAndroidManifest17445278531593209699.xml

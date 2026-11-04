@@ -82,9 +82,9 @@ data class AsterUiState(
     val subScreenStack: List<SubScreen> = emptyList(),
     val tabletInspectedBookId: String = "frieren_11",
 
-    // Theme & Appearance
+    // Theme & Appearance (Monet Dynamic Color is global default as per design.md & ADR-001)
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val useDynamicColor: Boolean = false,
+    val useDynamicColor: Boolean = true,
     val reduceMotion: Boolean = false,
     val isGridView: Boolean = true,
     val libraryLayoutMode: LibraryLayoutMode = LibraryLayoutMode.GRID_2,

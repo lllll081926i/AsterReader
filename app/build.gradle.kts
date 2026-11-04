@@ -83,6 +83,12 @@ googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.W
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
+  implementation(project(":core:model"))
+  implementation(project(":core:engine-api"))
+  implementation(project(":core:security-api"))
+  implementation(project(":core:database"))
+  implementation(project(":core:designsystem"))
+
   implementation(platform(libs.androidx.compose.bom))
   // implementation(platform(libs.firebase.bom))
   // implementation(libs.accompanist.permissions)
@@ -139,6 +145,6 @@ dependencies {
   androidTestImplementation(libs.androidx.runner)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
-  "ksp"(libs.androidx.room.compiler)
+  // "ksp"(libs.androidx.room.compiler)
   // "ksp"(libs.moshi.kotlin.codegen)
 }

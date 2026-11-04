@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.asterreader.core.designsystem.AsterMotion
 import com.example.ui.AsterUiState
 import com.example.ui.AsterViewModel
 import com.example.ui.SubScreen
@@ -153,7 +154,12 @@ fun AsterReaderAppRoot(
         Box(modifier = Modifier.fillMaxSize()) {
             AnimatedContent(
                 targetState = activeSub to uiState.currentTab,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                transitionSpec = {
+                    AsterMotion.pageTransition(
+                        reduceMotion = uiState.reduceMotion,
+                        forward = targetState.first != null
+                    )
+                },
                 label = "aster_root_navigation"
             ) { (subScreen, currentTab) ->
                 if (subScreen != null) {

@@ -1,0 +1,2 @@
+int font lora 0x0
+int font roboto_mono 0x0

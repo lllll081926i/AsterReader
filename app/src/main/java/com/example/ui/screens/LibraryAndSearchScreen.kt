@@ -169,10 +169,10 @@ fun LibraryHomeScreen(
     }.collectAsState(initial = emptyList())
 
     val gridColumns = when (uiState.libraryLayoutMode) {
-        LibraryLayoutMode.GRID_2 -> GridCells.Fixed(if (isExpandedTablet) 3 else 2)
-        LibraryLayoutMode.GRID_3 -> GridCells.Fixed(if (isExpandedTablet) 4 else 3)
+        LibraryLayoutMode.GRID_2 -> if (isExpandedTablet) GridCells.Adaptive(minSize = 170.dp) else GridCells.Fixed(2)
+        LibraryLayoutMode.GRID_3 -> if (isExpandedTablet) GridCells.Adaptive(minSize = 135.dp) else GridCells.Fixed(3)
         LibraryLayoutMode.LIST -> GridCells.Fixed(1)
-        LibraryLayoutMode.GALLERY -> GridCells.Fixed(if (isExpandedTablet) 2 else 1)
+        LibraryLayoutMode.GALLERY -> if (isExpandedTablet) GridCells.Adaptive(minSize = 260.dp) else GridCells.Fixed(1)
     }
 
     Row(
@@ -682,7 +682,7 @@ fun LibraryHomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "导入本地书籍",
+                    text = "导入书籍",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = colorScheme.onSurface,
                     maxLines = 1
@@ -707,13 +707,13 @@ fun LibraryHomeScreen(
                         Icon(Icons.Outlined.Description, contentDescription = null, tint = colorScheme.primary)
                         Column {
                             Text(
-                                text = "选择本地文件",
+                                text = "导入单本",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = colorScheme.onSecondaryContainer,
                                 maxLines = 1
                             )
                             Text(
-                                text = "EPUB / CBZ / CBR / PDF / MOBI / TXT",
+                                text = "EPUB / CBZ / CBR / PDF / MOBI",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colorScheme.onSurfaceVariant,
                                 maxLines = 1
@@ -742,13 +742,13 @@ fun LibraryHomeScreen(
                         Icon(Icons.Outlined.CreateNewFolder, contentDescription = null, tint = colorScheme.primary)
                         Column {
                             Text(
-                                text = "挂载本地目录",
+                                text = "添加目录",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = colorScheme.onSurface,
                                 maxLines = 1
                             )
                             Text(
-                                text = "自动扫描目录并建立索引",
+                                text = "扫描书库文件夹",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colorScheme.onSurfaceVariant,
                                 maxLines = 1
@@ -765,7 +765,7 @@ fun LibraryHomeScreen(
                     shape = CircleShape,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("示例导入《星际漫游指南.epub》", maxLines = 1, softWrap = false)
+                    Text("导入示例书籍", maxLines = 1, softWrap = false)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
             }

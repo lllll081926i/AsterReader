@@ -99,9 +99,26 @@ fun AsterReaderTheme(
         else -> AsterLightColorScheme
     }
 
-    val extendedColors = if (darkTheme) {
+    val isMonetActive = dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    val extendedColors = if (isMonetActive) {
         AsterExtendedColors(
-            surfaceContainerLowest = if (dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) colorScheme.surface else AsterSurfaceContainerLowestDark,
+            surfaceContainerLowest = colorScheme.surfaceContainerLowest,
+            surfaceContainerLow = colorScheme.surfaceContainerLow,
+            surfaceContainer = colorScheme.surfaceContainer,
+            surfaceContainerHigh = colorScheme.surfaceContainerHigh,
+            surfaceContainerHighest = colorScheme.surfaceContainerHighest,
+            surfaceDim = colorScheme.surfaceDim,
+            surfaceBright = colorScheme.surfaceBright,
+            primaryFixed = colorScheme.primaryContainer,
+            primaryFixedDim = colorScheme.primary,
+            onPrimaryFixed = colorScheme.onPrimaryContainer,
+            vaultSecureTint = colorScheme.primary,
+            isDark = darkTheme
+        )
+    } else if (darkTheme) {
+        AsterExtendedColors(
+            surfaceContainerLowest = AsterSurfaceContainerLowestDark,
             surfaceContainerLow = AsterSurfaceContainerLowDark,
             surfaceContainer = AsterSurfaceContainerDark,
             surfaceContainerHigh = AsterSurfaceContainerHighDark,

@@ -163,13 +163,13 @@ fun SystemSecurityAuthPromptSheet(
                 )
                 Column {
                     Text(
-                        text = "Android 系统安全识别",
+                        text = "安全认证",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = colorScheme.onSurface,
                         maxLines = 1
                     )
                     Text(
-                        text = "验证生物识别或设备凭据以解锁加密书籍",
+                        text = "验证设备凭据以解锁书籍",
                         style = MaterialTheme.typography.labelSmall,
                         color = colorScheme.onSurfaceVariant,
                         maxLines = 1
@@ -776,7 +776,7 @@ fun OnboardingScreen(
                             )
                             Column {
                                 Text(
-                                    text = "选择本地文件",
+                                    text = "导入单本",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                     color = colorScheme.onSecondaryContainer,
                                     maxLines = 1
@@ -815,13 +815,13 @@ fun OnboardingScreen(
                             )
                             Column {
                                 Text(
-                                    text = "挂载本地目录",
+                                    text = "添加目录",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                     color = colorScheme.onSurface,
                                     maxLines = 1
                                 )
                                 Text(
-                                    text = "自动扫描目录并建立索引",
+                                    text = "扫描书库文件夹",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = colorScheme.onSurfaceVariant,
                                     maxLines = 1

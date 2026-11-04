@@ -25,3 +25,8 @@ dependencyResolutionManagement {
 rootProject.name = "Aster Reader"
 
 include(":app")
+include(":core:model")
+include(":core:engine-api")
+include(":core:security-api")
+include(":core:database")
+include(":core:designsystem")

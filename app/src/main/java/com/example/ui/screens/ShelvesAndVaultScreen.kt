@@ -137,9 +137,9 @@ fun ShelvesScreen(
     var isReorderMode by remember { mutableStateOf(false) }
 
     val shelvesGridColumns = when (uiState.shelvesViewMode) {
-        ShelvesViewMode.COLLAGE_GRID -> if (isExpandedTablet) 4 else 2
-        ShelvesViewMode.COMPACT_GRID -> if (isExpandedTablet) 6 else 3
-        ShelvesViewMode.HORIZONTAL_LIST, ShelvesViewMode.BOOKSHELF_ROW -> if (isExpandedTablet) 2 else 1
+        ShelvesViewMode.COLLAGE_GRID -> if (isExpandedTablet) GridCells.Adaptive(minSize = 175.dp) else GridCells.Fixed(2)
+        ShelvesViewMode.COMPACT_GRID -> if (isExpandedTablet) GridCells.Adaptive(minSize = 120.dp) else GridCells.Fixed(3)
+        ShelvesViewMode.HORIZONTAL_LIST, ShelvesViewMode.BOOKSHELF_ROW -> if (isExpandedTablet) GridCells.Adaptive(minSize = 340.dp) else GridCells.Fixed(1)
     }
 
     Column(
@@ -227,7 +227,7 @@ fun ShelvesScreen(
         }
 
         LazyVerticalGrid(
-            columns = GridCells.Fixed(shelvesGridColumns),
+            columns = shelvesGridColumns,
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 130.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -1640,7 +1640,7 @@ fun PrivacySecuritySettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.LockClock,
-                    title = "自动锁定时间",
+                    title = "自动锁定",
                     badgeText = uiState.autoLockPolicyLabel,
                     onClick = { showTimeoutDialog = true }
                 )
@@ -1662,14 +1662,14 @@ fun PrivacySecuritySettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.RemoveRedEye,
-                    title = "加密书籍隐藏封面",
+                    title = "隐藏加密封面",
                     badgeText = "已开启",
                     onClick = {}
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.SearchOff,
-                    title = "搜索结果隐藏加密项",
+                    title = "隐藏加密搜索",
                     badgeText = "已开启",
                     onClick = {}
                 )
@@ -1679,14 +1679,14 @@ fun PrivacySecuritySettingsScreen(
             AsterSettingsGroup(title = "密钥与会话") {
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.VerifiedUser,
-                    title = "加密完整性校验",
+                    title = "完整性校验",
                     badgeText = "校验",
                     onClick = { viewModel.runVaultIntegrityCheck() }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.Key,
-                    title = "应急恢复密钥",
+                    title = "恢复密钥",
                     onClick = { showRecoveryKeyDialog = true }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
@@ -1886,13 +1886,13 @@ fun SettingsScreen(
                 }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSwitchRow(
-                    title = "系统动态取色 (Monet)",
+                    title = "动态取色",
                     checked = uiState.useDynamicColor,
                     onCheckedChange = { viewModel.setUseDynamicColor(it) }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSwitchRow(
-                    title = "首页显示最近阅读",
+                    title = "继续阅读栏",
                     checked = uiState.showRecentReading,
                     onCheckedChange = { viewModel.setShowRecentReading(it) }
                 )
@@ -1904,7 +1904,7 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "书库默认布局",
+                        text = "书库视图",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1
@@ -1938,14 +1938,14 @@ fun SettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.Tune,
-                    title = "漫画默认阅读设置",
+                    title = "漫画排版",
                     badgeText = "${uiState.readerLayoutMode.shortBadge} · ${uiState.fitModeLabel}",
                     onClick = { activeModal = "COMIC_PREFS" }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.AutoMirrored.Outlined.LibraryBooks,
-                    title = "电子书默认排版设置",
+                    title = "电子书排版",
                     badgeText = "${uiState.readerFontSizeSp}sp · ${uiState.readerPaperTheme.label.take(4)}",
                     onClick = { activeModal = "EBOOK_PREFS" }
                 )
@@ -1955,14 +1955,14 @@ fun SettingsScreen(
             AsterSettingsGroup(title = "本地书库") {
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.Folder,
-                    title = "已授权目录",
+                    title = "书库目录",
                     badgeText = "${repositories.size} 个",
                     onClick = { activeModal = "REPOS" }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.CreateNewFolder,
-                    title = "导入本地文件",
+                    title = "导入书籍",
                     onClick = onTriggerImportFile
                 )
             }
@@ -1971,7 +1971,7 @@ fun SettingsScreen(
             AsterSettingsGroup(title = "隐私与安全") {
                 AsterSettingsRow(
                     leadingIcon = Icons.Default.Security,
-                    title = "安全与加密设置",
+                    title = "安全设置",
                     badgeText = if (uiState.isAppLockEnabled) "已保护" else "已开启",
                     onClick = { viewModel.pushSubScreen(SubScreen.PrivacySecuritySettings) }
                 )

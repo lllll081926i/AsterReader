@@ -1058,7 +1058,7 @@ fun ReaderScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("自动裁切白边", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        Text("裁切白边", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         Switch(
                             checked = cropWhiteBorders,
                             onCheckedChange = {
@@ -1073,7 +1073,7 @@ fun ReaderScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("双页跨页智能拼接 (首页单页偏移)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        Text("跨页对齐", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         Switch(
                             checked = dualPageCoverOffset,
                             onCheckedChange = {
@@ -1247,7 +1247,7 @@ fun ReaderScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("右下角悬浮状态条", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    Text("页面状态条", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                     Switch(
                         checked = showMiniStatusPill,
                         onCheckedChange = { showMiniStatusPill = it }

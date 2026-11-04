@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.asterreader.core.designsystem.asterBounceClick
 import com.example.ui.theme.LocalAsterColors
 
 enum class MainNavDestination(
@@ -144,7 +145,7 @@ fun AppleFloatingBottomDock(
                             .widthIn(min = 68.dp)
                             .clip(RoundedCornerShape(999.dp))
                             .background(pillBg)
-                            .clickable { onSelectDestination(dest) }
+                            .asterBounceClick { onSelectDestination(dest) }
                             .padding(horizontal = 18.dp, vertical = 6.dp)
                             .testTag("nav_dock_${dest.route}"),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -184,7 +185,7 @@ fun AppleFloatingBottomDock(
                         modifier = Modifier
                             .height(44.dp)
                             .clip(CircleShape)
-                            .clickable { onQuickResumeRead() }
+                            .asterBounceClick { onQuickResumeRead() }
                             .testTag("dock_quick_resume_btn")
                     ) {
                         Row(
