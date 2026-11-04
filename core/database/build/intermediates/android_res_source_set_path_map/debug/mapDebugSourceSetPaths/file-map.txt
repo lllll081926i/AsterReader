@@ -1,8 +1,0 @@
-com.asterreader.core.database-pngs-0 D:\Code\AsterReader\core\database\build\generated\res\pngs\debug
-com.asterreader.core.database-updated_navigation_xml-1 D:\Code\AsterReader\core\database\build\generated\updated_navigation_xml\debug
-com.asterreader.core.database-mergeDebugResources-2 D:\Code\AsterReader\core\database\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
-com.asterreader.core.database-mergeDebugResources-3 D:\Code\AsterReader\core\database\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
-com.asterreader.core.database-debug-4 D:\Code\AsterReader\core\database\build\intermediates\merged_res\debug\mergeDebugResources
-com.asterreader.core.database-debug-5 D:\Code\AsterReader\core\database\build\intermediates\packaged_res\debug\packageDebugResources
-com.asterreader.core.database-debug-6 D:\Code\AsterReader\core\database\src\debug\res
-com.asterreader.core.database-main-7 D:\Code\AsterReader\core\database\src\main\res

@@ -1,3 +1,0 @@
-com.asterreader.core.designsystem
-font lora
-font roboto_mono

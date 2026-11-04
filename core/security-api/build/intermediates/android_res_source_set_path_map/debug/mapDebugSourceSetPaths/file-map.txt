@@ -1,8 +1,0 @@
-com.asterreader.core.security.security-api-pngs-0 D:\Code\AsterReader\core\security-api\build\generated\res\pngs\debug
-com.asterreader.core.security.security-api-updated_navigation_xml-1 D:\Code\AsterReader\core\security-api\build\generated\updated_navigation_xml\debug
-com.asterreader.core.security.security-api-mergeDebugResources-2 D:\Code\AsterReader\core\security-api\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
-com.asterreader.core.security.security-api-mergeDebugResources-3 D:\Code\AsterReader\core\security-api\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
-com.asterreader.core.security.security-api-debug-4 D:\Code\AsterReader\core\security-api\build\intermediates\merged_res\debug\mergeDebugResources
-com.asterreader.core.security.security-api-debug-5 D:\Code\AsterReader\core\security-api\build\intermediates\packaged_res\debug\packageDebugResources
-com.asterreader.core.security.security-api-debug-6 D:\Code\AsterReader\core\security-api\src\debug\res
-com.asterreader.core.security.security-api-main-7 D:\Code\AsterReader\core\security-api\src\main\res
