@@ -30,7 +30,6 @@ abstract class AsterDatabase : RoomDatabase() {
                     AsterDatabase::class.java,
                     "aster_reader_local.db"
                 )
-                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

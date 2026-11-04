@@ -67,7 +67,7 @@ import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.SdCard
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Smartphone
-import androidx.compose.material.icons.outlined.Sort
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.ViewAgenda
@@ -2260,7 +2260,7 @@ fun SearchAndFilterScreen(
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     FilterPartitionHeader(
-                        icon = Icons.Outlined.Sort,
+                        icon = Icons.AutoMirrored.Outlined.Sort,
                         title = "排序方式",
                         modeLabel = "单选"
                     )

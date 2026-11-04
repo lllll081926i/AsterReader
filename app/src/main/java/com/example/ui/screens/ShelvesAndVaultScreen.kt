@@ -52,7 +52,7 @@ import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
-import androidx.compose.material.icons.outlined.LibraryBooks
+import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.LockClock
 import androidx.compose.material.icons.outlined.RemoveRedEye
 import androidx.compose.material.icons.outlined.SearchOff
@@ -240,7 +240,7 @@ fun ShelvesScreen(
                 val historyCount = allBooks.count { it.progressPercent > 0 && (!it.isVaultProtected || uiState.isVaultUnlocked) }
 
                 val quickTiles = listOf(
-                    QuickTileData("ALL", "全部馆藏", "$totalCount 本", Icons.Outlined.LibraryBooks),
+                    QuickTileData("ALL", "全部馆藏", "$totalCount 本", Icons.AutoMirrored.Outlined.LibraryBooks),
                     QuickTileData("FAV", "我的收藏", "$favCount 本", Icons.Default.Favorite),
                     QuickTileData("HISTORY", "最近阅读", "$historyCount 本", Icons.Default.History),
                     QuickTileData("BOOKMARKS", "书签札记", "$annotationsCount 条", Icons.Default.Bookmark)
@@ -1944,7 +1944,7 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.LibraryBooks,
+                    leadingIcon = Icons.AutoMirrored.Outlined.LibraryBooks,
                     title = "电子书默认排版设置",
                     badgeText = "${uiState.readerFontSizeSp}sp · ${uiState.readerPaperTheme.label.take(4)}",
                     onClick = { activeModal = "EBOOK_PREFS" }
