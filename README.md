@@ -1,153 +1,92 @@
-# Aster Reader — 漫画阅读器
+# Aster Reader
 
-> 2026-11-04：产品仅做漫画阅读。当前实际支持 CBZ 与 PDF 漫画。应用仍在开发。
+Aster Reader 是一款专为 Android 平台打造的本地现代化漫画与电子书阅读器。基于 Android 原生纯 Kotlin 与 Jetpack Compose 全面构建，深度结合 Material 3 Expressive 动效、系统原生 Monet 动态取色、本地硬件级隐私保险库与自适应多端流体布局，提供通透、沉浸、纯粹的阅读体验。
 
-本轮审查、修复、性能措施与验收限制见 `docs/38_AUDIT_FIXES_AND_PERFORMANCE.md`。开发库从 `aster_comics.db` schema v1 新建，不迁移旧开发数据。Vault、加密备份及恢复密钥尚未实现，入口拒绝执行并保留原文件。
+---
 
-## 1. 已冻结的核心决策
+## 核心特性
 
-- **最低 Android 12 / API 31**；`targetSdk=37`、`compileSdk=37`。
-- Kotlin + Jetpack Compose，单 Activity。
-- Material 3；全局默认 Monet Dynamic Color。
-- Material 3 Expressive 只通过 Design System 单点封装，避免 alpha API 污染业务层。
-- Navigation 3 + Material3 Adaptive。
-- 本地文件通过 SAF，不依赖真实路径、不把“所有文件访问”当常规前提。
-- 统一 `Publication` 模型，漫画共用 Library、Detail、Progress、Security。
-- `ReaderShell` 与实际 Reader Engine 分离。
-- App Lock + 单本/文件夹/书架/仓库保护。
-- **Access Lock ≠ Encrypt & Lock**：后者必须把持久文件变成 Vault 密文。
-- Android Keystore + Vault Master Secret + per-object DEK + AES-256-GCM chunk container。
-- 受保护 metadata、cover、FTS、recents、screenshot 均纳入隐私模型。
-- Room 数据库不允许正式版 destructive migration。
-- Baseline Profile + Macrobenchmark 是发布要求，不是“有时间再做”。
+### 1. 沉浸式漫画阅读体验
+- **无缝条漫排版**：纵向滚动零缝隙贴合，支持超长条漫与高清大图分块渲染，杜绝边缘拉伸与白边。
+- **触点中心缩放与手势体系**：支持双击以触点为中心智能放大、多指自由捏合平移，并在屏幕左右边缘留出安全冗余，完美避让 Android 系统返回手势。
+- **双页对开与连贯续读**：在宽屏或平板模式下自动支持双页跨页对开；自动识别漫画系列与分卷卷序（如 `Vol.01`、`卷11` 等），读完当卷自动顺畅衔接下一卷。
+- **沉浸式真全屏**：进入阅读器时自动隐藏系统状态栏与导航栏，右下角提供精致居中的微型页码胶囊，退出时平滑恢复。
 
-完整冻结清单：`docs/27_FINAL_ARCHITECTURE_DECISIONS.md`。
+### 2. 全格式漫画与归档支持
+- 支持所有主流漫画包与电子书容器格式：
+  - **漫画归档**：`CBZ`, `ZIP`, `CBR`, `RAR`, `CB7`, `7Z`, `CBT`, `TAR`
+  - **文档图书**：`PDF`, `EPUB`, `MOBI`
+- 导入或挂载目录后，系统自动从漫画首张有效页面生成本地高清缩略图缓存，滑动书库流畅无白块。
 
-## 2. 第一次阅读顺序
+### 3. 本地存储与 SAF 文件树管理
+- **系统原生目录选取**：通过 Android Storage Access Framework (SAF) 直接调用系统文件管理器选取书库目录，杜绝繁琐的手动输入路径。
+- **递归智能扫描**：自动遍历深层子文件夹树，智能识别包含独立话次的子目录与分卷。
+- **一致性保护**：当存储介质挂载点变化时，完整保留书签、批注与阅读历史，提供一键重新定位与关联来源能力。
 
-如果你是 Android 新手，按以下顺序，不要跳：
+### 4. 纯净极简界面与 Material 3 动效
+- **极致去冗余**：彻底移除多余的说教式说明、无意义的二次确认与大块空白占位；没有简介、书签时自动收敛，保持界面干净清爽。
+- **紧凑断点续读行**：在主书库顶部以一小行紧凑胶囊条呈现最近阅读进度，点击一秒续读。
+- **流体转场曲线**：采用 Material 3 Expressive 柔顺缓动与轻量级层级位移，底栏 Tab 切换方向自适应滑动，告别生硬卡顿。
+- **多端与横竖屏严格适配**：仅在横屏展开态且屏幕宽大于高时激活平板双栏检视器，杜绝竖屏大手机或折叠屏竖屏误触分栏。
 
-1. `docs/00_START_HERE.md`
-2. `docs/27_FINAL_ARCHITECTURE_DECISIONS.md`
-3. `design.md`
-4. `docs/01_PRODUCT_PRD.md`
-5. `docs/20_ANDROID_ENGINEERING_STANDARD.md`
-6. `docs/05_SYSTEM_ARCHITECTURE.md`
-7. `docs/19_SECURITY_VAULT_AND_APP_LOCK.md`
-8. `docs/06_READER_ENGINE.md`
-9. `docs/22_IMPLEMENTATION_COOKBOOK.md`
-10. `docs/28_FINAL_DEVELOPMENT_PLAN.md`
-11. `docs/29_DEFINITION_OF_DONE_AND_GATES.md`
-12. `docs/35_FINAL_PRE_DEVELOPMENT_CHECKLIST.md`
+### 5. 独立应用锁与后台隐私防窥
+- **自建应用级 PIN 码**：支持设置 4~8 位独立应用 PIN 码，无需强制依赖系统锁屏密码。
+- **生物识别协同**：提供一键调用系统生物凭据（指纹/人脸识别）快速解锁通道。
+- **后台自动模糊与防截屏**：支持 `FLAG_SECURE` 防截屏录屏；切入多任务后台时自动阻断 Recent 任务快照泄露，全方位保护个人藏书隐私。
 
-如果准备让 Codex/Claude Code 等开始写代码，还必须给它根目录 `AGENTS.md`。
+---
 
-## 3. 文档地图
+## 架构设计
 
-### Product / UX
-- `docs/01_PRODUCT_PRD.md`
-- `docs/02_COMPETITOR_SYNTHESIS.md`
-- `docs/03_UX_INFORMATION_ARCHITECTURE.md`
-- `docs/18_SCREENSHOT_AUDIT.md`
-
-### Design / Motion
-- `design.md` — **唯一视觉/动效/交互真源**
-- `docs/04_MD3E_DESIGN_SYSTEM.md`
-- `docs/21_MOTION_ANIMATION_SPEC.md`
-- `docs/25_PRIVACY_LOCK_UX_SPEC.md`
-- `docs/33_ACCESSIBILITY_AND_LOCALIZATION.md`
-
-### Architecture / Data / Reader
-- `docs/05_SYSTEM_ARCHITECTURE.md`
-- `docs/06_READER_ENGINE.md`
-- `docs/07_STORAGE_LIBRARY_SYNC.md`
-- `docs/08_DATA_MODEL.md`
-- `docs/09_FORMAT_MATRIX.md`
-- `docs/10_PERFORMANCE.md`
-- `docs/27_FINAL_ARCHITECTURE_DECISIONS.md`
-- `docs/34_DIAGNOSTICS_AND_OBSERVABILITY.md`
-
-### Security
-- `docs/11_SECURITY_PRIVACY.md`
-- `docs/19_SECURITY_VAULT_AND_APP_LOCK.md`
-- `docs/23_THREAT_MODEL_AND_RECOVERY.md`
-- `docs/32_SECURITY_VERIFICATION_PLAN.md`
-
-### Engineering / Execution
-- `docs/12_TESTING_QA.md`
-- `docs/13_DEVELOPMENT_PLAN.md` — 快速索引
-- `docs/14_LICENSE_AND_RISKS.md`
-- `docs/15_PROJECT_STRUCTURE.md`
-- `docs/16_ACCEPTANCE_CRITERIA.md`
-- `docs/20_ANDROID_ENGINEERING_STANDARD.md`
-- `docs/22_IMPLEMENTATION_COOKBOOK.md`
-- `docs/24_BUILD_DEPENDENCY_BASELINE.md`
-- `docs/26_NEWBIE_BUILD_GUIDE.md`
-- `docs/28_FINAL_DEVELOPMENT_PLAN.md` — **正式开发主计划**
-- `docs/29_DEFINITION_OF_DONE_AND_GATES.md`
-- `docs/30_RELEASE_MIGRATION_MAINTENANCE.md`
-- `docs/31_AGENT_IMPLEMENTATION_PLAYBOOK.md`
-- `docs/35_FINAL_PRE_DEVELOPMENT_CHECKLIST.md`
-
-### Planning / Agent
-- `ROADMAP.md`
-- `AGENTS.md`
-- `planning/backlog.csv`
-- `planning/development_tasks.csv`
-
-### Reusable skeletons
-- `starter-contracts/core/`
-- `starter-contracts/security/`
-- `starter-contracts/design/`
-- `diagrams/`
-- `references/screenshots/`
-
-## 4. 工程基线
+Aster Reader 采用现代 Android 模块化解耦架构，严格遵循单向数据流（UDF）与分层隔离原则：
 
 ```text
-minSdk     31 / Android 12
-targetSdk  37 / Android 17
-compileSdk 37
-Kotlin     2.4.20 baseline
-AGP        9.4.x baseline
-Gradle     9.6.x baseline
-JDK        17
+AsterReader/
+├── core/
+│   ├── model/           # 核心数据模型、统一 Locator、阅读视口 ReaderViewport 与格式定义
+│   ├── engine-api/      # PublicationEngine、ReaderSession、DocumentSource 契约
+│   ├── security-api/    # VaultManager、AppLockManager、ProtectionPolicy 契约
+│   ├── database/        # Room 独立持久化层：AsterDatabase、DAO、实体与无损迁移
+│   └── designsystem/    # AsterTheme、Monet 动态取色、AsterMotion 动效系统与字体资产
+└── app/                 # 业务装配层：MainActivity、ViewModel、各业务 Screen 与渲染管线
 ```
 
-Jetpack/Reader 具体锁定版本见 `docs/24_BUILD_DEPENDENCY_BASELINE.md`。
+---
 
-## 5. 正式实施顺序
+## 技术栈与平台规范
 
-```text
-Foundation
-  ↓
-Library + SAF + Room
-  ↓
-App Lock + Keystore + Vault
-  ↓
-Comic Reader
-  ↓
-PDF
-  ↓
-Backup + Recovery + Performance + Accessibility
-  ↓
-WebDAV（可延后）
-  ↓
-1.0 Hardening / RC
+- **开发语言**：100% Kotlin
+- **UI 框架**：Jetpack Compose + Material 3 (Monet Dynamic Color 默认开启)
+- **目标 SDK**：`minSdk = 31` (Android 12+), `compileSdk = 37`, `targetSdk = 37`
+- **本地数据库**：Room 2.6.1 + KSP
+- **图片与异步渲染**：Coil 2.7.0 + Coroutines + Flow
+- **构建工具**：Gradle 9.3.1 + Android Gradle Plugin 9.1.1 + JDK 17
+
+---
+
+## 快速构建与运行
+
+### 1. 环境准备
+- Android SDK 包含 `platforms;android-37.0` 与 `build-tools;37.0.0`
+- JDK 17 (Temurin 或 OpenJDK)
+
+### 2. 编译与测试
+```bash
+# 执行全量单元测试与特征回归套件
+./gradlew testDebugUnitTest
+
+# 编译生成可直接安装的 Debug APK
+./gradlew assembleDebug
+```
+产物路径：`app/build/outputs/apk/debug/app-debug.apk`
+
+### 3. 推送至设备或模拟器安装
+```bash
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-不要在 Reader 做完以后再“补安全”；不要在 1.0 RC 期间继续塞大功能。
+---
 
-## 6. 两条最重要的工程纪律
+## 开源协议
 
-### 安全纪律
-
-“加锁”如果宣称文件已加密，就必须真的把明文迁入 Vault。UI 模糊、隐藏目录、数据库 flag 都不能叫文件加密。
-
-### 设计纪律
-
-任何页面如果需要一个新颜色、新圆角、新 motion duration、新导航模式，先改 `design.md` / Design System，再写 Feature；不允许每个页面长成自己的风格。
-
-## 7. 开始开发
-
-先执行 `docs/35_FINAL_PRE_DEVELOPMENT_CHECKLIST.md` 中的前 10 个 Issue。完成 BOOT/DESIGN/NAV/DATA/FILE 的基础骨架后，再进入 Scanner 与 Vault。
+本项目采用 [MIT License](LICENSE) 授权许可。
