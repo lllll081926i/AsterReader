@@ -83,7 +83,11 @@ interface AsterDao {
             statusBadge = when { percent == 0 -> "未读"; percent >= 100 -> "已读完"; else -> "在读" },
             currentChapterTitle = if (page == current.currentPage) current.currentChapterTitle else "第 $page 页",
             sizeBytes = book.sizeBytes, sourceModifiedAt = book.sourceModifiedAt,
-            fileSizeText = book.fileSizeText, repositoryName = book.repositoryName)
+            fileSizeText = book.fileSizeText, repositoryName = book.repositoryName,
+            repositoryId = book.repositoryId.ifBlank { current.repositoryId }, sourceStatus = "AVAILABLE",
+            contentFingerprint = book.contentFingerprint,
+            coverUrl = book.coverUrl.ifBlank { current.coverUrl },
+            series = current.series.ifBlank { book.series })
         updateBook(updated)
         return updated
     }
@@ -160,4 +164,87 @@ interface AsterDao {
 
     @Query("DELETE FROM repositories WHERE id = :id")
     suspend fun deleteRepositoryById(id: String)
+
+    @Query("SELECT * FROM reader_states WHERE bookId = :id")
+    fun observeReaderState(id: String): Flow<ReaderStateEntity?>
+
+    @Query("SELECT * FROM reader_states WHERE bookId = :id")
+    suspend fun getReaderState(id: String): ReaderStateEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveReaderState(state: ReaderStateEntity)
+
+    @Transaction
+    suspend fun saveViewport(id: String, position: com.asterreader.core.model.ReaderViewport) {
+        val book = getBookById(id) ?: return
+        if (book.isVaultProtected || book.isVaultEncrypted) return
+        val safe = position.sanitized(book.totalPages)
+        val previous = getReaderState(id) ?: ReaderStateEntity(id)
+        saveReaderState(previous.copy(page = safe.page, offsetFraction = safe.offsetFraction,
+            scale = safe.scale, panX = safe.panX, panY = safe.panY))
+    }
+
+    @Transaction
+    suspend fun saveReaderOptions(id: String, mode: String?, fit: String?, cover: Boolean?, rtl: Boolean?) {
+        val book = getBookById(id) ?: return
+        if (book.isVaultProtected || book.isVaultEncrypted) return
+        val previous = getReaderState(id) ?: ReaderStateEntity(id, page = book.currentPage)
+        saveReaderState(previous.copy(layoutMode = mode, fitMode = fit, coverSingle = cover, rightToLeft = rtl))
+    }
+
+    @Query("SELECT * FROM comic_pages WHERE bookId = :id AND number = :number")
+    suspend fun getComicPage(id: String, number: Int): ComicPageEntity?
+
+    @Query("DELETE FROM comic_pages WHERE bookId = :id")
+    suspend fun deleteComicPages(id: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertComicPages(pages: List<ComicPageEntity>)
+
+    @Transaction
+    suspend fun importDirectory(book: BookEntity, pages: List<ComicPageEntity>): BookEntity {
+        val saved = importComic(book)
+        deleteComicPages(saved.id)
+        insertComicPages(pages.map { it.copy(bookId = saved.id) })
+        return saved
+    }
+
+    @Query("SELECT * FROM books WHERE repositoryId = :id")
+    suspend fun getRepositoryBooks(id: String): List<BookEntity>
+
+    @Query("UPDATE books SET sourceStatus = :status WHERE id = :id")
+    suspend fun updateSourceStatus(id: String, status: String)
+
+    @Query("UPDATE books SET coverUrl = :cover, coverPage = :page WHERE id = :id AND isVaultProtected = 0 AND isVaultEncrypted = 0")
+    suspend fun updateCover(id: String, cover: String, page: Int)
+
+    @Query("UPDATE books SET series = :series, seriesOrder = :position WHERE id = :id")
+    suspend fun updateSeries(id: String, series: String, position: Int)
+
+    @Transaction
+    suspend fun reconcileSources(repositoryId: String, seen: Set<String>) {
+        getRepositoryBooks(repositoryId).forEach { book ->
+            if (book.filePath !in seen && !book.isVaultProtected && !book.isVaultEncrypted)
+                updateSourceStatus(book.id, "MISSING")
+        }
+    }
+
+    @Transaction
+    suspend fun replaceSource(id: String, source: BookEntity): BookEntity {
+        val current = getBookById(id) ?: error("作品已被移除")
+        check(!current.isVaultProtected && !current.isVaultEncrypted)
+        val duplicate = getBookByUri(source.filePath)
+        check(duplicate == null || duplicate.id == id) { "此来源已关联另一部漫画" }
+        val page = current.currentPage.coerceIn(1, source.totalPages)
+        val percent = if (current.progressPercent == 0) 0 else (page.toLong() * 100 / source.totalPages).toInt()
+        val updated = current.copy(filePath = source.filePath, format = source.format,
+            totalPages = source.totalPages, currentPage = page, progressPercent = percent,
+            statusBadge = when { percent == 0 -> "未读"; percent >= 100 -> "已读完"; else -> "在读" },
+            currentChapterTitle = "第 $page 页", sourceStatus = "AVAILABLE", sizeBytes = source.sizeBytes,
+            sourceModifiedAt = source.sourceModifiedAt, contentFingerprint = source.contentFingerprint,
+            fileSizeText = source.fileSizeText, coverUrl = source.coverUrl, coverPage = source.coverPage)
+        updateBook(updated)
+        deleteComicPages(id)
+        return updated
+    }
 }

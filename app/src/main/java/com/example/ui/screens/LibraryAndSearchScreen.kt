@@ -189,14 +189,13 @@ fun LibraryHomeScreen(
                 .fillMaxHeight()
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // TopAppBar or Batch Selection Toolbar
-                // Search & Appearance buttons removed; Settings placed at the far top-right
+                // Top Batch Selection Toolbar (Only shows when in multi-select mode)
                 if (uiState.isBatchSelectionMode) {
                     Surface(
                         color = colorScheme.secondaryContainer,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp)
+                            .height(52.dp)
                     ) {
                         Row(
                             modifier = Modifier
@@ -252,34 +251,6 @@ fun LibraryHomeScreen(
                             }
                         }
                     }
-                } else {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp)
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Aster Reader",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = colorScheme.onSurface,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-
-                        IconButton(
-                            onClick = { viewModel.pushSubScreen(SubScreen.Settings) },
-                            modifier = Modifier.testTag("header_settings_btn")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Settings,
-                                contentDescription = "设置",
-                                tint = colorScheme.onSurface
-                            )
-                        }
-                    }
                 }
 
                 // Main Scrollable Grid/List Canvas
@@ -301,12 +272,12 @@ fun LibraryHomeScreen(
                         .fillMaxSize()
                         .testTag("library_publication_grid")
                 ) {
-                    // 1. Scope Header ("全部作品") + Single Small Icon Layout Switcher
+                    // 1. Scope Header ("馆藏") + Single Small Icon Layout Switcher + Settings Button
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 4.dp),
+                                .padding(top = 8.dp, bottom = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -315,8 +286,8 @@ fun LibraryHomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Text(
-                                    text = "全部作品",
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                                    text = "馆藏",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                     color = colorScheme.onSurface,
                                     maxLines = 1,
                                     softWrap = false
@@ -333,9 +304,9 @@ fun LibraryHomeScreen(
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                // Single Small Icon Button to Cycle Home Layout Mode
+                                // 统一 36dp 纯图标切换按钮
                                 IconButton(
                                     onClick = { viewModel.cycleLibraryLayoutMode() },
                                     modifier = Modifier
@@ -349,7 +320,7 @@ fun LibraryHomeScreen(
                                             LibraryLayoutMode.LIST -> Icons.AutoMirrored.Outlined.ViewList
                                             LibraryLayoutMode.GALLERY -> Icons.Outlined.ViewAgenda
                                         },
-                                        contentDescription = "切换排列 (${uiState.libraryLayoutMode.label})",
+                                        contentDescription = "切换视图",
                                         tint = colorScheme.primary,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -384,24 +355,32 @@ fun LibraryHomeScreen(
                                             text = { Text("批量管理", maxLines = 1, softWrap = false) },
                                             onClick = {
                                                 showOverflowMenu = false
-                                                viewModel.enterBatchSelection()
+                                                viewModel.enterBatchSelection(null)
                                             }
                                         )
                                         DropdownMenuItem(
-                                            text = { Text("隐私安全", maxLines = 1, softWrap = false) },
+                                            text = { Text("添加目录", maxLines = 1, softWrap = false) },
                                             onClick = {
                                                 showOverflowMenu = false
-                                                viewModel.pushSubScreen(SubScreen.PrivacySecuritySettings)
-                                            }
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("欢迎向导", maxLines = 1, softWrap = false) },
-                                            onClick = {
-                                                showOverflowMenu = false
-                                                viewModel.pushSubScreen(SubScreen.Onboarding)
+                                                showRepoWizardDialog = true
                                             }
                                         )
                                     }
+                                }
+
+                                // 设置按钮直接置于馆藏行最右侧
+                                IconButton(
+                                    onClick = { viewModel.pushSubScreen(SubScreen.Settings) },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .testTag("header_settings_btn")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Settings,
+                                        contentDescription = "设置",
+                                        tint = colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
                             }
                         }
@@ -2011,43 +1990,9 @@ fun SearchAndFilterScreen(
                     }
                 }
 
-                // Hot Tag Discovery Pills
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Tag,
-                                contentDescription = null,
-                                tint = colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = "热门标签",
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                                color = colorScheme.onSurface,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf("奇幻与冒险", "科幻经典", "建筑空间", "日常与料理").forEach { tag ->
-                                val isSelected = tag in uiState.searchTagFilters
-                                FilterSheetPill(
-                                    label = "# $tag",
-                                    selected = isSelected,
-                                    usePrimaryHighlight = true,
-                                    onClick = { viewModel.toggleSearchTagFilter(tag) }
-                                )
-                            }
-                        }
-                    }
-                }
+                // 搜索界面精简：仅保留历史搜索，去掉冗余的热门标签展示
+                // Recent Searches
+
             }
 
             // Books Section
@@ -2685,95 +2630,26 @@ fun RepositoryCreationWizardDialog(
     onDismiss: () -> Unit,
     onConfirmCreate: (String, String) -> Unit
 ) {
-    val asterColors = LocalAsterColors.current
-    val colorScheme = MaterialTheme.colorScheme
-    var step by remember { mutableIntStateOf(1) }
-    var repoName by remember { mutableStateOf("SD 扩展卡 / MangaArchive") }
-    var scanRule by remember { mutableStateOf("每个文件作为作品") }
+    var repoName by remember { mutableStateOf("本地书库") }
+    val scanRule = "每个文件作为作品"
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(
-                text = when (step) {
-                    1 -> "选择本地目录 (1/3)"
-                    2 -> "扫描规则 (2/3)"
-                    else -> "授权说明 (3/3)"
-                },
-                maxLines = 1
-            )
+            Text(text = "添加目录", fontWeight = FontWeight.Bold, maxLines = 1)
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                when (step) {
-                    1 -> {
-                        OutlinedTextField(
-                            value = repoName,
-                            onValueChange = { repoName = it },
-                            label = { Text("目录名称") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    2 -> {
-                        listOf(
-                            "每个文件作为作品"
-                        ).forEach { rule ->
-                            val selected = scanRule == rule
-                            Surface(
-                                shape = MaterialTheme.shapes.medium,
-                                color = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainerLow,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(MaterialTheme.shapes.medium)
-                                    .clickable { scanRule = rule }
-                            ) {
-                                Text(
-                                    text = rule,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (selected) colorScheme.onSecondaryContainer else colorScheme.onSurface,
-                                    maxLines = 1,
-                                    modifier = Modifier.padding(12.dp)
-                                )
-                            }
-                        }
-                    }
-                    else -> {
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = asterColors.surfaceContainerLow,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = "授权目录后开始真实扫描",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = colorScheme.primary,
-                                    maxLines = 1
-                                )
-                                Text(
-                                    text = "扫描子目录中的 CBZ 与 PDF 漫画。结果以实际可读取的文件为准。",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            OutlinedTextField(
+                value = repoName,
+                onValueChange = { repoName = it },
+                label = { Text("目录名称") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         confirmButton = {
-            if (step < 3) {
-                Button(onClick = { step++ }) {
-                    Text("下一步", maxLines = 1, softWrap = false)
-                }
-            } else {
-                Button(onClick = { onConfirmCreate(repoName, scanRule) }) {
-                    Text("完成", maxLines = 1, softWrap = false)
-                }
+            Button(onClick = { onConfirmCreate(repoName, scanRule) }) {
+                Text("添加", maxLines = 1, softWrap = false)
             }
         },
         dismissButton = {

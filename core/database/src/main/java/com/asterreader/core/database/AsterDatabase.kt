@@ -11,9 +11,11 @@ import androidx.room.RoomDatabase
         ChapterEntity::class,
         ShelfEntity::class,
         AnnotationEntity::class,
-        RepositoryEntity::class
+        RepositoryEntity::class,
+        ReaderStateEntity::class,
+        ComicPageEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 abstract class AsterDatabase : RoomDatabase() {
@@ -28,7 +30,7 @@ abstract class AsterDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AsterDatabase::class.java,
-                    "aster_comics.db"
+                    "aster_comics_v2.db"
                 ).build()
                 INSTANCE = instance
                 instance

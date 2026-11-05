@@ -11,9 +11,16 @@ data class Locator(
 
 enum class PublicationFormat(val extension: String, val mimeType: String) {
     CBZ("cbz", "application/vnd.comicbook+zip"),
+    ZIP("zip", "application/zip"),
     CBR("cbr", "application/vnd.comicbook-rar"),
-    CB7("cb7", "application/x-7z-compressed"),
+    RAR("rar", "application/x-rar-compressed"),
+    CB7("cb7", "application/x-cb7-compressed"),
+    SEVEN_ZIP("7z", "application/x-7z-compressed"),
+    CBT("cbt", "application/x-tar"),
+    TAR("tar", "application/x-tar"),
     PDF("pdf", "application/pdf"),
+    EPUB("epub", "application/epub+zip"),
+    MOBI("mobi", "application/x-mobipocket-ebook"),
     IMAGE_DIR("", "application/x-directory")
 }
 

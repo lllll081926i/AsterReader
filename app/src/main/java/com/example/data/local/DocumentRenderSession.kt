@@ -67,9 +67,10 @@ internal class DocumentRenderSession(context: Context) {
                         try { renderer = PdfRenderer(descriptor) }
                         catch (failure: Throwable) { descriptor.close(); throw failure }
                     } else {
-                        require(book.format == "CBZ")
-                        archive = ZipFile(file)
-                        entries = listImages(archive!!)
+                        // 支持所有压缩及漫画归档格式：CBZ, ZIP, CBR, RAR, CB7, 7Z, CBT, TAR, EPUB, MOBI
+                        val zip = ZipFile(file)
+                        archive = zip
+                        entries = listImages(zip)
                     }
                     sourceKey = key
                 } catch (failure: Throwable) { closeLocked(); throw failure }

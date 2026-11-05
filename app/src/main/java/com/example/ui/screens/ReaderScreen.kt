@@ -217,6 +217,16 @@ fun ReaderScreen(
                     fitMode = uiState.fitModeLabel,
                     loadPage = { viewModel.renderPage(book.id, it) },
                     onPageChanged = { currentPage = it },
+                    onNextPage = {
+                        if (currentPage < totalPages) {
+                            currentPage++
+                        }
+                    },
+                    onPrevPage = {
+                        if (currentPage > 1) {
+                            currentPage--
+                        }
+                    },
                     onToggleChrome = { showChrome = !showChrome }
                 )
 

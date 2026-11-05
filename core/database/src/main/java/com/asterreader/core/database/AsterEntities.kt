@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 import androidx.room.ColumnInfo
 import androidx.room.Index
 
-@Entity(tableName = "books", indices = [Index("filePath"), Index("lastReadTimestamp"), Index("addedAt")])
+@Entity(tableName = "books", indices = [Index("filePath"), Index("lastReadTimestamp"), Index("addedAt"), Index("repositoryId")])
 data class BookEntity(
     @PrimaryKey val id: String,
     val title: String,
@@ -33,7 +33,12 @@ data class BookEntity(
     val lastReadTimestamp: Long = 0L,
     @ColumnInfo(defaultValue = "0") val sizeBytes: Long = 0L,
     @ColumnInfo(defaultValue = "0") val addedAt: Long = 0L,
-    @ColumnInfo(defaultValue = "0") val sourceModifiedAt: Long = 0L
+    @ColumnInfo(defaultValue = "0") val sourceModifiedAt: Long = 0L,
+    val repositoryId: String = "",
+    val sourceStatus: String = "AVAILABLE",
+    val contentFingerprint: String = "",
+    val coverPage: Int = 1,
+    val seriesOrder: Int = 0
 )
 
 @Entity(tableName = "chapters", indices = [Index(value = ["bookId", "chapterNumber"])])
@@ -85,3 +90,22 @@ data class RepositoryEntity(
     val scanRule: String,
     val isHealthy: Boolean = true
 )
+
+@Entity(tableName = "reader_states", foreignKeys = [androidx.room.ForeignKey(
+    entity = BookEntity::class, parentColumns = ["id"], childColumns = ["bookId"], onDelete = androidx.room.ForeignKey.CASCADE)])
+data class ReaderStateEntity(
+    @PrimaryKey val bookId: String,
+    val page: Int = 1,
+    val offsetFraction: Float = 0f,
+    val scale: Float = 1f,
+    val panX: Float = 0f,
+    val panY: Float = 0f,
+    val layoutMode: String? = null,
+    val fitMode: String? = null,
+    val coverSingle: Boolean? = null,
+    val rightToLeft: Boolean? = null
+)
+
+@Entity(tableName = "comic_pages", primaryKeys = ["bookId", "number"], foreignKeys = [androidx.room.ForeignKey(
+    entity = BookEntity::class, parentColumns = ["id"], childColumns = ["bookId"], onDelete = androidx.room.ForeignKey.CASCADE)])
+data class ComicPageEntity(val bookId: String, val number: Int, val uri: String, val name: String, val sizeBytes: Long, val modifiedAt: Long)
