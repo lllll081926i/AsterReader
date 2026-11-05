@@ -223,17 +223,43 @@ fun AsterReaderAppRoot(
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isExpandedTablet = maxWidth >= 700.dp
+        // 严格界定平板横屏/展开模式：不仅要求宽度 >= 720dp，还要求处于横屏比例（宽 > 高）
+        // 杜绝竖屏大手机或折叠屏竖屏时被误判为平板双栏导致布局异常
+        val isExpandedTablet = maxWidth >= 720.dp && maxWidth > maxHeight
         val activeSub = uiState.activeSubScreen
 
         Box(modifier = Modifier.fillMaxSize()) {
             AnimatedContent(
                 targetState = activeSub to uiState.currentTab,
                 transitionSpec = {
-                    AsterMotion.pageTransition(
-                        reduceMotion = reduceMotion,
-                        forward = targetState.first != null
-                    )
+                    val (targetSub, targetTab) = targetState
+                    val (initialSub, initialTab) = initialState
+
+                    if (targetSub != null || initialSub != null) {
+                        // 子页面与主页面之间的推入/退出导航转场
+                        AsterMotion.pageTransition(
+                            reduceMotion = reduceMotion,
+                            forward = targetSub != null && initialSub == null ||
+                                    (targetSub is SubScreen.Reader && initialSub !is SubScreen.Reader)
+                        )
+                    } else {
+                        // 主 Tab 底部导航切换动画：精致流体淡入淡出与微缩放，杜绝左右生硬乱滑
+                        if (reduceMotion) {
+                            androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+                        } else {
+                            (androidx.compose.animation.fadeIn(
+                                animationSpec = androidx.compose.animation.core.tween(180, easing = AsterMotion.EmphasizedDecelerateEasing)
+                            ) + androidx.compose.animation.scaleIn(
+                                initialScale = 0.98f,
+                                animationSpec = androidx.compose.animation.core.tween(180, easing = AsterMotion.EmphasizedDecelerateEasing)
+                            )) togetherWith (androidx.compose.animation.fadeOut(
+                                animationSpec = androidx.compose.animation.core.tween(140, easing = AsterMotion.EmphasizedAccelerateEasing)
+                            ) + androidx.compose.animation.scaleOut(
+                                targetScale = 1.01f,
+                                animationSpec = androidx.compose.animation.core.tween(140, easing = AsterMotion.EmphasizedAccelerateEasing)
+                            ))
+                        }
+                    }
                 },
                 label = "aster_root_navigation"
             ) { (subScreen, currentTab) ->

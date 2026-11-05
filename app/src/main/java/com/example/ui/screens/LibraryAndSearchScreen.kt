@@ -386,6 +386,63 @@ fun LibraryHomeScreen(
                         }
                     }
 
+                    // 1.5 最近阅读一小行胶囊条 (直接位于标题行下方、书库内容上方)
+                    if (continueReadingBook != null && uiState.showRecentReading && (!continueReadingBook.isVaultProtected || uiState.isVaultUnlocked)) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Surface(
+                                shape = MaterialTheme.shapes.medium,
+                                color = colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .clickable {
+                                        viewModel.openBookReader(
+                                            bookId = continueReadingBook.id,
+                                            preferDualPageOnTablet = isExpandedTablet
+                                        )
+                                    }
+                                    .testTag("continue_reading_inline_pill")
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.History,
+                                            contentDescription = null,
+                                            tint = colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = "续读: ${continueReadingBook.title}",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                            color = colorScheme.onSecondaryContainer,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Text(
+                                        text = "${continueReadingBook.currentPage}/${continueReadingBook.totalPages}页 (${continueReadingBook.progressPercent}%)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontFamily = com.example.ui.theme.RobotoMonoFontFamily,
+                                        color = colorScheme.primary,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+                            }
+                        }
+                    }
+
                     // 2. Filter Chips Row
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         val inProgressCount = books.count { it.progressPercent in 1..99 }
@@ -548,48 +605,7 @@ fun LibraryHomeScreen(
                         }
                     }
 
-                    // 4. Recent Reading Section Placed Below "全部作品" (Can be toggled off in Settings)
-                    if (uiState.showRecentReading && continueReadingBook != null) {
-                        item(span = { GridItemSpan(maxLineSpan) }) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 10.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "最近阅读",
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                        color = colorScheme.onSurface,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                    Text(
-                                        text = "可在设置中关闭",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = colorScheme.outline,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                }
-                                ContinueReadingCompactCard(
-                                    book = continueReadingBook,
-                                    onCardClick = { viewModel.openBookDetail(continueReadingBook.id) },
-                                    onContinueClick = {
-                                        viewModel.openBookReader(
-                                            bookId = continueReadingBook.id,
-                                            preferDualPageOnTablet = isExpandedTablet
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    // 4. End of list padding spacer
                 }
             }
 

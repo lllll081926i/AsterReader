@@ -163,13 +163,62 @@ class LibraryRepository(
         require(pages > 0) { "文档没有可读取的页面" }
         val now = System.currentTimeMillis()
         val (seriesName, volOrder) = parseSeriesAndVolume(info.first)
+
+        // 生成本地封面缓存文件，从第 1 页或首张图片生成轻量缩略图
+        val coverCacheFile = File(context.cacheDir, "covers/${id}.jpg")
+        var coverPath = existing?.coverUrl.orEmpty()
+        if (coverPath.isBlank() || !File(coverPath).exists()) {
+            try {
+                coverCacheFile.parentFile?.mkdirs()
+                if (format in setOf("CBZ", "ZIP", "CBR", "RAR", "CB7", "7Z", "CBT", "TAR", "EPUB", "MOBI")) {
+                    withTemporaryCopy(uri) { file ->
+                        try {
+                            ZipFile(file).use { zip ->
+                                val firstEntry = imageEntries(zip).firstOrNull()
+                                if (firstEntry != null) {
+                                    val stream = zip.getInputStream(firstEntry)
+                                    val bmp = android.graphics.BitmapFactory.decodeStream(stream)
+                                    if (bmp != null) {
+                                        coverCacheFile.outputStream().use { out ->
+                                            bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                                        }
+                                        bmp.recycle()
+                                        coverPath = coverCacheFile.absolutePath
+                                    }
+                                }
+                            }
+                        } catch (_: Exception) {}
+                    }
+                } else if (format == "PDF") {
+                    withTemporaryCopy(uri) { file ->
+                        val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                        val renderer = try { PdfRenderer(descriptor) } catch (f: Throwable) { descriptor.close(); throw f }
+                        renderer.use {
+                            if (it.pageCount > 0) {
+                                it.openPage(0).use { page ->
+                                    val bmp = Bitmap.createBitmap(page.width.coerceAtMost(720), page.height.coerceAtMost(1080), Bitmap.Config.ARGB_8888)
+                                    bmp.eraseColor(android.graphics.Color.WHITE)
+                                    page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                    coverCacheFile.outputStream().use { out ->
+                                        bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                                    }
+                                    bmp.recycle()
+                                    coverPath = coverCacheFile.absolutePath
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
         val book = BookEntity(
             id = id,
             title = info.first.substringBeforeLast('.', info.first),
             author = "",
             series = seriesName,
             format = format,
-            coverUrl = "",
+            coverUrl = coverPath,
             currentPage = existing?.currentPage ?: 1,
             totalPages = pages,
             progressPercent = existing?.progressPercent ?: 0,

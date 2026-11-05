@@ -100,7 +100,7 @@ fun PublicationPageCanvas(
             state = list,
             userScrollEnabled = !zoomed,
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(0.dp) // 图片连着无缝隙
         ) {
             items(totalPages, key = { it }) { index ->
                 DocumentPage(
@@ -274,7 +274,7 @@ private fun DocumentPage(
                     }
                 )
             }
-            .padding(vertical = if (vertical) 2.dp else 0.dp),
+            .padding(vertical = 0.dp), // 无缝连接
         contentAlignment = Alignment.Center
     ) {
         when {

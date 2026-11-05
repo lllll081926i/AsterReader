@@ -258,7 +258,8 @@ fun ReaderScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .statusBarsPadding()
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                            .height(44.dp)
+                            .padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -502,7 +503,7 @@ fun ReaderScreen(
 
                         HorizontalDivider(color = ChromeBorderColor)
 
-                        // 漫画控制区。
+                        // 漫画控制区：将滚动方式直接合并进设置中，改名为“设置”
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -514,42 +515,28 @@ fun ReaderScreen(
                                 onClick = { showTocSheet = true }
                             )
 
-                                ReaderIslandButton(
-                                    icon = Icons.Outlined.SwapHoriz,
-                                    label = uiState.readerLayoutMode.shortBadge,
-                                    isActive = false,
-                                    onClick = {
-                                        val nextMode = when (uiState.readerLayoutMode) {
-                                            ReaderLayoutMode.VERTICAL_SCROLL -> ReaderLayoutMode.RTL_PAGER
-                                            ReaderLayoutMode.RTL_PAGER -> ReaderLayoutMode.LTR_PAGER
-                                            ReaderLayoutMode.LTR_PAGER -> ReaderLayoutMode.DUAL_PAGE
-                                            ReaderLayoutMode.DUAL_PAGE -> ReaderLayoutMode.VERTICAL_SCROLL
-                                        }
-                                        viewModel.setReaderLayoutMode(nextMode)
-                                    }
-                                )
-                                ReaderIslandButton(
-                                    icon = Icons.Outlined.Tune,
-                                    label = "漫画设置",
-                                    isActive = showModeSheet,
-                                    onClick = { showModeSheet = true }
-                                )
-                                val isBookmarked = currentPage in bookmarkedPages
-                                ReaderIslandButton(
-                                    icon = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                                    label = if (isBookmarked) "已存书签" else "书签",
-                                    isActive = isBookmarked,
-                                    onClick = {
-                                        viewModel.toggleBookmark(book.id, currentPage, activeChapterTitle)
-                                    }
-                                )
+                            ReaderIslandButton(
+                                icon = Icons.Outlined.Tune,
+                                label = "设置",
+                                isActive = showModeSheet,
+                                onClick = { showModeSheet = true }
+                            )
 
+                            val isBookmarked = currentPage in bookmarkedPages
+                            ReaderIslandButton(
+                                icon = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                                label = if (isBookmarked) "已存" else "书签",
+                                isActive = isBookmarked,
+                                onClick = {
+                                    viewModel.toggleBookmark(book.id, currentPage, activeChapterTitle)
+                                }
+                            )
                         }
                     }
                 }
             }
 
-            // Exquisite Closable Floating Mini Status Bar at Bottom-Right Corner
+            // Compact Non-intrusive Floating Status Bar at Bottom-Right Corner (无关闭按钮，更紧凑)
             androidx.compose.animation.AnimatedVisibility(
                 visible = showMiniStatusPill,
                 enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else fadeIn(),
@@ -565,16 +552,15 @@ fun ReaderScreen(
                     border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.16f)),
                     shadowElevation = 4.dp,
                     modifier = Modifier
-                        .height(24.dp)
+                        .height(22.dp)
                         .testTag("reader_mini_status_pill")
                 ) {
                     Row(
-                        modifier = Modifier.padding(start = 10.dp, end = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "${activeChapterTitle.take(6)} · $currentPage/$totalPages · ${((currentPage.toFloat() / totalPages) * 100).roundToInt()}%",
+                            text = "$currentPage / $totalPages · ${((currentPage.toFloat() / totalPages) * 100).roundToInt()}%",
                             fontFamily = RobotoMonoFontFamily,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
@@ -582,21 +568,6 @@ fun ReaderScreen(
                             maxLines = 1,
                             softWrap = false
                         )
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(CircleShape)
-                                .clickable { showMiniStatusPill = false }
-                                .testTag("reader_mini_status_close_btn"),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "关闭状态条",
-                                tint = StatusIcon,
-                                modifier = Modifier.size(11.dp)
-                            )
-                        }
                     }
                 }
             }

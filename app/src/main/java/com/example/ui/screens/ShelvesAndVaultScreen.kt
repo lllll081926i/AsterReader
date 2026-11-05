@@ -60,6 +60,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SwapVert
+import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.outlined.ViewAgenda
@@ -1720,12 +1721,12 @@ fun SettingsScreen(
             .statusBarsPadding()
             .testTag("settings_screen")
     ) {
-        // Header with Back Arrow
+        // Header with Back Arrow - 压缩高度至 44dp，返回按钮靠最左
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 12.dp),
+                .height(44.dp)
+                .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (onBack != null) {
@@ -1738,7 +1739,7 @@ fun SettingsScreen(
             }
             Text(
                 text = "设置",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 softWrap = false
@@ -1749,53 +1750,17 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Group 1: 外观与显示
-            AsterSettingsGroup(title = "外观与显示") {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "主题模式",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf(
-                            ThemeMode.SYSTEM to "跟随系统",
-                            ThemeMode.LIGHT to "浅色",
-                            ThemeMode.DARK to "深色"
-                        ).forEach { (mode, label) ->
-                            val selected = uiState.themeMode == mode
-                            Surface(
-                                onClick = { viewModel.setThemeMode(mode) },
-                                shape = androidx.compose.foundation.shape.CircleShape,
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                            }
-                        }
-                    }
-                }
+            // Group 1: 阅读与排版配置
+            AsterSettingsGroup(title = "阅读与排版") {
+                AsterSettingsRow(
+                    leadingIcon = Icons.Outlined.Tune,
+                    title = "排版管理",
+                    badgeText = "${uiState.readerLayoutMode.shortBadge} · ${uiState.fitModeLabel}",
+                    onClick = { activeModal = "COMIC_PREFS" }
+                )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSwitchRow(
                     title = "减弱动效",
@@ -1804,20 +1769,42 @@ fun SettingsScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSwitchRow(
-                    title = "继续阅读栏",
-                    checked = uiState.showRecentReading,
-                    onCheckedChange = { viewModel.setShowRecentReading(it) }
+                    title = "音量键翻页",
+                    checked = uiState.volumeKeyPageTurn,
+                    onCheckedChange = { viewModel.setVolumeKeyPageTurn(it) }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Tune,
-                    title = "漫画排版",
-                    badgeText = "${uiState.readerLayoutMode.shortBadge} · ${uiState.fitModeLabel}",
-                    onClick = { activeModal = "COMIC_PREFS" }
+                AsterSwitchRow(
+                    title = "跨页对齐拼接",
+                    checked = uiState.smartSpreadStitch,
+                    onCheckedChange = { viewModel.setSmartSpreadStitch(it) }
                 )
             }
 
-            // Group 2: 本地书库
+            // Group 2: 书架与标签管理
+            AsterSettingsGroup(title = "书架与标签") {
+                AsterSettingsRow(
+                    leadingIcon = Icons.AutoMirrored.Outlined.LibraryBooks,
+                    title = "书架管理",
+                    badgeText = "管理分组",
+                    onClick = { activeModal = "SHELF_MGR" }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                AsterSettingsRow(
+                    leadingIcon = Icons.Outlined.Tag,
+                    title = "标签管理",
+                    badgeText = "作品分类",
+                    onClick = { activeModal = "TAG_MGR" }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                AsterSwitchRow(
+                    title = "首页继续阅读栏",
+                    checked = uiState.showRecentReading,
+                    onCheckedChange = { viewModel.setShowRecentReading(it) }
+                )
+            }
+
+            // Group 3: 本地书库与存储
             AsterSettingsGroup(title = "本地书库") {
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.Folder,
@@ -1831,25 +1818,22 @@ fun SettingsScreen(
                     title = "导入书籍",
                     onClick = onTriggerImportFile
                 )
-            }
-
-            // Group 3: 隐私与安全
-            AsterSettingsGroup(title = "隐私与安全") {
-                AsterSettingsRow(
-                    leadingIcon = Icons.Default.Security,
-                    title = "安全设置",
-                    badgeText = if (uiState.isAppLockEnabled) "已保护" else "未保护",
-                    onClick = { viewModel.pushSubScreen(SubScreen.PrivacySecuritySettings) }
-                )
-            }
-
-            // Group 4: 存储与关于
-            AsterSettingsGroup(title = "存储与关于") {
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.Storage,
                     title = "清理图片缓存",
                     badgeText = "释放空间",
                     onClick = { viewModel.clearRegenerableCache() }
+                )
+            }
+
+            // Group 4: 隐私与关于
+            AsterSettingsGroup(title = "安全与关于") {
+                AsterSettingsRow(
+                    leadingIcon = Icons.Default.Security,
+                    title = "安全设置",
+                    badgeText = if (uiState.isAppLockEnabled) "已保护" else "未保护",
+                    onClick = { viewModel.pushSubScreen(SubScreen.PrivacySecuritySettings) }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
@@ -2005,6 +1989,50 @@ fun SettingsScreen(
         )
     }
 
+
+    // Shelf Manager Modal
+    if (activeModal == "SHELF_MGR") {
+        AlertDialog(
+            onDismissRequest = { activeModal = null },
+            title = { Text("书架管理", fontWeight = FontWeight.Bold, maxLines = 1) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "书架用于整理与聚合不同来源的漫画。可直接在首页或详情页快速入架。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { activeModal = null }) {
+                    Text("完成", maxLines = 1, softWrap = false)
+                }
+            }
+        )
+    }
+
+    // Tag Manager Modal
+    if (activeModal == "TAG_MGR") {
+        AlertDialog(
+            onDismissRequest = { activeModal = null },
+            title = { Text("标签管理", fontWeight = FontWeight.Bold, maxLines = 1) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "作品标签将根据漫画目录和元数据自动提取，便于在检索时精准筛选。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { activeModal = null }) {
+                    Text("完成", maxLines = 1, softWrap = false)
+                }
+            }
+        )
+    }
 
     // About Modal
     if (activeModal == "ABOUT") {

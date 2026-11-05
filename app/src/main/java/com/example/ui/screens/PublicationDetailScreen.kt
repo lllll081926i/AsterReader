@@ -129,14 +129,14 @@ fun PublicationDetailScreen(
             .statusBarsPadding()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Top App Bar
+            // Top App Bar - 压缩高度至 44dp，返回按钮靠最左侧
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 920.dp)
                     .align(Alignment.CenterHorizontally)
-                    .height(56.dp)
-                    .padding(horizontal = 16.dp),
+                    .height(44.dp)
+                    .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -275,70 +275,72 @@ fun PublicationDetailScreen(
                         }
                     }
 
-                    // Synopsis Card
-                    Surface(
-                        shape = MaterialTheme.shapes.medium,
-                        color = asterColors.surfaceContainerLow,
-                        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .animateContentSize(animationSpec = com.asterreader.core.designsystem.AsterMotion.effectsSpec(com.asterreader.core.designsystem.LocalAsterReduceMotion.current))
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.Subject,
-                                    contentDescription = null,
-                                    tint = colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = "简介",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = colorScheme.onSurface,
-                                    maxLines = 1
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = book.synopsis,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = colorScheme.onSurfaceVariant,
-                                maxLines = if (isSynopsisExpanded) Int.MAX_VALUE else 3,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                TextButton(
-                                    onClick = { isSynopsisExpanded = !isSynopsisExpanded },
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                                    modifier = Modifier.testTag("synopsis_toggle_btn")
+                    // Synopsis Card (没有简介就不显示对应的位置块)
+                    if (book.synopsis.isNotBlank()) {
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = asterColors.surfaceContainerLow,
+                            border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateContentSize(animationSpec = com.asterreader.core.designsystem.AsterMotion.effectsSpec(com.asterreader.core.designsystem.LocalAsterReduceMotion.current))
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text(
-                                        text = if (isSynopsisExpanded) "收起" else "展开",
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
-                                        color = colorScheme.primary,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
                                     Icon(
-                                        imageVector = if (isSynopsisExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                        imageVector = Icons.AutoMirrored.Outlined.Subject,
                                         contentDescription = null,
                                         tint = colorScheme.primary,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(20.dp)
                                     )
+                                    Text(
+                                        text = "简介",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = colorScheme.onSurface,
+                                        maxLines = 1
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = book.synopsis,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colorScheme.onSurfaceVariant,
+                                    maxLines = if (isSynopsisExpanded) Int.MAX_VALUE else 3,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End
+                                ) {
+                                    TextButton(
+                                        onClick = { isSynopsisExpanded = !isSynopsisExpanded },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier.testTag("synopsis_toggle_btn")
+                                    ) {
+                                        Text(
+                                            text = if (isSynopsisExpanded) "收起" else "展开",
+                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                                            color = colorScheme.primary,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
+                                        Icon(
+                                            imageVector = if (isSynopsisExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                            contentDescription = null,
+                                            tint = colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Table of Contents Preview Card
+                    // Table of Contents Preview Card (目录若为空则单章节显示当前书名)
                     Surface(
                         shape = MaterialTheme.shapes.medium,
                         color = asterColors.surfaceContainerLow,
@@ -377,7 +379,7 @@ fun PublicationDetailScreen(
                                             .padding(horizontal = 8.dp, vertical = 2.dp)
                                     ) {
                                         Text(
-                                            text = "共 ${chapters.size} 话",
+                                            text = if (chapters.isNotEmpty()) "共 ${chapters.size} 话" else "全本",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = colorScheme.onSurfaceVariant,
                                             maxLines = 1,
@@ -386,87 +388,115 @@ fun PublicationDetailScreen(
                                     }
                                 }
 
-                                Row(
-                                    modifier = Modifier
-                                        .clip(CircleShape)
-                                        .clickable { showFullTocSheet = true }
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                        .testTag("open_full_toc_btn"),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "全部",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = colorScheme.primary,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                    Icon(
-                                        imageVector = Icons.Filled.ChevronRight,
-                                        contentDescription = null,
-                                        tint = colorScheme.primary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                if (chapters.isNotEmpty()) {
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .clickable { showFullTocSheet = true }
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            .testTag("open_full_toc_btn"),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "全部",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = colorScheme.primary,
+                                            maxLines = 1,
+                                            softWrap = false
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Filled.ChevronRight,
+                                            contentDescription = null,
+                                            tint = colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
 
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                chapters.take(6).forEach { ch ->
-                                    ChapterPreviewChip(
-                                        chapter = ch,
-                                        onClick = { onStartReading(ch.startPage) }
-                                    )
+                                if (chapters.isNotEmpty()) {
+                                    chapters.take(6).forEach { ch ->
+                                        ChapterPreviewChip(
+                                            chapter = ch,
+                                            onClick = { onStartReading(ch.startPage) }
+                                        )
+                                    }
+                                } else {
+                                    // 没有目录时只显示当前书名，算一个章节
+                                    Surface(
+                                        shape = MaterialTheme.shapes.medium,
+                                        color = asterColors.surfaceContainer,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(MaterialTheme.shapes.medium)
+                                            .clickable { onStartReading(1) }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = book.title,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Medium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Text(
+                                                text = "共 ${book.totalPages} 页",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = colorScheme.primary,
+                                                maxLines = 1,
+                                                softWrap = false
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Bookmarks & Annotations Summary Card
-                    Surface(
-                        shape = MaterialTheme.shapes.medium,
-                        color = asterColors.surfaceContainerLow,
-                        border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                    // Bookmarks Summary Card (没有书签就不显示对应的位置块)
+                    if (annotations.isNotEmpty()) {
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = asterColors.surfaceContainerLow,
+                            border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                            Column(
+                                modifier = Modifier.padding(20.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Bookmark,
-                                        contentDescription = null,
-                                        tint = colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Text(
-                                        text = "书签与札记",
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                        color = colorScheme.onSurface,
-                                        maxLines = 1
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Bookmark,
+                                            contentDescription = null,
+                                            tint = colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = "书签",
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                            color = colorScheme.onSurface,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    TextButton(onClick = { showAnnotationsSheet = true }) {
+                                        Text("管理 (${annotations.size})", maxLines = 1, softWrap = false)
+                                    }
                                 }
-                                TextButton(onClick = { showAnnotationsSheet = true }) {
-                                    Text("管理 (${annotations.size})", maxLines = 1, softWrap = false)
-                                }
-                            }
 
-                            if (annotations.isEmpty()) {
-                                Text(
-                                    text = "暂无书签",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.onSurfaceVariant,
-                                    maxLines = 1
-                                )
-                            } else {
                                 annotations.take(2).forEach { item ->
                                     Surface(
                                         shape = MaterialTheme.shapes.medium,
@@ -506,15 +536,6 @@ fun PublicationDetailScreen(
                                                 maxLines = 2,
                                                 overflow = TextOverflow.Ellipsis
                                             )
-                                            if (item.noteText.isNotBlank()) {
-                                                Text(
-                                                    text = item.noteText,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
                                         }
                                     }
                                 }
@@ -597,47 +618,40 @@ fun PublicationDetailScreen(
                         )
                     }
 
-                    // Bottom Row inside Dock: [设置] [目录] [▶ 继续阅读] [书签]
+                    // Bottom Row inside Dock: 高亮强化的 [▶ 继续阅读 / 开始阅读] 主按钮 + [书签]
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        DetailIslandSecondaryButton(
-                            icon = Icons.Outlined.Tune,
-                            label = "设置",
-                            onClick = { showQuickReaderSettingsSheet = true }
-                        )
-
-                        DetailIslandSecondaryButton(
-                            icon = Icons.AutoMirrored.Outlined.MenuBook,
-                            label = "目录",
-                            onClick = { showFullTocSheet = true }
-                        )
-
                         Surface(
                             shape = CircleShape,
-                            color = colorScheme.primaryContainer,
+                            color = colorScheme.primary,
                             contentColor = colorScheme.onPrimary,
+                            shadowElevation = 4.dp,
                             modifier = Modifier
-                                .height(40.dp)
+                                .weight(1f)
+                                .height(44.dp)
                                 .clip(CircleShape)
                                 .clickable { onStartReading(book.currentPage) }
                                 .testTag("detail_start_reading_cta")
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 18.dp),
+                                modifier = Modifier.fillMaxSize(),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.PlayArrow,
                                     contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                                    tint = colorScheme.onPrimary,
+                                    modifier = Modifier.size(20.dp)
                                 )
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = if (book.progressPercent > 0) "继续阅读" else "开始阅读",
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = colorScheme.onPrimary,
                                     maxLines = 1,
                                     softWrap = false
                                 )
