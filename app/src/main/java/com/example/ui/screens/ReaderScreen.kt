@@ -49,6 +49,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -130,7 +131,19 @@ fun ReaderScreen(
     }
 
     val context = LocalContext.current
-    DisposableEffect(book.id) { onDispose { viewModel.releaseReaderResources() } }
+    // 沉浸式全屏处理：进入阅读器时隐藏系统状态栏与导航栏，退出时恢复
+    DisposableEffect(Unit) {
+        val activity = context as? android.app.Activity
+        val window = activity?.window
+        val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
+        insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+
+        onDispose {
+            insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            viewModel.releaseReaderResources()
+        }
+    }
     val annotations by remember(book.id) {
         viewModel.observeBookAnnotations(book.id)
     }.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -241,7 +254,7 @@ fun ReaderScreen(
                 )
             }
 
-            // High-Contrast Transient Top Bar Chrome (Always legible on both dark & light manga pages)
+            // High-Contrast Transient Top Bar Chrome (全屏模式不叠加系统栏边距，紧凑高度)
             androidx.compose.animation.AnimatedVisibility(
                 visible = showChrome,
                 enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically { -it } + fadeIn(),
@@ -257,8 +270,7 @@ fun ReaderScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .statusBarsPadding()
-                            .height(44.dp)
+                            .height(48.dp)
                             .padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -536,37 +548,35 @@ fun ReaderScreen(
                 }
             }
 
-            // Compact Non-intrusive Floating Status Bar at Bottom-Right Corner (无关闭按钮，更紧凑)
+            // Compact Non-intrusive Floating Status Bar at Bottom-Right Corner (完美垂直水平居中，无偏移)
             androidx.compose.animation.AnimatedVisibility(
                 visible = showMiniStatusPill,
                 enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else fadeIn(),
                 exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else fadeOut(),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .navigationBarsPadding()
-                    .padding(end = 12.dp, bottom = 10.dp)
+                    .padding(end = 12.dp, bottom = 12.dp)
             ) {
                 Surface(
                     shape = androidx.compose.foundation.shape.CircleShape,
                     color = StatusSurface,
                     border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.16f)),
                     shadowElevation = 4.dp,
-                    modifier = Modifier
-                        .height(22.dp)
-                        .testTag("reader_mini_status_pill")
+                    modifier = Modifier.testTag("reader_mini_status_pill")
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "$currentPage / $totalPages · ${((currentPage.toFloat() / totalPages) * 100).roundToInt()}%",
                             fontFamily = RobotoMonoFontFamily,
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = StatusText,
                             maxLines = 1,
-                            softWrap = false
+                            softWrap = false,
+                            modifier = Modifier.wrapContentHeight(Alignment.CenterVertically)
                         )
                     }
                 }
