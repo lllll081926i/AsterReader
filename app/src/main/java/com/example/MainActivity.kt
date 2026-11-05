@@ -164,7 +164,8 @@ fun AsterReaderAppRoot(
             onAuthenticated = viewModel::unlockAppAndVault,
             onDismiss = viewModel::dismissQuickAuthSheet,
             onAuthenticationStarted = viewModel::onSystemAuthenticationStarted,
-            onAuthenticationFailed = viewModel::onSystemAuthenticationFailed
+            onAuthenticationFailed = viewModel::onSystemAuthenticationFailed,
+            verifyCustomPin = viewModel::verifyPin
         )
         return
     }
@@ -243,20 +244,24 @@ fun AsterReaderAppRoot(
                                     (targetSub is SubScreen.Reader && initialSub !is SubScreen.Reader)
                         )
                     } else {
-                        // 主 Tab 底部导航切换动画：精致流体淡入淡出与微缩放，杜绝左右生硬乱滑
+                        // 主 Tab 底部导航切换动画：精致滑入与淡入淡出（向左/向右有序切换）
+                        val targetIndex = MainNavDestination.entries.indexOf(targetTab)
+                        val initialIndex = MainNavDestination.entries.indexOf(initialTab)
+                        val direction = if (targetIndex >= initialIndex) 1 else -1
+
                         if (reduceMotion) {
                             androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
                         } else {
-                            (androidx.compose.animation.fadeIn(
-                                animationSpec = androidx.compose.animation.core.tween(180, easing = AsterMotion.EmphasizedDecelerateEasing)
-                            ) + androidx.compose.animation.scaleIn(
-                                initialScale = 0.98f,
-                                animationSpec = androidx.compose.animation.core.tween(180, easing = AsterMotion.EmphasizedDecelerateEasing)
-                            )) togetherWith (androidx.compose.animation.fadeOut(
-                                animationSpec = androidx.compose.animation.core.tween(140, easing = AsterMotion.EmphasizedAccelerateEasing)
-                            ) + androidx.compose.animation.scaleOut(
-                                targetScale = 1.01f,
-                                animationSpec = androidx.compose.animation.core.tween(140, easing = AsterMotion.EmphasizedAccelerateEasing)
+                            (androidx.compose.animation.slideInHorizontally(
+                                animationSpec = androidx.compose.animation.core.tween(220, easing = AsterMotion.EmphasizedDecelerateEasing),
+                                initialOffsetX = { (it * 0.15f * direction).toInt() }
+                            ) + androidx.compose.animation.fadeIn(
+                                animationSpec = androidx.compose.animation.core.tween(200, easing = AsterMotion.EmphasizedDecelerateEasing)
+                            )) togetherWith (androidx.compose.animation.slideOutHorizontally(
+                                animationSpec = androidx.compose.animation.core.tween(180, easing = AsterMotion.EmphasizedAccelerateEasing),
+                                targetOffsetX = { (-it * 0.12f * direction).toInt() }
+                            ) + androidx.compose.animation.fadeOut(
+                                animationSpec = androidx.compose.animation.core.tween(160, easing = AsterMotion.EmphasizedAccelerateEasing)
                             ))
                         }
                     }

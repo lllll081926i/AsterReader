@@ -29,6 +29,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -1469,6 +1471,8 @@ fun PrivacySecuritySettingsScreen(
 
     var showTimeoutDialog by remember { mutableStateOf(false) }
     var showRecoveryKeyDialog by remember { mutableStateOf(false) }
+    var showPinDialog by remember { mutableStateOf(false) }
+    var tempPin by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -1559,9 +1563,12 @@ fun PrivacySecuritySettingsScreen(
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.Key,
-                    title = "验证方式",
-                    badgeText = "系统锁屏凭据",
-                    onClick = { viewModel.showSnackbar("使用系统配置的 PIN、密码或图案验证身份") }
+                    title = "设置应用 PIN 码",
+                    badgeText = if (uiState.customPin.isNotBlank()) "已设置" else "默认(1234)",
+                    onClick = {
+                        tempPin = uiState.customPin
+                        showPinDialog = true
+                    }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
                 AsterSettingsRow(
@@ -1660,6 +1667,43 @@ fun PrivacySecuritySettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showTimeoutDialog = false }) { Text("关闭", maxLines = 1, softWrap = false) }
+            }
+        )
+    }
+
+    if (showPinDialog) {
+        AlertDialog(
+            onDismissRequest = { showPinDialog = false },
+            title = { Text("设置应用 PIN 码", fontWeight = FontWeight.Bold, maxLines = 1) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "输入 4-8 位数字作为 Aster Reader 独立解锁 PIN 码：",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = tempPin,
+                        onValueChange = { if (it.length <= 8) tempPin = it },
+                        label = { Text("应用 PIN 码") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.setCustomPin(tempPin)
+                        showPinDialog = false
+                    }
+                ) {
+                    Text("保存", maxLines = 1, softWrap = false)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPinDialog = false }) { Text("取消", maxLines = 1, softWrap = false) }
             }
         )
     }

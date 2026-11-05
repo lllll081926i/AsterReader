@@ -79,41 +79,116 @@ import com.example.ui.components.VaultGeometricShieldIllustration
 import com.example.ui.theme.LocalAsterColors
 import kotlinx.coroutines.delay
 
-/** 仅接受系统锁屏凭据验证结果。 */
+/** 支持应用自建 PIN 码验证以及生物/系统凭据验证。 */
 @Composable
 fun SystemSecurityAuthPromptSheet(
     onAuthenticated: () -> Unit,
     onDismiss: () -> Unit,
     onAuthenticationStarted: () -> Unit = {},
-    onAuthenticationFailed: () -> Unit = {}
+    onAuthenticationFailed: () -> Unit = {},
+    verifyCustomPin: (String) -> Boolean = { it == "1234" }
 ) {
     val context = LocalContext.current
-    var error by remember { mutableStateOf<String?>(null) }
+    var inputPin by remember { mutableStateOf("") }
+    var pinError by remember { mutableStateOf<String?>(null) }
+    var useSystemBiometric by remember { mutableStateOf(false) }
+
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) onAuthenticated()
-        else { onAuthenticationFailed(); error = "身份验证已取消，请重试" }
-    }
-    val authenticate = {
-        val manager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        @Suppress("DEPRECATION")
-        val intent = if (manager.isDeviceSecure) manager.createConfirmDeviceCredentialIntent(
-            "解锁 Aster Reader", "请使用系统锁屏凭据验证身份"
-        ) else null
-        if (intent == null) error = "请先在系统设置中配置安全锁屏"
-        else try { onAuthenticationStarted(); launcher.launch(intent) } catch (_: Exception) {
+        if (result.resultCode == Activity.RESULT_OK) {
+            onAuthenticated()
+        } else {
             onAuthenticationFailed()
-            error = "无法启动系统身份验证，请稍后重试"
+            pinError = "系统验证已取消"
         }
     }
-    LaunchedEffect(Unit) { authenticate() }
+
+    val triggerSystemAuth = {
+        val manager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        @Suppress("DEPRECATION")
+        val intent = if (manager.isDeviceSecure) {
+            manager.createConfirmDeviceCredentialIntent("安全验证", "使用生物识别或设备锁屏凭据")
+        } else null
+        if (intent == null) {
+            pinError = "设备未设置系统锁屏凭据"
+        } else {
+            try {
+                onAuthenticationStarted()
+                launcher.launch(intent)
+            } catch (_: Exception) {
+                onAuthenticationFailed()
+                pinError = "无法启动系统认证"
+            }
+        }
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("身份验证") },
-        text = { Text(error ?: "使用系统锁屏凭据以继续。应用不会模拟指纹认证。") },
-        confirmButton = { TextButton(onClick = { authenticate() }) { Text("验证身份") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
+        title = {
+            Text(
+                text = "安全解锁",
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "输入应用 PIN 码或调用系统生物识别验证身份：",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = inputPin,
+                    onValueChange = {
+                        if (it.length <= 8) {
+                            inputPin = it
+                            pinError = null
+                        }
+                    },
+                    label = { Text("PIN 码") },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    singleLine = true,
+                    isError = pinError != null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (pinError != null) {
+                    Text(
+                        text = pinError.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = { triggerSystemAuth() }) {
+                        Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("使用生物/系统凭据", maxLines = 1, softWrap = false)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (verifyCustomPin(inputPin)) {
+                        onAuthenticated()
+                    } else {
+                        pinError = "PIN 码不正确"
+                    }
+                }
+            ) {
+                Text("确定", maxLines = 1, softWrap = false)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消", maxLines = 1, softWrap = false) }
+        }
     )
 }
 

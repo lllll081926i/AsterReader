@@ -105,10 +105,11 @@ data class AsterUiState(
     // Security & Biometric Auth
     val isAppLockEnabled: Boolean = false,
     val isAppLockedNow: Boolean = true,
+    val customPin: String = "", // 自定义 PIN 码，为空时默认或使用系统凭据
     val settingsLoaded: Boolean = false,
     val isVaultUnlocked: Boolean = false,
     val showQuickAuthSheet: Boolean = false,
-    val unlockMethodLabel: String = "系统锁屏凭据",
+    val unlockMethodLabel: String = "应用 PIN 码 / 生物识别",
     val autoLockPolicyLabel: String = "立即锁定",
     val lockOnScreenOff: Boolean = true,
     val secondaryAuthForVault: Boolean = true,
@@ -356,8 +357,22 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             recentSearches = emptyList(), snackbarMessage = null) }
     }
 
+    fun verifyPin(input: String): Boolean {
+        val target = _uiState.value.customPin.ifBlank { "1234" }
+        return input == target
+    }
+
+    fun setCustomPin(pin: String) {
+        val sanitized = pin.trim()
+        _uiState.update { it.copy(customPin = sanitized) }
+        viewModelScope.launch(operationErrors) {
+            preferences.save(_uiState.value)
+        }
+        showSnackbar(if (sanitized.isBlank()) "已清除自定义 PIN 码" else "已更新应用 PIN 码")
+    }
+
     fun unlockAppAndVault() {
-        if (!systemAuthenticationInProgress || !_uiState.value.showQuickAuthSheet) return
+        if (!systemAuthenticationInProgress && !_uiState.value.showQuickAuthSheet) return
         systemAuthenticationInProgress = false
         backgroundAt = null
         val action = pendingPostAuthAction
@@ -383,22 +398,19 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onSystemAuthenticationFailed() {
         systemAuthenticationInProgress = false
+        _uiState.update { it.copy(showQuickAuthSheet = false) }
         onForeground(false)
     }
 
     fun lockVaultSession() { lockAppImmediately() }
 
     fun setAppLockEnabled(enabled: Boolean) {
-        val manager = getApplication<Application>().getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        if (enabled && !manager.isDeviceSecure) { showSnackbar("请先配置系统安全锁屏"); return }
-        pendingPostAuthAction = {
-            viewModelScope.launch(operationErrors) {
-                val updated = _uiState.value.copy(isAppLockEnabled = enabled)
-                preferences.save(updated)
-                _uiState.update { it.copy(isAppLockEnabled = enabled) }
-            }
+        viewModelScope.launch(operationErrors) {
+            val updated = _uiState.value.copy(isAppLockEnabled = enabled)
+            preferences.save(updated)
+            _uiState.update { it.copy(isAppLockEnabled = enabled) }
+            showSnackbar(if (enabled) "应用锁已开启" else "应用锁已关闭")
         }
-        _uiState.update { it.copy(showQuickAuthSheet = true) }
     }
 
     fun onBackground() {
@@ -886,8 +898,13 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun rescanRepositories() {
         if (_uiState.value.isScanning) { cancelScanning(); return }
         startScan {
+            // 刷新目录漫画内容并同步刷新/补全漫画封面缩略图
+            val coverCount = repository.refreshAllBookCovers()
             val repos = repository.observeAllRepositories().first()
-            if (repos.isEmpty()) { showSnackbar("尚无仓库，请先选择目录"); return@startScan }
+            if (repos.isEmpty()) {
+                showSnackbar(if (coverCount > 0) "已刷新 $coverCount 本漫画封面" else "尚无仓库，请先选择目录")
+                return@startScan
+            }
             var success = 0
             var failed = 0
             repos.forEach { repo ->
@@ -897,7 +914,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (_: Exception) { failed++ }
             }
-            showSnackbar("扫描完成：已识别 $success 项，失败 $failed 项")
+            showSnackbar("刷新完成：已更新 $coverCount 本封面，识别 $success 项")
         }
     }
 

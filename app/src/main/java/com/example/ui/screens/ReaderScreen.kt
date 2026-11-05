@@ -171,19 +171,7 @@ fun ReaderScreen(
     var tabletSideDrawerOpen by remember(isExpandedTablet) { mutableStateOf(false) }
     var tabletSideTab by remember { mutableIntStateOf(0) }
 
-    var modeSwitchToastText by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(uiState.readerLayoutMode) {
-        val label = when (uiState.readerLayoutMode) {
-            ReaderLayoutMode.VERTICAL_SCROLL -> "上下滚动"
-            ReaderLayoutMode.RTL_PAGER -> "右向左翻页"
-            ReaderLayoutMode.LTR_PAGER -> "左向右翻页"
-            ReaderLayoutMode.DUAL_PAGE -> "双页展开"
-        }
-        modeSwitchToastText = "已切换至 $label"
-        delay(1800)
-        modeSwitchToastText = null
-    }
-
+    // 状态静默：进入阅读器不弹出滚动/翻页模式吐司提示
     var readerBrightness by remember { mutableFloatStateOf(0.95f) }
     var dualPageCoverOffset by remember { mutableStateOf(uiState.smartSpreadStitch) }
     val bookmarkedPages = annotations.filter { it.type == "BOOKMARK" }.map { it.pageNumber }.toSet()
@@ -357,45 +345,6 @@ fun ReaderScreen(
                     }
                 }
             }
-
-            // Mode Switch Floating Pill Toast
-            androidx.compose.animation.AnimatedVisibility(
-                visible = modeSwitchToastText != null,
-                enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else fadeIn() + slideInVertically { -it / 2 },
-                exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 86.dp)
-            ) {
-                Surface(
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                    color = ChromeSurfaceColor,
-                    border = BorderStroke(0.8.dp, ChromeBorderColor),
-                    shadowElevation = 6.dp
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = ChromeAccentMint,
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Text(
-                            text = modeSwitchToastText.orEmpty(),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = ChromeTextPrimary,
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
-            }
-
 
             // Unified Bottom Floating Island (Merged Progress Scrub Bar + Bottom Option Buttons)
             androidx.compose.animation.AnimatedVisibility(

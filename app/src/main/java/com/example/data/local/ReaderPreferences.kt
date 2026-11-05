@@ -14,9 +14,11 @@ class ReaderPreferences(context: Context) {
 
     suspend fun load(): AsterUiState = withContext(Dispatchers.IO) {
         val appLock = preferences.getBoolean("appLock", false)
+        val customPin = preferences.getString("customPin", "") ?: ""
         AsterUiState(
             isAppLockEnabled = appLock,
             isAppLockedNow = appLock,
+            customPin = customPin,
             settingsLoaded = true,
             themeMode = enumValue(preferences.getString("theme", null), ThemeMode.SYSTEM),
             useDynamicColor = true,
@@ -38,6 +40,7 @@ class ReaderPreferences(context: Context) {
     suspend fun save(state: AsterUiState) = withContext(Dispatchers.IO) {
         check(preferences.edit()
             .putBoolean("appLock", state.isAppLockEnabled)
+            .putString("customPin", state.customPin)
             .putString("theme", state.themeMode.name)
             .putBoolean("reduceMotion", state.reduceMotion)
             .putString("libraryLayout", state.libraryLayoutMode.name)

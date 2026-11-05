@@ -20,6 +20,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import java.io.File
 import java.util.Locale
 import java.util.UUID
@@ -57,8 +58,65 @@ class LibraryRepository(
     suspend fun deleteRepository(id: String) = dao.deleteRepositoryById(id)
 
     /**
-     * 重新定位失联作品的文件源
+     * 重新生成所有书籍的封面缩略图
      */
+    suspend fun refreshAllBookCovers(): Int = withContext(Dispatchers.IO) {
+        val books = dao.observeAllBooks().first()
+        var refreshed = 0
+        books.forEach { book ->
+            val coverCacheFile = File(context.cacheDir, "covers/${book.id}.jpg")
+            coverCacheFile.parentFile?.mkdirs()
+            try {
+                val uri = Uri.parse(book.filePath)
+                val format = book.format
+                var generated = false
+                if (format in setOf("CBZ", "ZIP", "CBR", "RAR", "CB7", "7Z", "CBT", "TAR", "EPUB", "MOBI")) {
+                    withTemporaryCopy(uri) { file ->
+                        try {
+                            ZipFile(file).use { zip ->
+                                val firstEntry = imageEntries(zip).firstOrNull()
+                                if (firstEntry != null) {
+                                    val stream = zip.getInputStream(firstEntry)
+                                    val bmp = android.graphics.BitmapFactory.decodeStream(stream)
+                                    if (bmp != null) {
+                                        coverCacheFile.outputStream().use { out ->
+                                            bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                                        }
+                                        bmp.recycle()
+                                        generated = true
+                                    }
+                                }
+                            }
+                        } catch (_: Exception) {}
+                    }
+                } else if (format == "PDF") {
+                    withTemporaryCopy(uri) { file ->
+                        val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                        val renderer = try { PdfRenderer(descriptor) } catch (f: Throwable) { descriptor.close(); throw f }
+                        renderer.use {
+                            if (it.pageCount > 0) {
+                                it.openPage(0).use { page ->
+                                    val bmp = Bitmap.createBitmap(page.width.coerceAtMost(720), page.height.coerceAtMost(1080), Bitmap.Config.ARGB_8888)
+                                    bmp.eraseColor(android.graphics.Color.WHITE)
+                                    page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                                    coverCacheFile.outputStream().use { out ->
+                                        bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                                    }
+                                    bmp.recycle()
+                                    generated = true
+                                }
+                            }
+                        }
+                    }
+                }
+                if (generated) {
+                    dao.updateBook(book.copy(coverUrl = coverCacheFile.absolutePath))
+                    refreshed++
+                }
+            } catch (_: Exception) {}
+        }
+        refreshed
+    }
     suspend fun relocateBookSource(bookId: String, newUri: Uri): Boolean = withContext(Dispatchers.IO) {
         val book = dao.getBookById(bookId) ?: return@withContext false
         try {
