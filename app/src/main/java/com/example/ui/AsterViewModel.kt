@@ -784,6 +784,13 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun deleteRepository(repoId: String) {
+        viewModelScope.launch(operationErrors) {
+            repository.deleteRepository(repoId)
+            showSnackbar("已移除书库目录")
+        }
+    }
+
     fun moveShelfUp(shelf: ShelfEntity) {
         viewModelScope.launch(operationErrors) {
             val currentList = allShelves.value.toMutableList()

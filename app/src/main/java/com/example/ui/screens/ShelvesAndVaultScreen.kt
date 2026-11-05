@@ -1844,60 +1844,58 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 
-    // Repositories Management Dialog
+    // Repositories Management Dialog (在文件管理器中直接选择目录，绝无手动填写)
     if (activeModal == "REPOS") {
         AlertDialog(
             onDismissRequest = { activeModal = null },
-            title = { Text("本地目录 ($booksCount 本)", fontWeight = FontWeight.Bold, maxLines = 1) },
+            title = { Text("书库目录 (${repositories.size})", fontWeight = FontWeight.Bold, maxLines = 1) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    repositories.forEach { repo ->
-                        Surface(
-                            shape = MaterialTheme.shapes.medium,
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (repositories.isEmpty()) {
+                        Text(
+                            text = "暂无已挂载的书库目录。点击下方按钮直接在系统文件管理器中选取。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        repositories.forEach { repo ->
+                            Surface(
+                                shape = MaterialTheme.shapes.medium,
+                                color = MaterialTheme.colorScheme.surfaceContainerHigh
                             ) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(repo.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-                                    Text("${repo.bookCount} 本", style = MaterialTheme.typography.labelSmall, fontFamily = RobotoMonoFontFamily, color = MaterialTheme.colorScheme.primary, maxLines = 1)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(repo.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+                                        Text(repo.pathUri, style = MaterialTheme.typography.labelSmall, fontFamily = RobotoMonoFontFamily, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    IconButton(onClick = { viewModel.deleteRepository(repo.id) }) {
+                                        Icon(Icons.Default.DeleteOutline, contentDescription = "删除目录", tint = MaterialTheme.colorScheme.error)
+                                    }
                                 }
-                                Text(repo.pathUri, style = MaterialTheme.typography.labelSmall, fontFamily = RobotoMonoFontFamily, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
-                    OutlinedTextField(
-                        value = newRepoName,
-                        onValueChange = { newRepoName = it },
-                        label = { Text("新增目录名称") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (newRepoName.isNotBlank()) {
-                            viewModel.addRepositoryAndScan(newRepoName.trim(), "每个文件作为作品")
-                            newRepoName = ""
-                        } else {
-                            viewModel.rescanRepositories()
-                        }
                         activeModal = null
+                        // 直接启动系统文件管理器选取目录
+                        viewModel.addRepositoryAndScan("本地书库", "每个文件作为作品")
                     }
                 ) {
-                    Text("保存", maxLines = 1, softWrap = false)
+                    Text("选择目录", maxLines = 1, softWrap = false)
                 }
             },
             dismissButton = {
@@ -1996,16 +1994,25 @@ fun SettingsScreen(
             onDismissRequest = { activeModal = null },
             title = { Text("书架管理", fontWeight = FontWeight.Bold, maxLines = 1) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         text = "书架用于整理与聚合不同来源的漫画。可直接在首页或详情页快速入架。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Button(
+                        onClick = {
+                            activeModal = null
+                            viewModel.createCustomShelf("新书架", "自定义收藏", false)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("新建自定义书架", maxLines = 1, softWrap = false)
+                    }
                 }
             },
             confirmButton = {
-                Button(onClick = { activeModal = null }) {
+                TextButton(onClick = { activeModal = null }) {
                     Text("完成", maxLines = 1, softWrap = false)
                 }
             }
@@ -2018,16 +2025,25 @@ fun SettingsScreen(
             onDismissRequest = { activeModal = null },
             title = { Text("标签管理", fontWeight = FontWeight.Bold, maxLines = 1) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         text = "作品标签将根据漫画目录和元数据自动提取，便于在检索时精准筛选。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Button(
+                        onClick = {
+                            activeModal = null
+                            viewModel.openSearch(openFilterInitially = false, initialQuery = "", initialScope = "全部")
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("前往标签检索", maxLines = 1, softWrap = false)
+                    }
                 }
             },
             confirmButton = {
-                Button(onClick = { activeModal = null }) {
+                TextButton(onClick = { activeModal = null }) {
                     Text("完成", maxLines = 1, softWrap = false)
                 }
             }

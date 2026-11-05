@@ -54,6 +54,7 @@ class LibraryRepository(
     suspend fun deleteAnnotationById(id: Int) = dao.deleteAnnotationById(id)
     suspend fun removeBookmark(id: String, page: Int) = dao.removeBookmark(id, page)
     suspend fun removeBooks(ids: List<String>) = dao.removeBooks(ids)
+    suspend fun deleteRepository(id: String) = dao.deleteRepositoryById(id)
 
     /**
      * 重新定位失联作品的文件源

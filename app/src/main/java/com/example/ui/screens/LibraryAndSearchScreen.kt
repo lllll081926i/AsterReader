@@ -443,16 +443,13 @@ fun LibraryHomeScreen(
                         }
                     }
 
-                    // 2. Filter Chips Row
+                    // 2. Filter Chips Row (精简为全部/未读/在读)
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         val inProgressCount = books.count { it.progressPercent in 1..99 }
                         val chips = listOf(
                             "全部格式" to "全部",
                             "未读" to "未读",
-                            "在读" to "在读 ($inProgressCount)",
-                            "已完结" to "已完结",
-                            "CBZ" to "漫画",
-                            "PDF" to "PDF 漫画"
+                            "在读" to "在读 ($inProgressCount)"
                         )
                         Row(
                             modifier = Modifier
@@ -725,7 +722,8 @@ fun LibraryHomeScreen(
                         .clip(MaterialTheme.shapes.large)
                         .clickable {
                             showAddContentSheet = false
-                            showRepoWizardDialog = true
+                            // 直接触发系统文件管理器选择目录，拒绝手动填写
+                            viewModel.addRepositoryAndScan("本地书库", "每个文件作为作品")
                         }
                 ) {
                     Row(
@@ -742,7 +740,7 @@ fun LibraryHomeScreen(
                                 maxLines = 1
                             )
                             Text(
-                                text = "扫描书库文件夹",
+                                text = "在文件管理器中选择书库目录",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colorScheme.onSurfaceVariant,
                                 maxLines = 1
@@ -2209,17 +2207,16 @@ fun SearchAndFilterScreen(
                         title = "文件格式",
                         modeLabel = "多选"
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("CBZ", "PDF").forEach { fmt ->
+                        listOf("CBZ", "ZIP", "CBR", "RAR", "CB7", "PDF", "EPUB").forEach { fmt ->
                             val selected = fmt in uiState.searchFormatFilters
                             FilterSheetPill(
                                 label = fmt,
                                 selected = selected,
-                                onClick = { viewModel.toggleSearchFormatFilter(fmt) },
-                                modifier = Modifier.weight(1f)
+                                onClick = { viewModel.toggleSearchFormatFilter(fmt) }
                             )
                         }
                     }
