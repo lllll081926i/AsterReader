@@ -91,6 +91,76 @@ class LibraryRepositoryTest {
         return bytes.toByteArray()
     }
 
+    private val png: ByteArray = java.util.Base64.getDecoder()
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
+
+    /** 构造真实 USTAR 归档，用于验证 TAR 随机读取与按目录分章。 */
+    private fun tarBytes(names: List<String>): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        names.forEach { name ->
+            val header = ByteArray(512)
+            val nameBytes = name.toByteArray()
+            System.arraycopy(nameBytes, 0, header, 0, minOf(nameBytes.size, 100))
+            writeOctal(header, 100, 8, 0b111111111)
+            writeOctal(header, 108, 8, 0)
+            writeOctal(header, 116, 8, 0)
+            writeOctal(header, 124, 12, png.size.toLong())
+            writeOctal(header, 136, 12, 0)
+            for (index in 148 until 156) header[index] = ' '.code.toByte()
+            header[156] = '0'.code.toByte()
+            val magic = "ustar".toByteArray()
+            System.arraycopy(magic, 0, header, 257, magic.size)
+            header[262] = 0
+            header[263] = '0'.code.toByte()
+            header[264] = '0'.code.toByte()
+            var checksum = 0
+            header.forEach { checksum += it.toInt() and 0xFF }
+            writeOctal(header, 148, 7, checksum.toLong())
+            header[155] = ' '.code.toByte()
+            out.write(header)
+            out.write(png)
+            out.write(ByteArray((512 - png.size % 512) % 512))
+        }
+        out.write(ByteArray(1024))
+        return out.toByteArray()
+    }
+
+    private fun writeOctal(target: ByteArray, offset: Int, length: Int, value: Long) {
+        val text = value.toString(8).padStart(length - 1, '0')
+        val bytes = text.toByteArray()
+        System.arraycopy(bytes, 0, target, offset, minOf(bytes.size, length - 1))
+        target[offset + length - 1] = 0
+    }
+
+    @Test
+    fun importsStandaloneImageAndPersistsViewport() = runBlocking {
+        val uri = document("单页.png", png)
+        val book = repository.importDocument(uri, persist = false)
+        assertEquals("IMAGE", book.format)
+        assertEquals(1, book.totalPages)
+        assertEquals(1, repository.renderPage(book.id, 1).width)
+
+        repository.saveViewport(book.id, com.asterreader.core.model.ReaderViewport(
+            page = 1, offsetFraction = 0.42f, scale = 2.5f, panX = 0.25f, panY = 0f))
+        val state = repository.readerState(book.id)
+        assertEquals(0.42f, state?.offsetFraction)
+        assertEquals(2.5f, state?.scale)
+    }
+
+    @Test
+    fun importsTarArchiveAndDerivesChaptersFromFolders() = runBlocking {
+        val uri = document("合订本.cbt", tarBytes(listOf("卷1/01.png", "卷1/02.png", "卷2/01.png")))
+        val book = repository.importDocument(uri, persist = false)
+        assertEquals("CBT", book.format)
+        assertEquals(3, book.totalPages)
+        val chapters = db.asterDao().getChapters(book.id)
+        assertEquals(listOf("卷1", "卷2"), chapters.map { it.title })
+        assertEquals(1, chapters[0].startPage)
+        assertEquals(2, chapters[0].endPage)
+        assertEquals(3, chapters[1].startPage)
+        assertEquals(1, repository.renderPage(book.id, 3).width)
+    }
+
     @Test
     fun importsActualComicAndPreservesSourceUriWithoutDuplicates() = runBlocking {
         val bytes = comicBytes()
@@ -102,6 +172,15 @@ class LibraryRepositoryTest {
         assertEquals(imported.id, repository.importDocument(uri, persist = false).id)
         assertEquals(1, db.asterDao().getBookCount())
         assertTrue(files.getValue("真实漫画.cbz").exists())
+    }
+
+    @Test
+    fun zipImportGeneratesReadableCoverFile() = runBlocking {
+        val imported = repository.importDocument(document("封面.cbz", comicBytes()), persist = false)
+        assertTrue("封面路径为空", imported.coverUrl.isNotBlank())
+        val cover = File(imported.coverUrl)
+        assertTrue("封面文件不存在：${imported.coverUrl}", cover.exists() && cover.length() > 0)
+        assertEquals(1, android.graphics.BitmapFactory.decodeFile(cover.absolutePath)?.width)
     }
 
     @Test
@@ -131,7 +210,7 @@ class LibraryRepositoryTest {
     }
 
     @Test
-    fun repeatedPagesReuseSessionAndClosingReleasesTemporaryFile() = runBlocking {
+    fun repeatedPagesReuseSessionAndKeepLocalCopyForReopen() = runBlocking {
         val uri = document("会话缓存.cbz", comicBytes())
         val book = repository.importDocument(uri, persist = false)
         val count = opened.get()
@@ -139,12 +218,18 @@ class LibraryRepositoryTest {
         repository.renderPage(book.id, 2)
         assertSame(first, repository.renderPage(book.id, 1))
         assertEquals(count + 1, opened.get())
-        assertEquals(1, app.cacheDir.listFiles()!!.count { it.name.startsWith("document-") })
+        // 阅读用的本地副本落在 read/ 下，不再是需要每次重建的 document- 临时文件
+        val copyDir = java.io.File(app.cacheDir, "read")
+        assertEquals(1, copyDir.listFiles()!!.count { it.name.endsWith(".arc") })
         repository.trimPageMemory()
         repository.closeReadSession()
         repository.closeReadSession()
-        assertTrue(app.cacheDir.listFiles()!!.none { it.name.startsWith("document-") })
+        // 副本保留以便再次打开时直接命中，避免整本重新复制
+        assertEquals(1, copyDir.listFiles()!!.count { it.name.endsWith(".arc") })
+        repository.renderPage(book.id, 1)
+        assertEquals(count + 1, opened.get())
         assertTrue(files.getValue("会话缓存.cbz").exists())
+        repository.closeReadSession()
     }
 
     @Test
@@ -153,9 +238,13 @@ class LibraryRepositoryTest {
         document("漫画2.cbz", comicBytes(3))
         document("忽略.bin", byteArrayOf(1))
         val tree = Uri.parse("content://audit.documents/tree/root")
-        assertEquals(2 to 0, repository.scanRepository(tree, "测试仓库", "每个文件作为作品"))
+        val first = repository.scanRepository(tree, "测试仓库", "每个文件作为作品")
+        assertEquals(2, first.imported)
+        assertEquals(0, first.failed)
         val count = opened.get()
-        assertEquals(2 to 0, repository.scanRepository(tree, "测试仓库", "每个文件作为作品"))
+        val second = repository.scanRepository(tree, "测试仓库", "每个文件作为作品")
+        assertEquals(0, second.imported)
+        assertEquals(0, second.updated)
         assertEquals(count, opened.get())
         assertEquals(2, db.asterDao().getBookCount())
     }

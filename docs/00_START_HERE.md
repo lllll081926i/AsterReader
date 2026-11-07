@@ -1,5 +1,14 @@
 # 00 START HERE — Aster Reader FINAL v3.0
 
+> **实现状态（2026-11-05，务必先读）**
+> 本目录 01–39 是开发前的规划文档，其中 `19_SECURITY_VAULT_AND_APP_LOCK.md`、
+> `23_THREAT_MODEL_AND_RECOVERY.md`、`32_SECURITY_VERIFICATION_PLAN.md` 以及 PRD 里
+> 「真加密 Vault / 受保护 metadata 加密 / ASTV1 容器」等章节**已明确搁置，未实现**。
+> 当前安全模型只有两层：**应用锁**（自定义 PIN + 系统生物识别）与**隐藏作品**
+> （纯可见性，文件字节不改动）。`docs/40_ENCRYPTION_VAULT_DESIGN.md` 已删除。
+> 代码现状以 `app/src/main` 与 `core/database` 为准；界面文案目前仅简体中文硬编码，
+> 尚未抽取多语言资源。数据库已注册 v1→v2 迁移，release 构建需环境变量提供上传密钥。
+
 > 这是正式开发前的入口文档。你不需要先懂 Android 的所有知识；按文档规定的顺序做，每一阶段都先建立边界、再实现功能、最后过 Gate。
 
 ## 一句话目标

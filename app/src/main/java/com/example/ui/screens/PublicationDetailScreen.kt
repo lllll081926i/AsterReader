@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.Subject
 import androidx.compose.material.icons.automirrored.outlined.Toc
@@ -47,12 +48,16 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EnhancedEncryption
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.FindInPage
 import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Photo
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -120,7 +125,11 @@ fun PublicationDetailScreen(
     var showQuickReaderSettingsSheet by remember { mutableStateOf(false) }
     var showMetadataEditorDialog by remember { mutableStateOf(false) }
     var showFileInfoDialog by remember { mutableStateOf(false) }
-    var showVaultEncryptWizard by remember { mutableStateOf(false) }
+    var showCoverPicker by remember { mutableStateOf(false) }
+    var showSeriesDialog by remember { mutableStateOf(false) }
+    var coverPageInput by remember(book.id) { mutableStateOf(book.coverPage.toString()) }
+    var seriesInput by remember(book.id) { mutableStateOf(book.series) }
+    var seriesOrderInput by remember(book.id) { mutableStateOf(book.seriesOrder.toString()) }
 
     Box(
         modifier = Modifier
@@ -153,11 +162,12 @@ fun PublicationDetailScreen(
                 }
 
                 Text(
-                    text = "详情",
+                    text = book.title,
                     style = MaterialTheme.typography.titleSmall,
                     color = colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    softWrap = false
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -204,22 +214,48 @@ fun PublicationDetailScreen(
                                 }
                             )
                             DropdownMenuItem(
+                                leadingIcon = { Icon(Icons.Outlined.Photo, contentDescription = null) },
+                                text = { Text("选择封面页", maxLines = 1, softWrap = false) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showCoverPicker = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                leadingIcon = { Icon(Icons.AutoMirrored.Outlined.LibraryBooks, contentDescription = null) },
+                                text = { Text("系列与卷序", maxLines = 1, softWrap = false) },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showSeriesDialog = true
+                                }
+                            )
+                            if (book.sourceStatus == "MISSING") {
+                                DropdownMenuItem(
+                                    leadingIcon = { Icon(Icons.Outlined.FindInPage, contentDescription = null) },
+                                    text = { Text("重新定位来源", maxLines = 1, softWrap = false) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        viewModel.beginRelocate(book.id)
+                                    }
+                                )
+                            }
+                            DropdownMenuItem(
                                 leadingIcon = {
                                     Icon(
-                                        imageVector = if (book.isVaultProtected) Icons.Outlined.LockOpen else Icons.Outlined.EnhancedEncryption,
+                                        imageVector = if (book.isVaultProtected) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
                                         contentDescription = null
                                     )
                                 },
                                 text = {
                                     Text(
-                                        text = if (book.isVaultProtected) "取消加密" else "设为加密",
+                                        text = if (book.isVaultProtected) "取消隐藏" else "隐藏作品",
                                         maxLines = 1,
                                         softWrap = false
                                     )
                                 },
                                 onClick = {
                                     showOverflowMenu = false
-                                    showVaultEncryptWizard = true
+                                    viewModel.setBookHidden(book.id, !book.isVaultProtected)
                                 }
                             )
                         }
@@ -242,6 +278,31 @@ fun PublicationDetailScreen(
                         .widthIn(max = 880.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
+                    // 来源失联提示：保留阅读记录，可重新定位
+                    if (book.sourceStatus == "MISSING") {
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = colorScheme.errorContainer,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "源文件已移动或授权失效，阅读进度已保留",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onErrorContainer,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(onClick = { viewModel.beginRelocate(book.id) }) {
+                                    Text("重新定位", maxLines = 1, softWrap = false)
+                                }
+                            }
+                        }
+                    }
+
                     // Hero Section (No comic type badges)
                     if (isExpandedTablet) {
                         Row(
@@ -1018,7 +1079,10 @@ fun PublicationDetailScreen(
                     Text("目录：${book.repositoryName}", style = MaterialTheme.typography.bodyMedium)
                     Text("路径：${book.filePath}", style = MaterialTheme.typography.bodySmall, color = colorScheme.onSurfaceVariant)
                     Text(
-                        text = if (book.isVaultEncrypted) "状态：旧加密标记（未经验证）" else "状态：未加密",
+                        text = when (book.sourceStatus) {
+                            "MISSING" -> "状态：来源已失联"
+                            else -> "状态：来源可读"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.primary
                     )
@@ -1032,13 +1096,68 @@ fun PublicationDetailScreen(
         )
     }
 
-    // Encrypt or Decrypt Dialog
-    if (showVaultEncryptWizard) {
+    // 选择封面页
+    if (showCoverPicker) {
         AlertDialog(
-            onDismissRequest = { showVaultEncryptWizard = false },
-            title = { Text("加密迁移尚不可用") },
-            text = { Text("此版本没有完成可验证的保险库与恢复流程，因此不能加密、解密或更改文件保护标记。原始文件保持不变。") },
-            confirmButton = { TextButton(onClick = { showVaultEncryptWizard = false }) { Text("知道了") } }
+            onDismissRequest = { showCoverPicker = false },
+            title = { Text("封面页", maxLines = 1) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("输入页码（1 - ${book.totalPages}），将从该页重新生成缩略图。", style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(
+                        value = coverPageInput,
+                        onValueChange = { coverPageInput = it.filter(Char::isDigit).take(6) },
+                        label = { Text("页码") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val page = coverPageInput.toIntOrNull()
+                    if (page != null) viewModel.setCoverPage(book.id, page)
+                    showCoverPicker = false
+                }) { Text("生成封面", maxLines = 1, softWrap = false) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCoverPicker = false }) { Text("取消", maxLines = 1, softWrap = false) }
+            }
+        )
+    }
+
+    // 系列与卷序
+    if (showSeriesDialog) {
+        AlertDialog(
+            onDismissRequest = { showSeriesDialog = false },
+            title = { Text("系列与卷序", maxLines = 1) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = seriesInput,
+                        onValueChange = { seriesInput = it },
+                        label = { Text("系列名称") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = seriesOrderInput,
+                        onValueChange = { seriesOrderInput = it.filter(Char::isDigit).take(4) },
+                        label = { Text("卷序") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.moveSeriesOrder(book.id, seriesInput, seriesOrderInput.toIntOrNull() ?: 0)
+                    showSeriesDialog = false
+                }) { Text("保存", maxLines = 1, softWrap = false) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSeriesDialog = false }) { Text("取消", maxLines = 1, softWrap = false) }
+            }
         )
     }
 }
@@ -1099,9 +1218,9 @@ private fun DetailMetadataColumn(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (book.isVaultEncrypted) {
+            if (book.isVaultProtected) {
                 Text(
-                    text = "受保护",
+                    text = "已隐藏 · 需验证身份",
                     style = MaterialTheme.typography.labelSmall,
                     color = colorScheme.primary,
                     maxLines = 1,

@@ -13,10 +13,10 @@ android {
   compileSdk { version = release(37) }
 
   defaultConfig {
-    applicationId = "com.aistudio.asterreader.vqxkpm"
+    applicationId = "com.asterreader.app"
     minSdk = 31
     targetSdk = 37
-    versionCode = 1
+    versionCode = 2
     versionName = "2.4.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -64,6 +64,13 @@ android {
     compose = true
     buildConfig = true
   }
+  // minSdk >= 28 时 AGP 默认把 dex 以「未压缩」方式塞进 APK（系统可直接 mmap，安装更快），
+  // 代价是 APK 文件几乎等于 dex 原始大小。恢复压缩 dex 可让安装包体积大幅下降，
+  // 运行时与设备安装占用不变（系统安装时本来就会解压）。
+  packaging {
+    dex { useLegacyPackaging = true }
+    resources { excludes += setOf("META-INF/{AL2.0,LGPL2.1}") }
+  }
   testOptions { unitTests { isIncludeAndroidResources = true } }
   dependenciesInfo {
     includeInApk = false
@@ -85,8 +92,6 @@ googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.W
 // This makes it easy to add them back in the future if needed.
 dependencies {
   implementation(project(":core:model"))
-  implementation(project(":core:engine-api"))
-  implementation(project(":core:security-api"))
   implementation(project(":core:database"))
   implementation(project(":core:designsystem"))
 
@@ -105,7 +110,6 @@ dependencies {
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
-  implementation(libs.androidx.datastore.preferences)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -128,6 +132,11 @@ dependencies {
   // implementation(libs.firebase.appcheck.debug)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
+  // 漫画归档：7z / tar / rar 真实读取
+  implementation(libs.commons.compress)
+  implementation(libs.xz)
+  implementation(libs.junrar)
+  runtimeOnly(libs.slf4j.nop)
   // implementation(libs.logging.interceptor)
   // implementation(libs.moshi.kotlin)
   // implementation(libs.okhttp)

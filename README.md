@@ -90,3 +90,24 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ## 开源协议
 
 本项目采用 [MIT License](LICENSE) 授权许可。
+
+## 发布构建
+
+release 使用 `signingConfigs.release`：默认从环境变量读取密钥，**本地开发用的
+`my-upload-key.jks` 已生成并加入 `.gitignore`，正式发布请务必换成自己的上传密钥**。
+
+```bash
+KEYSTORE_PATH=/path/to/upload.jks STORE_PASSWORD=xxx KEY_PASSWORD=xxx \
+  ./gradlew :app:assembleRelease
+```
+
+`versionCode` 每次发版必须递增；`proguard-rules.pro` 里的 Room / 归档库 keep 规则
+仅在 release 生效，改动依赖后请重新跑一次 `assembleRelease` + 冒烟测试。
+
+## 数据备份
+
+应用关闭了系统备份（`allowBackup=false`）以避免书库与 PIN 进入云端。
+换机或重装请在「设置 → 本地书库」使用 **导出书库清单 / 恢复书库清单**：
+导出的 JSON 只含元数据（进度、标签、书架、批注、阅读状态），不含漫画文件与 PIN；
+恢复后旧设备的 `content://` 授权失效，作品会标记为 MISSING，用详情页的
+「重新定位来源」重新选择文件即可继续阅读。

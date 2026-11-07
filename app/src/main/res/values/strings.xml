@@ -1,11 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Aster Reader</string>
-    <string name="search_placeholder">搜索书籍、作者、文件名</string>
-    <string name="vault_protected_content">受保护内容</string>
-    <string name="vault_biometric_required">需生物验证</string>
-    <string name="continue_reading">继续阅读</string>
-    <string name="nav_library">资料库</string>
-    <string name="nav_shelves">书架</string>
-    <string name="nav_vault">保险库</string>
-    <string name="nav_settings">设置</string>
 </resources>

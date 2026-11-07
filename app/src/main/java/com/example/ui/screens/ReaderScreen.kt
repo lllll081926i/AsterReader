@@ -125,12 +125,20 @@ fun ReaderScreen(
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
-    if (book.isVaultProtected || book.isVaultEncrypted) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("此版本无法安全读取保险库内容") }
+    // 「隐藏」只是书库可见性，验证身份后照常阅读；只有真正的加密容器才拦截。
+    if (book.isVaultEncrypted) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("该文件为加密容器，当前版本暂不支持")
+        }
         return
     }
 
     val context = LocalContext.current
+    // 阅读时长：进入开始计时，离开时结算一次
+    DisposableEffect(book.id) {
+        viewModel.beginReadingSession()
+        onDispose { viewModel.endReadingSession() }
+    }
     // 沉浸式全屏处理：进入阅读器时隐藏系统状态栏与导航栏，退出时恢复
     DisposableEffect(Unit) {
         val activity = context as? android.app.Activity
@@ -149,20 +157,33 @@ fun ReaderScreen(
     }.collectAsStateWithLifecycle(initialValue = emptyList())
 
     val totalPages = book.totalPages.coerceAtLeast(1)
-    val chapters = remember(book.id, totalPages) {
-        object : AbstractList<ChapterEntity>() {
-            override val size = totalPages
-            override fun get(index: Int) = ChapterEntity("${book.id}_$index", book.id, index + 1,
-                "第 ${index + 1} 页", index + 1, index + 1, false, false)
+    val storedChapters by remember(book.id) {
+        viewModel.observeChapters(book.id)
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
+
+    // 有真实章节（按目录分组）时用真实章节；否则退化为页码目录
+    val chapters: List<ChapterEntity> = remember(storedChapters, totalPages, book.id) {
+        if (storedChapters.isNotEmpty()) storedChapters
+        else List(totalPages) { index ->
+            ChapterEntity("${book.id}_p$index", book.id, index + 1, "第 ${index + 1} 页",
+                index + 1, index + 1, false, false)
         }
     }
+
+    var restored by remember(book.id) {
+        mutableStateOf<com.asterreader.core.database.ReaderStateEntity?>(null)
+    }
+    var stateLoaded by remember(book.id) { mutableStateOf(false) }
     var currentPage by remember(book.id, initialPage) {
         mutableIntStateOf((initialPage ?: book.currentPage).coerceIn(1, totalPages))
     }
-    var currentChapterIndex by remember(book.id, chapters) {
-        val idx = currentPage - 1
-        mutableIntStateOf(idx)
+    LaunchedEffect(book.id) {
+        restored = viewModel.loadReaderState(book.id)
+        val saved = restored
+        if (saved != null && initialPage == null) currentPage = saved.page.coerceIn(1, totalPages)
+        stateLoaded = true
     }
+    var currentChapterIndex by remember(book.id, chapters) { mutableIntStateOf(0) }
 
     var showChrome by remember { mutableStateOf(true) }
     var showMiniStatusPill by remember { mutableStateOf(true) }
@@ -171,16 +192,20 @@ fun ReaderScreen(
     var tabletSideDrawerOpen by remember(isExpandedTablet) { mutableStateOf(false) }
     var tabletSideTab by remember { mutableIntStateOf(0) }
 
-    // 状态静默：进入阅读器不弹出滚动/翻页模式吐司提示
-    var readerBrightness by remember { mutableFloatStateOf(0.95f) }
-    var dualPageCoverOffset by remember { mutableStateOf(uiState.smartSpreadStitch) }
+    val readerBrightness = uiState.readerBrightness
+    var dualPageCoverOffset by remember(book.id) { mutableStateOf(uiState.smartSpreadStitch) }
     val bookmarkedPages = annotations.filter { it.type == "BOOKMARK" }.map { it.pageNumber }.toSet()
 
     var sliderPreview by remember(book.id) { mutableStateOf<Float?>(null) }
-    val activeChapterTitle = "第 $currentPage 页"
-    LaunchedEffect(currentPage) {
-        currentChapterIndex = currentPage - 1
+    val activeChapterTitle = remember(chapters, currentPage) {
+        chapters.firstOrNull { currentPage in it.startPage..it.endPage }?.title ?: "第 $currentPage 页"
+    }
+    LaunchedEffect(currentPage, chapters) {
+        currentChapterIndex = chapters.indexOfFirst { currentPage in it.startPage..it.endPage }.coerceAtLeast(0)
         viewModel.updateReadingProgress(book.id, currentPage, activeChapterTitle)
+    }
+    LaunchedEffect(uiState.readerLayoutMode, uiState.fitModeLabel, uiState.smartSpreadStitch) {
+        viewModel.saveReaderOptionsFor(book.id)
     }
 
     val focusRequester = remember { FocusRequester() }
@@ -208,7 +233,9 @@ fun ReaderScreen(
                 .fillMaxHeight()
         ) {
 
-                PublicationPageCanvas(
+                if (!stateLoaded) {
+                    Box(Modifier.fillMaxSize().background(ComicPaper))
+                } else PublicationPageCanvas(
                     publicationId = book.id,
                     page = currentPage,
                     totalPages = totalPages,
@@ -216,11 +243,24 @@ fun ReaderScreen(
                     expanded = isExpandedTablet,
                     coverSingle = uiState.smartSpreadStitch,
                     fitMode = uiState.fitModeLabel,
-                    loadPage = { viewModel.renderPage(book.id, it) },
+                    initialScale = restored?.scale ?: 1f,
+                    initialPanX = restored?.panX ?: 0f,
+                    initialPanY = restored?.panY ?: 0f,
+                    initialOffsetFraction = if (restored?.page == currentPage) restored?.offsetFraction ?: 0f else 0f,
+                    loadPage = { targetPage, maxPixels -> viewModel.renderPage(book.id, targetPage, maxPixels) },
+                    loadRegion = { targetPage, top, bottom, pixels ->
+                        viewModel.renderPageRegion(book.id, targetPage, top, bottom, pixels)
+                    },
+                    onPrefetch = { pages -> viewModel.prefetchPages(book.id, pages) },
                     onPageChanged = { currentPage = it },
+                    onViewportChanged = { p, fraction, scale, panX, panY ->
+                        viewModel.updateViewport(book.id, p, fraction, scale, panX, panY)
+                    },
                     onNextPage = {
                         if (currentPage < totalPages) {
                             currentPage++
+                        } else {
+                            viewModel.openNextVolume(book)
                         }
                     },
                     onPrevPage = {
@@ -709,7 +749,7 @@ fun ReaderScreen(
                         Icon(Icons.Outlined.BrightnessLow, contentDescription = null, modifier = Modifier.size(18.dp))
                         Slider(
                             value = readerBrightness,
-                            onValueChange = { readerBrightness = it },
+                            onValueChange = { viewModel.setReaderBrightness(it) },
                             valueRange = 0.25f..1.0f,
                             modifier = Modifier.weight(1f)
                         )

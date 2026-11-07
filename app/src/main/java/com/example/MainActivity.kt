@@ -28,6 +28,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -42,6 +43,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -52,22 +57,30 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.asterreader.core.designsystem.AsterMotion
 import com.example.ui.AsterUiState
 import com.example.ui.AsterViewModel
+import com.example.ui.SnackbarTone
 import com.example.ui.SubScreen
 import com.example.ui.ThemeMode
 import com.example.ui.components.AppleFloatingBottomDock
 import com.example.ui.components.MainNavDestination
+import com.example.ui.screens.AppLockScreen
 import com.example.ui.screens.LibraryHomeScreen
+import com.example.ui.screens.HiddenBooksScreen
 import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.PrivacySecuritySettingsScreen
 import com.example.ui.screens.PublicationDetailScreen
+import com.example.ui.screens.ReadingStatsScreen
 import com.example.ui.screens.ReaderScreen
 import com.example.ui.screens.SearchAndFilterScreen
+import com.example.ui.screens.SeriesScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.ShelfDetailScreen
 import com.example.ui.screens.ShelvesScreen
@@ -85,6 +98,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenOffReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else registerReceiver(screenOffReceiver, filter)
         enableEdgeToEdge()
+        if (savedInstanceState == null) consumeOpenIntent(intent)
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -123,6 +137,35 @@ class MainActivity : ComponentActivity() {
         viewModel.onForeground(manager.isDeviceLocked)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        consumeOpenIntent(intent)
+    }
+
+    /** 接收「用其他应用打开 / 分享」传来的漫画文件，直接导入并开始阅读。 */
+    private fun consumeOpenIntent(intent: Intent?) {
+        intent ?: return
+        val uri = when (intent.action) {
+            Intent.ACTION_VIEW -> intent.data
+            Intent.ACTION_SEND -> if (Build.VERSION.SDK_INT >= 33) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, android.net.Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_STREAM) as? android.net.Uri
+            }
+            else -> null
+        } ?: return
+        if (uri.scheme == "content") {
+            runCatching {
+                contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+        }
+        viewModel.openExternalDocument(uri)
+    }
+
     override fun onStop() {
         viewModel.onBackground()
         super.onStop()
@@ -151,22 +194,55 @@ fun AsterReaderAppRoot(
     uiState: AsterUiState
 ) {
     val reduceMotion = LocalAsterReduceMotion.current
+    val snackbar by viewModel.snackbar.collectAsStateWithLifecycle()
     if (!uiState.settingsLoaded || uiState.isAppLockedNow || uiState.showQuickAuthSheet) {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            Box(contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(if (uiState.settingsLoaded) "Aster Reader 已锁定" else "正在加载设置")
-                    if (uiState.settingsLoaded) Button(onClick = { viewModel.requestVaultUnlock() }) { Text("解锁") }
+        val colorScheme = MaterialTheme.colorScheme
+        Surface(modifier = Modifier.fillMaxSize(), color = colorScheme.surface) {
+            when {
+                !uiState.settingsLoaded -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Surface(
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            color = colorScheme.primaryContainer.copy(alpha = 0.55f),
+                            modifier = Modifier.size(76.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.MenuBook,
+                                    contentDescription = null,
+                                    tint = colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(34.dp)
+                                )
+                            }
+                        }
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                            color = colorScheme.primary
+                        )
+                        Text(
+                            text = "正在整理书库…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
+                uiState.isAppLockedNow -> AppLockScreen(viewModel = viewModel, uiState = uiState)
+                else -> Box(modifier = Modifier.fillMaxSize())
             }
         }
-        if (uiState.settingsLoaded && uiState.showQuickAuthSheet) SystemSecurityAuthPromptSheet(
-            onAuthenticated = viewModel::unlockAppAndVault,
-            onDismiss = viewModel::dismissQuickAuthSheet,
-            onAuthenticationStarted = viewModel::onSystemAuthenticationStarted,
-            onAuthenticationFailed = viewModel::onSystemAuthenticationFailed,
-            verifyCustomPin = viewModel::verifyPin
-        )
+        if (uiState.settingsLoaded && uiState.showQuickAuthSheet && !uiState.isAppLockedNow) {
+            SystemSecurityAuthPromptSheet(
+                viewModel = viewModel,
+                onDismiss = viewModel::dismissQuickAuthSheet
+            )
+        }
         return
     }
     val allBooks by viewModel.allBooks.collectAsStateWithLifecycle()
@@ -178,7 +254,31 @@ fun AsterReaderAppRoot(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            viewModel.importLocalFileUri(uri, "本地导入图书")
+            viewModel.importLocalFileUri(uri)
+        }
+    }
+
+    val relocateLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        viewModel.relocateBookSource(uri)
+    }
+
+    val relocateFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        viewModel.relocateBookSource(uri)
+    }
+
+    LaunchedEffect(uiState.pendingRelocateBookId, uiState.pendingRelocateIsFolder) {
+        if (uiState.pendingRelocateBookId != null) {
+            try {
+                if (uiState.pendingRelocateIsFolder) relocateFolderLauncher.launch(null)
+                else relocateLauncher.launch(arrayOf("*/*"))
+            } catch (_: Exception) {
+                viewModel.relocateBookSource(null)
+                viewModel.showSnackbar("无法打开选择器")
+            }
         }
     }
 
@@ -194,15 +294,8 @@ fun AsterReaderAppRoot(
 
     val triggerSystemFilePicker = {
         try {
-            filePickerLauncher.launch(
-                arrayOf(
-                    "application/pdf",
-                    "application/vnd.comicbook+zip",
-                    "application/x-cbz",
-                    "application/zip",
-                    "application/octet-stream"
-                )
-            )
+            // 不限制 MIME：CBZ/ZIP/CBR/RAR/CB7/7Z/CBT/TAR/PDF/EPUB/单图 都可选
+            filePickerLauncher.launch(arrayOf("*/*"))
         } catch (_: Exception) {
             viewModel.showSnackbar("无法打开系统文件选择器，请重试")
         }
@@ -216,9 +309,9 @@ fun AsterReaderAppRoot(
         viewModel.popSubScreen()
     }
 
-    LaunchedEffect(uiState.snackbarMessage) {
-        if (uiState.snackbarMessage != null) {
-            delay(2600)
+    LaunchedEffect(snackbar?.id) {
+        if (snackbar != null) {
+            delay(if (snackbar?.tone == SnackbarTone.ERROR) 3400 else 2600)
             viewModel.consumeSnackbar()
         }
     }
@@ -352,10 +445,41 @@ fun AsterReaderAppRoot(
                             )
                         }
 
+                        SubScreen.HiddenBooks -> {
+                            HiddenBooksScreen(
+                                viewModel = viewModel,
+                                onBack = { viewModel.popSubScreen() }
+                            )
+                        }
+
+                        SubScreen.ReadingStats -> {
+                            if (uiState.showReadingStats) {
+                                ReadingStatsScreen(
+                                    viewModel = viewModel,
+                                    finishedBooks = allBooks.count {
+                                        it.totalPages > 0 && it.currentPage >= it.totalPages
+                                    },
+                                    totalBooks = allBooks.size,
+                                    onBack = { viewModel.popSubScreen() }
+                                )
+                            } else {
+                                LaunchedEffect(Unit) { viewModel.popSubScreen() }
+                            }
+                        }
+
+                        SubScreen.SeriesList -> {
+                            SeriesScreen(
+                                allBooks = allBooks,
+                                uiState = uiState,
+                                isExpandedTablet = isExpandedTablet,
+                                viewModel = viewModel,
+                                onBack = { viewModel.popSubScreen() }
+                            )
+                        }
+
                         SubScreen.PrivacySecuritySettings -> {
                             PrivacySecuritySettingsScreen(
                                 uiState = uiState,
-                                protectedBooksCount = allBooks.count { it.isVaultProtected },
                                 viewModel = viewModel,
                                 onBack = { viewModel.popSubScreen() }
                             )
@@ -365,7 +489,7 @@ fun AsterReaderAppRoot(
                             OnboardingScreen(
                                 onImportFileClick = triggerSystemFilePicker,
                                 onCreateRepoClick = {
-                                    viewModel.addRepositoryAndScan("本地漫画库", "每个文件作为作品")
+                                    viewModel.addRepositoryAndScan("本地漫画库", com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE)
                                 },
                                 onOpenSecuritySettings = {
                                     viewModel.popSubScreen()
@@ -410,17 +534,6 @@ fun AsterReaderAppRoot(
                                 onBack = { viewModel.selectMainTab(MainNavDestination.LIBRARY) }
                             )
                         }
-
-                        MainNavDestination.SETTINGS -> {
-                            SettingsScreen(
-                                uiState = uiState,
-                                repositories = allRepositories,
-                                booksCount = allBooks.size,
-                                viewModel = viewModel,
-                                onTriggerImportFile = triggerSystemFilePicker,
-                                onBack = { viewModel.selectMainTab(MainNavDestination.LIBRARY) }
-                            )
-                        }
                     }
                 }
             }
@@ -454,7 +567,7 @@ fun AsterReaderAppRoot(
 
             // Floating Snackbar Feedback Pill
             AnimatedVisibility(
-                visible = uiState.snackbarMessage != null,
+                visible = snackbar != null,
                 enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else fadeIn() + slideInVertically { it / 2 },
                 exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else fadeOut() + slideOutVertically { it / 2 },
                 modifier = Modifier
@@ -462,31 +575,51 @@ fun AsterReaderAppRoot(
                     .navigationBarsPadding()
                     .padding(bottom = if (showAppleBottomDock) 78.dp else 24.dp, start = 20.dp, end = 20.dp)
             ) {
+                val tone = snackbar?.tone ?: SnackbarTone.INFO
+                val feedbackColor = when (tone) {
+                    SnackbarTone.ERROR -> MaterialTheme.colorScheme.errorContainer
+                    SnackbarTone.SUCCESS -> MaterialTheme.colorScheme.primaryContainer
+                    SnackbarTone.INFO -> MaterialTheme.colorScheme.inverseSurface
+                }
+                val feedbackContent = when (tone) {
+                    SnackbarTone.ERROR -> MaterialTheme.colorScheme.onErrorContainer
+                    SnackbarTone.SUCCESS -> MaterialTheme.colorScheme.onPrimaryContainer
+                    SnackbarTone.INFO -> MaterialTheme.colorScheme.inverseOnSurface
+                }
                 Surface(
                     shape = androidx.compose.foundation.shape.CircleShape,
-                    color = MaterialTheme.colorScheme.inverseSurface,
+                    color = feedbackColor,
                     tonalElevation = 8.dp,
                     shadowElevation = 10.dp,
-                    modifier = Modifier.widthIn(max = 480.dp)
+                    modifier = Modifier
+                        .widthIn(max = 480.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .clickable { viewModel.consumeSnackbar() }
+                        .semantics { contentDescription = "关闭提示" }
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.CheckCircle,
+                            imageVector = when (tone) {
+                                SnackbarTone.ERROR -> Icons.Filled.ErrorOutline
+                                SnackbarTone.SUCCESS -> Icons.Filled.CheckCircle
+                                SnackbarTone.INFO -> Icons.Filled.Info
+                            },
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.inversePrimary,
-                            modifier = Modifier.size(16.dp)
+                            tint = feedbackContent,
+                            modifier = Modifier.size(17.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = uiState.snackbarMessage.orEmpty(),
+                            text = snackbar?.message.orEmpty(),
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.inverseOnSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            color = feedbackContent,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
                     }
                 }

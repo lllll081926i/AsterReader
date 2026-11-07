@@ -367,9 +367,11 @@ fun AsterBookCover(
 ) {
     val context = LocalContext.current
     if (coverUrl.isNotBlank()) {
+        // 兼容历史数据：裸文件路径补全 file:// 前缀，否则 Coil 无法识别
+        val model = if (coverUrl.contains("://")) coverUrl else "file://$coverUrl"
         SubcomposeAsyncImage(
             model = ImageRequest.Builder(context)
-                .data(coverUrl)
+                .data(model)
                 .crossfade(true)
                 .build(),
             contentDescription = title,

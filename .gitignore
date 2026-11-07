@@ -17,3 +17,4 @@ local.properties
 .env
 debug.keystore
 .trash/
+/my-upload-key.jks

@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -109,6 +110,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.History
@@ -121,7 +123,10 @@ import com.example.ui.AsterViewModel
 import com.example.ui.LibraryLayoutMode
 import com.example.ui.SortOption
 import com.example.ui.SubScreen
+import com.asterreader.core.designsystem.LocalAsterReduceMotion
+import com.asterreader.core.designsystem.asterCardInteraction
 import com.example.ui.components.AsterBookCover
+import com.example.ui.components.AsterEmptyState
 import com.example.ui.components.SafeProtectedBookCard
 import com.example.ui.components.TranquilDeskEmptyIllustration
 import com.example.ui.theme.LocalAsterColors
@@ -138,6 +143,7 @@ fun LibraryHomeScreen(
 ) {
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
+    val scanProgress by viewModel.scanProgress.collectAsStateWithLifecycle()
 
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showAddContentSheet by remember { mutableStateOf(false) }
@@ -235,12 +241,6 @@ fun LibraryHomeScreen(
                                 ) {
                                     Text("入架", maxLines = 1, softWrap = false)
                                 }
-                                TextButton(
-                                    onClick = { viewModel.batchEncryptSelectedToVault() },
-                                    contentPadding = PaddingValues(horizontal = 8.dp)
-                                ) {
-                                    Text("加密", maxLines = 1, softWrap = false)
-                                }
                                 IconButton(onClick = { viewModel.batchRemoveSelectedFromLibrary() }) {
                                     Icon(
                                         imageVector = Icons.Outlined.DeleteOutline,
@@ -259,7 +259,7 @@ fun LibraryHomeScreen(
                     contentPadding = PaddingValues(
                         start = 16.dp,
                         end = 16.dp,
-                        top = 4.dp,
+                        top = 14.dp,
                         bottom = 136.dp
                     ),
                     horizontalArrangement = Arrangement.spacedBy(
@@ -351,6 +351,22 @@ fun LibraryHomeScreen(
                                                 viewModel.rescanRepositories()
                                             }
                                         )
+                                        if (uiState.showReadingStats) {
+                                            DropdownMenuItem(
+                                                text = { Text("阅读统计", maxLines = 1, softWrap = false) },
+                                                onClick = {
+                                                    showOverflowMenu = false
+                                                    viewModel.pushSubScreen(SubScreen.ReadingStats)
+                                                }
+                                            )
+                                        }
+                                        DropdownMenuItem(
+                                            text = { Text("系列与卷", maxLines = 1, softWrap = false) },
+                                            onClick = {
+                                                showOverflowMenu = false
+                                                viewModel.pushSubScreen(SubScreen.SeriesList)
+                                            }
+                                        )
                                         DropdownMenuItem(
                                             text = { Text("批量管理", maxLines = 1, softWrap = false) },
                                             onClick = {
@@ -382,6 +398,41 @@ fun LibraryHomeScreen(
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
+                            }
+                        }
+                    }
+
+                    // 扫描进行中：一行细进度条，可点击取消
+                    if (uiState.isScanning) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            val total = scanProgress.discovered
+                            val progress = if (total > 0) {
+                                (scanProgress.processed.toFloat() / total).coerceIn(0f, 1f)
+                            } else 0f
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(4.dp)
+                                        .clip(MaterialTheme.shapes.extraSmall),
+                                    color = colorScheme.primary,
+                                    trackColor = colorScheme.surfaceContainerHighest
+                                )
+                                Text(
+                                    text = if (total > 0) "${scanProgress.processed}/$total" else "扫描中",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                                TextButton(
+                                    onClick = { viewModel.cancelScanning() },
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                                ) { Text("取消", style = MaterialTheme.typography.labelSmall, maxLines = 1) }
                             }
                         }
                     }
@@ -459,13 +510,18 @@ fun LibraryHomeScreen(
                         ) {
                             chips.forEach { (key, label) ->
                                 val selected = uiState.libraryQuickStatusFilter == key
+                                val chipColor by animateColorAsState(
+                                    targetValue = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainerLow,
+                                    animationSpec = com.asterreader.core.designsystem.AsterMotion.effectsSpec(LocalAsterReduceMotion.current),
+                                    label = "library_chip_color"
+                                )
                                 Surface(
                                     shape = CircleShape,
-                                    color = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainerLow,
+                                    color = chipColor,
                                     modifier = Modifier
-                                        .height(32.dp)
+                                        .height(34.dp)
                                         .clip(CircleShape)
-                                        .clickable { viewModel.setLibraryQuickStatusFilter(key) }
+                                        .asterCardInteraction(onClick = { viewModel.setLibraryQuickStatusFilter(key) })
                                         .testTag("library_chip_$key")
                                 ) {
                                     Row(
@@ -497,27 +553,23 @@ fun LibraryHomeScreen(
                     // 3. All Works Grid / List Items
                     if (filteredBooks.isEmpty()) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 36.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                TranquilDeskEmptyIllustration(size = 140.dp)
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "暂无书卷",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = colorScheme.onSurface,
-                                    maxLines = 1
+                            if (books.isEmpty()) {
+                                AsterEmptyState(
+                                    title = "书库还是空的",
+                                    description = "导入本地漫画，或添加一个书库目录，书卷就会出现在这里。",
+                                    actionLabel = "导入书籍",
+                                    onAction = onTriggerSystemFilePicker,
+                                    secondaryLabel = "添加目录",
+                                    onSecondaryAction = { showRepoWizardDialog = true }
                                 )
-                                Spacer(modifier = Modifier.height(14.dp))
-                                OutlinedButton(
-                                    onClick = { viewModel.setLibraryQuickStatusFilter("全部格式") },
-                                    shape = CircleShape
-                                ) {
-                                    Text("显示全部", maxLines = 1, softWrap = false)
-                                }
+                            } else {
+                                AsterEmptyState(
+                                    title = "没有符合条件的作品",
+                                    description = "当前筛选条件下没有书卷，换个条件或查看全部。",
+                                    actionLabel = "显示全部",
+                                    onAction = { viewModel.setLibraryQuickStatusFilter("全部格式") },
+                                    showActionIcon = false
+                                )
                             }
                         }
                     } else {
@@ -539,7 +591,7 @@ fun LibraryHomeScreen(
                             if (book.isVaultProtected && !uiState.isVaultUnlocked) {
                                 when (uiState.libraryLayoutMode) {
                                     LibraryLayoutMode.LIST -> {
-                                        EncryptedBookListRow(onClick = onBookTap)
+                                        HiddenBookListRow(onClick = onBookTap)
                                     }
                                     else -> {
                                         SafeProtectedBookCard(onClick = onBookTap)
@@ -723,7 +775,7 @@ fun LibraryHomeScreen(
                         .clickable {
                             showAddContentSheet = false
                             // 直接触发系统文件管理器选择目录，拒绝手动填写
-                            viewModel.addRepositoryAndScan("本地书库", "每个文件作为作品")
+                            viewModel.addRepositoryAndScan("本地书库", com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE)
                         }
                 ) {
                     Row(
@@ -752,7 +804,7 @@ fun LibraryHomeScreen(
                 OutlinedButton(
                     onClick = {
                         showAddContentSheet = false
-                        viewModel.importLocalFileUri(null, "星际漫游指南")
+                        onTriggerSystemFilePicker()
                     },
                     shape = CircleShape,
                     modifier = Modifier.fillMaxWidth()
@@ -830,7 +882,7 @@ private fun ContinueReadingCompactCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .clickable { onCardClick() }
+            .asterCardInteraction(onClick = onCardClick)
             .testTag("continue_reading_card")
     ) {
         Row(
@@ -951,7 +1003,7 @@ private fun PublicationGridCard(
                     Modifier
                 }
             )
-            .combinedClickable(
+            .asterCardInteraction(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
@@ -981,7 +1033,7 @@ private fun PublicationGridCard(
                         .padding(horizontal = 7.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "受保护",
+                        text = "已隐藏",
                         style = MaterialTheme.typography.labelSmall,
                         color = colorScheme.primary,
                         maxLines = 1,
@@ -1118,7 +1170,7 @@ private fun PublicationListRowCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .clickable { onClick() }
+            .asterCardInteraction(onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -1308,7 +1360,7 @@ private fun PublicationGalleryCard(
 }
 
 @Composable
-private fun EncryptedBookListRow(onClick: () -> Unit) {
+private fun HiddenBookListRow(onClick: () -> Unit) {
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
 
@@ -1319,7 +1371,7 @@ private fun EncryptedBookListRow(onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .clickable { onClick() }
+            .asterCardInteraction(onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -1338,14 +1390,14 @@ private fun EncryptedBookListRow(onClick: () -> Unit) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Outlined.Lock,
-                            contentDescription = "受保护",
+                            contentDescription = "已隐藏",
                             tint = colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                 }
                 Text(
-                    text = "受保护书籍",
+                    text = "已隐藏作品",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = colorScheme.onSurface,
                     maxLines = 1,
@@ -1353,7 +1405,7 @@ private fun EncryptedBookListRow(onClick: () -> Unit) {
                 )
             }
             Text(
-                text = "点击解锁",
+                text = "验证后可见",
                 style = MaterialTheme.typography.labelMedium,
                 color = colorScheme.primary,
                 maxLines = 1,
@@ -1691,6 +1743,20 @@ fun SearchAndFilterScreen(
     val currentResult = results?.takeIf { it.first == request && it.second === books }?.third
     val matchingBooks = currentResult?.books.orEmpty()
     val matchingAnnotations = currentResult?.annotations.orEmpty()
+
+    // 筛选项全部由真实馆藏聚合，避免出现永远命中 0 条的硬编码选项
+    val availableTags = remember(books) {
+        books.flatMap { it.tagsCsv.split(',', '，') }
+            .map { it.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
+    }
+    val availableStorages = remember(books) {
+        books.map { it.repositoryName }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+    val availableFormats = remember(books) {
+        books.map { it.format }
+            .filter { it in com.example.data.local.LibraryRepository.READABLE_FORMATS }
+            .distinct().sorted()
+    }
 
     Column(
         modifier = Modifier
@@ -2049,27 +2115,17 @@ fun SearchAndFilterScreen(
 
                 if (matchingBooks.isEmpty()) {
                     item {
-                        Surface(
-                            shape = MaterialTheme.shapes.large,
-                            color = asterColors.surfaceContainerLow,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 28.dp, horizontal = 16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                TranquilDeskEmptyIllustration(modifier = Modifier.size(96.dp))
-                                Text(
-                                    text = "未找到匹配的作品",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = colorScheme.onSurface,
-                                    maxLines = 1
-                                )
-                            }
-                        }
+                        AsterEmptyState(
+                            title = "未找到匹配的作品",
+                            description = if (uiState.searchQuery.isBlank()) "输入书名、作者或标签开始搜索。"
+                            else "换个关键词，或放宽筛选条件试试。",
+                            compact = true,
+                            actionLabel = if (uiState.activeFilterCount > 0) "清除筛选" else null,
+                            onAction = if (uiState.activeFilterCount > 0) {
+                                { viewModel.resetAllSearchFilters() }
+                            } else null,
+                            showActionIcon = false
+                        )
                     }
                 } else {
                     items(matchingBooks, key = { it.id }) { book ->
@@ -2211,7 +2267,7 @@ fun SearchAndFilterScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("CBZ", "ZIP", "CBR", "RAR", "CB7", "PDF", "EPUB").forEach { fmt ->
+                        availableFormats.forEach { fmt ->
                             val selected = fmt in uiState.searchFormatFilters
                             FilterSheetPill(
                                 label = fmt,
@@ -2221,41 +2277,45 @@ fun SearchAndFilterScreen(
                         }
                     }
 
-                    FilterPartitionHeader(
-                        icon = Icons.Outlined.Tag,
-                        title = "题材标签",
-                        modeLabel = "多选"
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("奇幻与冒险", "科幻经典", "建筑空间", "日常与料理").forEach { tag ->
-                            val selected = tag in uiState.searchTagFilters
-                            FilterSheetPill(
-                                label = tag,
-                                selected = selected,
-                                onClick = { viewModel.toggleSearchTagFilter(tag) }
-                            )
+                    if (availableTags.isNotEmpty()) {
+                        FilterPartitionHeader(
+                            icon = Icons.Outlined.Tag,
+                            title = "题材标签",
+                            modeLabel = "多选"
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            availableTags.forEach { tag ->
+                                val selected = tag in uiState.searchTagFilters
+                                FilterSheetPill(
+                                    label = tag,
+                                    selected = selected,
+                                    onClick = { viewModel.toggleSearchTagFilter(tag) }
+                                )
+                            }
                         }
                     }
 
-                    FilterPartitionHeader(
-                        icon = Icons.Outlined.SdCard,
-                        title = "存储目录",
-                        modeLabel = "多选"
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("内部存储 / Books", "SD 扩展卡 / MangaArchive").forEach { storage ->
-                            val selected = storage in uiState.searchStorageFilters
-                            FilterSheetPill(
-                                label = storage,
-                                selected = selected,
-                                onClick = { viewModel.toggleSearchStorageFilter(storage) }
-                            )
+                    if (availableStorages.size > 1) {
+                        FilterPartitionHeader(
+                            icon = Icons.Outlined.SdCard,
+                            title = "存储目录",
+                            modeLabel = "多选"
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            availableStorages.forEach { storage ->
+                                val selected = storage in uiState.searchStorageFilters
+                                FilterSheetPill(
+                                    label = storage,
+                                    selected = selected,
+                                    onClick = { viewModel.toggleSearchStorageFilter(storage) }
+                                )
+                            }
                         }
                     }
                 }
@@ -2411,7 +2471,7 @@ private fun SearchBookResultCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.large)
-            .clickable { onClick() }
+            .asterCardInteraction(onClick = onClick)
             .testTag("search_result_${book.id}")
     ) {
         Row(
@@ -2577,7 +2637,7 @@ private fun SearchAnnotationResultCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .clickable { onClick() }
+            .asterCardInteraction(onClick = onClick)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -2644,7 +2704,7 @@ fun RepositoryCreationWizardDialog(
     onConfirmCreate: (String, String) -> Unit
 ) {
     var repoName by remember { mutableStateOf("本地书库") }
-    val scanRule = "每个文件作为作品"
+    val scanRule = com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE
 
     AlertDialog(
         onDismissRequest = onDismiss,

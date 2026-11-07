@@ -3,6 +3,7 @@ package com.example
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.local.DocumentRenderSession
+import com.example.data.local.PageSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -17,23 +18,71 @@ import java.util.zip.ZipOutputStream
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [31, 35])
 class DocumentRenderSessionTest {
-    private fun archive(app: Application): File = File.createTempFile("session-fixture-", ".cbz", app.cacheDir).apply {
-        ZipOutputStream(outputStream()).use { zip ->
-            zip.putNextEntry(ZipEntry("1.png"))
-            zip.write(java.util.Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII="))
-            zip.closeEntry()
+    private val png = java.util.Base64.getDecoder()
+        .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
+
+    private fun archive(app: Application, entries: List<String>): File =
+        File.createTempFile("session-fixture-", ".cbz", app.cacheDir).apply {
+            ZipOutputStream(outputStream()).use { zip ->
+                entries.forEach { name ->
+                    zip.putNextEntry(ZipEntry(name))
+                    zip.write(png)
+                    zip.closeEntry()
+                }
+            }
         }
+
+    private fun tar(app: Application, entries: List<String>): File =
+        File.createTempFile("session-fixture-", ".cbt", app.cacheDir).apply {
+            outputStream().use { out ->
+                entries.forEach { name ->
+                    out.write(tarHeader(name, png.size.toLong()))
+                    out.write(png)
+                    val padding = (512 - png.size % 512) % 512
+                    out.write(ByteArray(padding))
+                }
+                out.write(ByteArray(1024))
+            }
+        }
+
+    private fun tarHeader(name: String, size: Long): ByteArray {
+        val header = ByteArray(512)
+        val nameBytes = name.toByteArray()
+        System.arraycopy(nameBytes, 0, header, 0, minOf(nameBytes.size, 100))
+        writeOctal(header, 100, 8, 0b111111111) // 0777
+        writeOctal(header, 108, 8, 0)
+        writeOctal(header, 116, 8, 0)
+        writeOctal(header, 124, 12, size)
+        writeOctal(header, 136, 12, 0)
+        for (index in 148 until 156) header[index] = ' '.code.toByte()
+        header[156] = '0'.code.toByte()
+        val magic = "ustar".toByteArray()
+        System.arraycopy(magic, 0, header, 257, magic.size)
+        header[262] = 0
+        header[263] = '0'.code.toByte()
+        header[264] = '0'.code.toByte()
+        var checksum = 0
+        header.forEach { checksum += it.toInt() and 0xFF }
+        writeOctal(header, 148, 7, checksum.toLong())
+        header[155] = ' '.code.toByte()
+        return header
+    }
+
+    private fun writeOctal(target: ByteArray, offset: Int, length: Int, value: Long) {
+        val text = value.toString(8).padStart(length - 1, '0')
+        val bytes = text.toByteArray()
+        System.arraycopy(bytes, 0, target, offset, minOf(bytes.size, length - 1))
+        target[offset + length - 1] = 0
     }
 
     @Test
     fun boundedCacheReleasesBitmapsArchiveAndTemporaryFile() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val session = DocumentRenderSession(app)
-        val copied = archive(app)
-        val book = comicFixture().copy(totalPages = 1)
+        val copied = archive(app, listOf("1.png"))
         try {
-            val first = session.render(book, 1, "版本1", { copied }, { listOf("1.png") })
-            assertSame(first, session.render(book, 1, "版本1", { error("不应再次复制") }, { error("不应再次读取索引") }))
+            val first = session.render("版本1", 1, 2_000_000) { PageSource.Document(copied, "CBZ") }
+            assertSame(first, session.render("版本1", 1, 2_000_000) { error("不应再次复制") })
             assertTrue(session.cachedBytes() > 0)
             assertTrue(session.cachedBytes() <= session.maxCacheBytes())
             session.trimMemory()
@@ -41,24 +90,60 @@ class DocumentRenderSessionTest {
         } finally { session.close() }
         assertFalse(copied.exists())
         assertEquals(0, session.cachedBytes())
-        session.close()
     }
 
     @Test
-    fun cancelledInitializationClosesArchiveAndCanRetry() = runBlocking {
+    fun failedInitializationDeletesTemporarySourceAndCanRetry() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val session = DocumentRenderSession(app)
-        val copied = archive(app)
-        val book = comicFixture().copy(totalPages = 1)
+        val corrupt = File.createTempFile("corrupt-", ".cbz", app.cacheDir).apply { writeBytes(byteArrayOf(1, 2, 3)) }
         try {
             assertTrue(runCatching {
-                session.render(book, 1, "已取消", { copied }, { throw CancellationException("取消测试") })
-            }.exceptionOrNull() is CancellationException)
-            assertFalse(copied.exists())
+                session.render("损坏", 1, 2_000_000) { PageSource.Document(corrupt, "CBZ") }
+            }.isFailure)
+            // 损坏来源必须被回收，不能留下临时文件或缓存
+            assertFalse(corrupt.exists())
             assertEquals(0, session.cachedBytes())
-            val retry = archive(app)
-            session.render(book, 1, "重试", { retry }, { listOf("1.png") })
+            val retry = archive(app, listOf("1.png"))
+            session.render("重试", 1, 2_000_000) { PageSource.Document(retry, "CBZ") }
         } finally { session.close() }
         Unit
+    }
+
+    @Test
+    fun readsTarArchivePagesByRealOffsets() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val session = DocumentRenderSession(app)
+        val file = tar(app, listOf("卷1/01.png", "卷1/02.png"))
+        try {
+            val first = session.render("tar", 1, 1_000_000) { PageSource.Document(file, "CBT") }
+            val second = session.render("tar", 2, 1_000_000) { error("不应重建来源") }
+            assertEquals(1, first.width)
+            assertEquals(1, second.width)
+            assertNotSame(first, second)
+            // 越界页码必须失败而不是返回空白
+            assertTrue(runCatching { session.render("tar", 3, 1_000_000) { error("不应重建来源") } }.isFailure)
+        } finally { session.close() }
+    }
+
+    @Test
+    fun readsDirectorySourceWithoutCopyingArchive() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val session = DocumentRenderSession(app)
+        val file = File.createTempFile("page-", ".png", app.cacheDir).apply { writeBytes(png) }
+        val openedPages = mutableListOf<Int>()
+        try {
+            val bitmap = session.render("dir", 1, 1_000_000) {
+                PageSource.Directory(1) { number ->
+                    openedPages.add(number)
+                    file.inputStream()
+                }
+            }
+            assertEquals(1, bitmap.width)
+            assertEquals(listOf(1, 1), openedPages)
+        } finally {
+            session.close()
+            file.delete()
+        }
     }
 }

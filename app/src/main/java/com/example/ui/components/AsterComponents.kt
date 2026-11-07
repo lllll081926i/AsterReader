@@ -58,6 +58,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -74,8 +76,7 @@ enum class MainNavDestination(
 ) {
     LIBRARY("library", "书库", Icons.Filled.LocalLibrary, Icons.Outlined.LocalLibrary),
     SHELVES("shelves", "书架", Icons.Filled.AutoStories, Icons.Outlined.AutoStories),
-    SEARCH("search", "搜索", Icons.Filled.Search, Icons.Outlined.Search),
-    SETTINGS("settings", "设置", Icons.Filled.Settings, Icons.Outlined.Settings)
+    SEARCH("search", "搜索", Icons.Filled.Search, Icons.Outlined.Search)
 }
 
 /**
@@ -303,8 +304,8 @@ fun AsterTopSearchCapsule(
 }
 
 /**
- * Encrypted Book Card in Library / Shelves:
- * Displays as a clean encrypted book card without needing a separate Vault tab.
+ * 书库中的「已隐藏」占位卡：只改变可见性，文件本身没有任何加密。
+ * 点击后走应用锁验证（PIN / 系统生物识别）。
  */
 @Composable
 fun SafeProtectedBookCard(
@@ -317,8 +318,8 @@ fun SafeProtectedBookCard(
     Column(
         modifier = modifier
             .clip(MaterialTheme.shapes.medium)
-            .clickable { onClick() }
-            .semantics { contentDescription = "受保护书籍，点击解锁" }
+            .asterBounceClick(onClick = onClick)
+            .semantics { contentDescription = "已隐藏作品，点击验证身份" }
             .testTag("vault_protected_card")
     ) {
         Box(
@@ -343,7 +344,7 @@ fun SafeProtectedBookCard(
                     .padding(horizontal = 8.dp, vertical = 2.dp)
             ) {
                 Text(
-                    text = "加密",
+                    text = "已隐藏",
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = colorScheme.onSecondaryContainer,
@@ -372,7 +373,7 @@ fun SafeProtectedBookCard(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "受保护",
+                    text = "已隐藏",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                     color = colorScheme.onSurface,
                     textAlign = TextAlign.Center,
@@ -381,7 +382,7 @@ fun SafeProtectedBookCard(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "点击解锁",
+                    text = "验证后可见",
                     style = MaterialTheme.typography.labelSmall,
                     color = colorScheme.outline,
                     textAlign = TextAlign.Center,
@@ -393,7 +394,7 @@ fun SafeProtectedBookCard(
 
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "加密书籍",
+            text = "已隐藏作品",
             style = MaterialTheme.typography.titleSmall,
             color = colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -402,7 +403,7 @@ fun SafeProtectedBookCard(
             modifier = Modifier.padding(horizontal = 2.dp)
         )
         Text(
-            text = "已锁定",
+            text = "需验证身份",
             style = MaterialTheme.typography.bodySmall,
             color = colorScheme.outline,
             maxLines = 1,
@@ -424,20 +425,26 @@ fun AsterSettingsGroup(
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
 
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (!title.isNullOrBlank()) {
+            // 分组标题只保留一行小字：不再画图标徽章 + 主色标题 + 说明，
+            // 三层信息堆在一起既抢眼又让每屏看起来杂乱。
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = colorScheme.primary,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.6.sp
+                ),
+                color = colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 softWrap = false,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                modifier = Modifier.padding(start = 6.dp, top = 2.dp)
             )
         }
         Surface(
             shape = MaterialTheme.shapes.large,
             color = asterColors.surfaceContainerLow,
+            tonalElevation = 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -479,6 +486,7 @@ fun AsterSettingsRow(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onClick() }
+            .semantics { role = Role.Button }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -580,6 +588,7 @@ fun AsterSwitchRow(
         modifier = modifier
             .fillMaxWidth()
             .clickable(enabled = enabled) { onCheckedChange(!checked) }
+            .semantics { role = Role.Switch }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween

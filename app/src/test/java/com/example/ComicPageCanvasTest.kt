@@ -25,7 +25,10 @@ class ComicPageCanvasTest {
         val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
         compose.setContent {
             PublicationPageCanvas("漫画", page.intValue, 20, mode.value, true,
-                loadPage = { bitmap }, onPageChanged = { page.intValue = it }, onToggleChrome = {})
+                loadPage = { _, _ -> bitmap },
+                onPageChanged = { page.intValue = it },
+                onViewportChanged = { _, _, _, _, _ -> },
+                onToggleChrome = {})
         }
         compose.runOnIdle { page.intValue = 7 }
         compose.waitForIdle()

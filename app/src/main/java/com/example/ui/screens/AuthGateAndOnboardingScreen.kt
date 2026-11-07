@@ -74,148 +74,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.asterreader.core.designsystem.asterBounceClick
 import com.example.ui.components.BotanicalGrimoireIllustration
 import com.example.ui.components.VaultGeometricShieldIllustration
 import com.example.ui.theme.LocalAsterColors
 import kotlinx.coroutines.delay
-
-/** 支持应用自建 PIN 码验证以及生物/系统凭据验证。 */
-@Composable
-fun SystemSecurityAuthPromptSheet(
-    onAuthenticated: () -> Unit,
-    onDismiss: () -> Unit,
-    onAuthenticationStarted: () -> Unit = {},
-    onAuthenticationFailed: () -> Unit = {},
-    verifyCustomPin: (String) -> Boolean = { it == "1234" }
-) {
-    val context = LocalContext.current
-    var inputPin by remember { mutableStateOf("") }
-    var pinError by remember { mutableStateOf<String?>(null) }
-    var useSystemBiometric by remember { mutableStateOf(false) }
-
-    val launcher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            onAuthenticated()
-        } else {
-            onAuthenticationFailed()
-            pinError = "系统验证已取消"
-        }
-    }
-
-    val triggerSystemAuth = {
-        val manager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        @Suppress("DEPRECATION")
-        val intent = if (manager.isDeviceSecure) {
-            manager.createConfirmDeviceCredentialIntent("安全验证", "使用生物识别或设备锁屏凭据")
-        } else null
-        if (intent == null) {
-            pinError = "设备未设置系统锁屏凭据"
-        } else {
-            try {
-                onAuthenticationStarted()
-                launcher.launch(intent)
-            } catch (_: Exception) {
-                onAuthenticationFailed()
-                pinError = "无法启动系统认证"
-            }
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "安全解锁",
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "输入应用 PIN 码或调用系统生物识别验证身份：",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = inputPin,
-                    onValueChange = {
-                        if (it.length <= 8) {
-                            inputPin = it
-                            pinError = null
-                        }
-                    },
-                    label = { Text("PIN 码") },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    singleLine = true,
-                    isError = pinError != null,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (pinError != null) {
-                    Text(
-                        text = pinError.orEmpty(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = { triggerSystemAuth() }) {
-                        Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("使用生物/系统凭据", maxLines = 1, softWrap = false)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (verifyCustomPin(inputPin)) {
-                        onAuthenticated()
-                    } else {
-                        pinError = "PIN 码不正确"
-                    }
-                }
-            ) {
-                Text("确定", maxLines = 1, softWrap = false)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消", maxLines = 1, softWrap = false) }
-        }
-    )
-}
-
-@Composable
-private fun SecurityBadgeItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    text: String
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(18.dp)
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            softWrap = false
-        )
-    }
-}
 
 /**
  * Onboarding Flow
@@ -250,13 +113,40 @@ fun OnboardingScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Aster Reader (${step + 1}/3)",
-                style = MaterialTheme.typography.labelLarge,
-                color = colorScheme.primary,
-                maxLines = 1,
-                softWrap = false
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Aster Reader",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = com.example.ui.theme.LoraFontFamily,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = colorScheme.primary,
+                    maxLines = 1
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    repeat(3) { index ->
+                        val active = index == step
+                        Box(
+                            modifier = Modifier
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(
+                                    if (active) colorScheme.primary
+                                    else colorScheme.outlineVariant.copy(alpha = 0.7f)
+                                )
+                                .size(width = if (active) 20.dp else 8.dp, height = 8.dp)
+                        )
+                    }
+                    Text(
+                        text = "${step + 1} / 3",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                }
+            }
             TextButton(onClick = onFinish) {
                 Text("跳过", maxLines = 1, softWrap = false)
             }
@@ -291,8 +181,8 @@ fun OnboardingScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             OnboardingBullet("本地优先", "零广告、零云端上传，专注纯粹阅读。")
-                            OnboardingBullet("专注漫画阅读", "支持 CBZ、PDF 漫画、双页展开与连续条漫。")
-                            OnboardingBullet("隐私加密", "支持书籍加密保护与生物识别解锁。")
+                            OnboardingBullet("专注漫画阅读", "支持 CBZ/ZIP、CBR/RAR、CB7/7Z、TAR、PDF、EPUB 与散图目录。")
+                            OnboardingBullet("隐私只锁入口", "应用 PIN / 系统生物识别、隐藏作品与防截屏，书籍文件保持原样。")
                         }
                     }
                 }
@@ -310,7 +200,7 @@ fun OnboardingScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(MaterialTheme.shapes.large)
-                            .clickable { onImportFileClick() }
+                            .asterBounceClick(onClick = onImportFileClick)
                     ) {
                         Row(
                             modifier = Modifier.padding(18.dp),
@@ -349,7 +239,7 @@ fun OnboardingScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(MaterialTheme.shapes.large)
-                            .clickable { onCreateRepoClick() }
+                            .asterBounceClick(onClick = onCreateRepoClick)
                     ) {
                         Row(
                             modifier = Modifier.padding(18.dp),
@@ -396,8 +286,8 @@ fun OnboardingScreen(
                             modifier = Modifier.padding(20.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            OnboardingBullet("应用锁", "使用系统锁屏凭据启动验证。")
-                            OnboardingBullet("保险库状态", "当前版本尚不支持文件加密、密文校验和恢复密钥。")
+                            OnboardingBullet("应用锁", "自定义 4–8 位 PIN，或直接调用系统指纹 / 面容 / 锁屏凭据。")
+                            OnboardingBullet("防窥", "可开启防截屏与多任务缩略图遮罩。")
                         }
                     }
                 }
@@ -471,8 +361,10 @@ fun OnboardingScreen(
             title = { Text("支持格式", maxLines = 1) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("• 漫画：CBZ", style = MaterialTheme.typography.bodyMedium)
-                    Text("• 文档：PDF", style = MaterialTheme.typography.bodyMedium)
+                    Text("• 漫画归档：CBZ / ZIP、CBR / RAR、CB7 / 7Z、CBT / TAR", style = MaterialTheme.typography.bodySmall)
+                    Text("• 文档：PDF、EPUB（按 OPF spine 顺序读图）", style = MaterialTheme.typography.bodySmall)
+                    Text("• 散图：JPG / PNG / WebP 目录与单张图片", style = MaterialTheme.typography.bodySmall)
+                    Text("• 单文件上限 512 MB", style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {

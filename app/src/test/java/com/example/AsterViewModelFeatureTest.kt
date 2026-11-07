@@ -198,23 +198,25 @@ class AsterViewModelFeatureTest {
     }
 
     @Test
-    fun unsupportedEncryptionNeverChangesSourceOrProtectionFlags() = runBlocking {
+    fun importedUriIsRequiredAndPinIsHashed() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val dao = com.example.data.local.AsterDatabase.getDatabase(app).asterDao()
-        val book = comicFixture().copy(id = "原件保护回归",
-            filePath = "content://documents/original", isVaultProtected = false, isVaultEncrypted = false)
-        dao.insertBook(book)
-        viewModel.toggleBookVaultProtection(book.id, true)
-        viewModel.enterBatchSelection(book.id)
-        viewModel.batchEncryptSelectedToVault()
-        viewModel.runVaultIntegrityCheck()
-        assertEquals(book, dao.getBookById(book.id))
-        assertTrue(viewModel.uiState.value.lastIntegrityCheckResult.startsWith("未执行"))
         val count = dao.getBookCount()
         viewModel.importLocalFileUri(null)
         assertEquals(count, dao.getBookCount())
-        viewModel.createLocalBackup(true)
-        assertEquals("尚无备份", viewModel.uiState.value.lastBackupTimeText)
+
+        assertEquals("", viewModel.uiState.value.pinHash)
+        assertTrue(viewModel.verifyPin("1234"))
+
+        viewModel.setCustomPin("4321")
+        assertTrue(viewModel.uiState.value.hasCustomPin)
+        assertTrue(viewModel.verifyPin("4321"))
+        assertFalse(viewModel.verifyPin("1234"))
+        // PIN 以摘要形式保存，绝不明文
+        assertFalse(viewModel.uiState.value.pinHash.contains("4321"))
+
+        viewModel.setCustomPin("12")
+        assertTrue(viewModel.verifyPin("4321"))
     }
 
     @Test
@@ -224,9 +226,6 @@ class AsterViewModelFeatureTest {
 
         viewModel.setReduceMotion(true)
         assertTrue(viewModel.uiState.value.reduceMotion)
-
-        viewModel.setUseDynamicColor(false)
-        assertTrue(viewModel.uiState.value.useDynamicColor)
 
         viewModel.setShowRecentReading(false)
         assertFalse(viewModel.uiState.value.showRecentReading)

@@ -25,29 +25,29 @@ val SystemRobotoFlexFamily = FontFamily.Default
 val AsterTypography = Typography(
     headlineLarge = TextStyle(
         fontFamily = SystemRobotoFlexFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = 0.sp
+        fontWeight = FontWeight.Medium,
+        fontSize = 30.sp,
+        lineHeight = 38.sp,
+        letterSpacing = (-0.3).sp
     ),
     headlineMedium = TextStyle(
         fontFamily = SystemRobotoFlexFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 28.sp,
-        lineHeight = 36.sp,
-        letterSpacing = 0.sp
+        fontWeight = FontWeight.Medium,
+        fontSize = 26.sp,
+        lineHeight = 34.sp,
+        letterSpacing = (-0.2).sp
     ),
     headlineSmall = TextStyle(
         fontFamily = SystemRobotoFlexFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 24.sp,
-        lineHeight = 32.sp,
+        fontWeight = FontWeight.Medium,
+        fontSize = 23.sp,
+        lineHeight = 30.sp,
         letterSpacing = 0.sp
     ),
     titleLarge = TextStyle(
         fontFamily = SystemRobotoFlexFamily,
-        fontWeight = FontWeight.Normal,
-        fontSize = 22.sp,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 21.sp,
         lineHeight = 28.sp,
         letterSpacing = 0.sp
     ),

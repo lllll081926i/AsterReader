@@ -1,6 +1,8 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -26,6 +29,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,22 +54,29 @@ import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.LockClock
 import androidx.compose.material.icons.outlined.RemoveRedEye
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Tag
+import androidx.compose.material.icons.outlined.Timelapse
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -82,7 +93,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -91,14 +104,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.BookEntity
 import com.example.data.local.RepositoryEntity
 import com.example.data.local.ShelfEntity
+import com.example.data.local.SystemBiometrics
 import com.example.ui.AsterUiState
 import com.example.ui.AsterViewModel
 import com.example.ui.LibraryLayoutMode
@@ -110,6 +127,7 @@ import com.example.ui.components.AsterBookCover
 import com.example.ui.components.AsterSettingsGroup
 import com.example.ui.components.AsterSettingsRow
 import com.example.ui.components.AsterSwitchRow
+import com.example.ui.components.AsterSubScreenHeader
 import com.example.ui.components.BotanicalGrimoireIllustration
 import com.example.ui.components.SafeProtectedBookCard
 import com.example.ui.components.TranquilDeskEmptyIllustration
@@ -134,7 +152,7 @@ fun ShelvesScreen(
     var newShelfPrivate by remember { mutableStateOf(false) }
 
     var activeQuickFilter by remember { mutableStateOf<String?>(null) }
-    var isReorderMode by remember { mutableStateOf(false) }
+    var showShelfOrderDialog by remember { mutableStateOf(false) }
 
     val shelvesGridColumns = when (uiState.shelvesViewMode) {
         ShelvesViewMode.COLLAGE_GRID -> if (isExpandedTablet) GridCells.Adaptive(minSize = 175.dp) else GridCells.Fixed(2)
@@ -172,16 +190,16 @@ fun ShelvesScreen(
             ) {
                 // 统一 36dp 尺寸的排序按钮
                 Surface(
-                    onClick = { isReorderMode = !isReorderMode },
+                    onClick = { showShelfOrderDialog = true },
                     shape = androidx.compose.foundation.shape.CircleShape,
-                    color = if (isReorderMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     modifier = Modifier.size(36.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Outlined.SwapVert,
-                            contentDescription = "排序",
-                            tint = if (isReorderMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            contentDescription = "排序与删除",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -398,8 +416,12 @@ fun ShelvesScreen(
 
             items(shelves, key = { it.id }) { shelf ->
                 val isLockedPrivateShelf = shelf.isProtected && !uiState.isVaultUnlocked
+                val shelfBooks = allBooks.filter { book ->
+                    book.shelfIdsCsv.split(",").map { it.trim() }.contains(shelf.id)
+                }
+                // 书架封面优先用手工配置，缺省时回落到成员作品封面
                 val collageUrls = shelf.coverUrlsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                val shelfBooks = allBooks.filter { it.shelfIdsCsv.contains(shelf.id) }
+                    .ifEmpty { shelfBooks.map { it.coverUrl }.filter { it.isNotBlank() } }
                 val shelfBookCount = shelfBooks.size.coerceAtLeast(shelf.itemCountDisplay)
 
                 val openShelfAction = {
@@ -432,7 +454,7 @@ fun ShelvesScreen(
                             shelfBookCount = shelfBookCount,
                             isLockedPrivateShelf = isLockedPrivateShelf,
                             isVaultUnlocked = uiState.isVaultUnlocked,
-                            isReorderMode = isReorderMode,
+                            isReorderMode = false,
                             onOpenShelf = openShelfAction,
                             onDeleteShelf = { viewModel.deleteCustomShelf(shelf.id) }
                         )
@@ -444,7 +466,7 @@ fun ShelvesScreen(
                             collageUrls = collageUrls,
                             shelfBookCount = shelfBookCount,
                             isLockedPrivateShelf = isLockedPrivateShelf,
-                            isReorderMode = isReorderMode,
+                            isReorderMode = false,
                             onOpenShelf = openShelfAction,
                             onDeleteShelf = { viewModel.deleteCustomShelf(shelf.id) }
                         )
@@ -457,7 +479,7 @@ fun ShelvesScreen(
                             shelfBookCount = shelfBookCount,
                             isLockedPrivateShelf = isLockedPrivateShelf,
                             isVaultUnlocked = uiState.isVaultUnlocked,
-                            isReorderMode = isReorderMode,
+                            isReorderMode = false,
                             onOpenShelf = openShelfAction,
                             onDeleteShelf = { viewModel.deleteCustomShelf(shelf.id) }
                         )
@@ -478,6 +500,67 @@ fun ShelvesScreen(
                 }
             }
         }
+    }
+
+    // Shelf Order & Delete Dialog
+    if (showShelfOrderDialog) {
+        AlertDialog(
+            onDismissRequest = { showShelfOrderDialog = false },
+            title = { Text("排序与删除", fontWeight = FontWeight.Bold, maxLines = 1) },
+            text = {
+                if (shelves.isEmpty()) {
+                    Text("暂无书架", style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.heightIn(max = 360.dp)
+                    ) {
+                        itemsIndexed(shelves) { index, shelf ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = shelf.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = { viewModel.moveShelfUp(shelf) },
+                                    enabled = index > 0,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上移", modifier = Modifier.size(18.dp))
+                                }
+                                IconButton(
+                                    onClick = { viewModel.moveShelfDown(shelf) },
+                                    enabled = index < shelves.lastIndex,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "下移", modifier = Modifier.size(18.dp))
+                                }
+                                IconButton(
+                                    onClick = { viewModel.deleteCustomShelf(shelf.id) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.DeleteOutline,
+                                        contentDescription = "删除",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showShelfOrderDialog = false }) { Text("完成", maxLines = 1, softWrap = false) }
+            }
+        )
     }
 
     // Create Shelf Dialog
@@ -514,7 +597,7 @@ fun ShelvesScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "锁定书架入口（不加密文件）",
+                                text = "锁定书架入口（仅隐藏，不改动文件）",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.weight(1f),
@@ -960,7 +1043,7 @@ private fun ShelfHorizontalListCard(
                     }
                 }
                 Text(
-                    text = if (isLockedPrivateShelf) "入口已锁定，不加密成员文件" else "${shelf.subtitle} · 共 $shelfBookCount 本",
+                    text = if (isLockedPrivateShelf) "入口已锁定，验证身份后可见" else "${shelf.subtitle} · 共 $shelfBookCount 本",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -1369,377 +1452,6 @@ fun ShelfDetailScreen(
 }
 
 /**
- * 2. Vault Overview Screen (retained for compatibility if invoked programmatically)
- */
-@Composable
-fun VaultOverviewScreen(
-    allBooks: List<BookEntity>,
-    uiState: AsterUiState,
-    isExpandedTablet: Boolean,
-    viewModel: AsterViewModel
-) {
-    val protectedBooks = remember(allBooks) { allBooks.filter { it.isVaultProtected } }
-    var pinInput by remember { mutableStateOf("") }
-    var pinError by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-            .statusBarsPadding()
-            .testTag("vault_overview_screen")
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "加密书籍",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-
-            if (uiState.isVaultUnlocked) {
-                Button(
-                    onClick = { viewModel.lockVaultSession() },
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
-                    ),
-                    modifier = Modifier.testTag("vault_lock_now_btn")
-                ) {
-                    Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("锁定", maxLines = 1, softWrap = false)
-                }
-            }
-        }
-
-        if (!uiState.isVaultUnlocked) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    shape = MaterialTheme.shapes.extraLarge,
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    modifier = Modifier.widthIn(max = 460.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(28.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        VaultGeometricShieldIllustration(modifier = Modifier.size(120.dp))
-
-                        Text(
-                            text = "受保护 (${protectedBooks.size})",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
-                        )
-
-                        Button(onClick = { viewModel.requestVaultUnlock() }) {
-                            Text("验证系统锁屏凭据")
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * 3. Privacy & Security Settings Screen
- */
-@Composable
-fun PrivacySecuritySettingsScreen(
-    uiState: AsterUiState,
-    protectedBooksCount: Int,
-    viewModel: AsterViewModel,
-    onBack: () -> Unit
-) {
-    BackHandler(onBack = onBack)
-
-    var showTimeoutDialog by remember { mutableStateOf(false) }
-    var showRecoveryKeyDialog by remember { mutableStateOf(false) }
-    var showPinDialog by remember { mutableStateOf(false) }
-    var tempPin by remember { mutableStateOf("") }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-            .statusBarsPadding()
-            .testTag("privacy_security_settings_screen")
-    ) {
-        // Top App Bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-            }
-            Text(
-                text = "隐私与安全",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                modifier = Modifier.padding(start = 4.dp)
-            )
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(22.dp)
-        ) {
-            // Hardware Cryptography Status Banner
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Surface(
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(46.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Outlined.Shield,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "本地隐私与访问控制",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            maxLines = 1
-                        )
-                        Text(
-                            text = "当前受保护书籍：$protectedBooksCount 本",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
-                            maxLines = 1
-                        )
-                    }
-                }
-            }
-
-            // Group 1: 应用锁
-            AsterSettingsGroup(title = "应用锁") {
-                AsterSwitchRow(
-                    title = "启用应用锁",
-                    checked = uiState.isAppLockEnabled,
-                    onCheckedChange = { viewModel.setAppLockEnabled(it) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Key,
-                    title = "设置应用 PIN 码",
-                    badgeText = if (uiState.customPin.isNotBlank()) "已设置" else "默认(1234)",
-                    onClick = {
-                        tempPin = uiState.customPin
-                        showPinDialog = true
-                    }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.LockClock,
-                    title = "自动锁定",
-                    badgeText = uiState.autoLockPolicyLabel,
-                    onClick = { showTimeoutDialog = true }
-                )
-            }
-
-            // Group 2: 加密防护
-            AsterSettingsGroup(title = "防窥与访问控制") {
-                AsterSwitchRow(
-                    title = "防截屏保护",
-                    checked = uiState.flagSecureEnabled,
-                    onCheckedChange = { viewModel.setFlagSecureEnabled(it) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSwitchRow(
-                    title = "多任务模糊遮罩",
-                    checked = uiState.hideRecentsPreview,
-                    onCheckedChange = { viewModel.setHideRecentsPreview(it) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.RemoveRedEye,
-                    title = "锁定时隐藏封面",
-                    badgeText = "已开启",
-                    onClick = {}
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.SearchOff,
-                    title = "锁定时隐藏搜索结果",
-                    badgeText = "已开启",
-                    onClick = {}
-                )
-            }
-
-            // Group 3: 密钥管理
-            AsterSettingsGroup(title = "密钥与会话") {
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.VerifiedUser,
-                    title = "完整性校验",
-                    badgeText = "校验",
-                    onClick = { viewModel.runVaultIntegrityCheck() }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Key,
-                    title = "恢复密钥",
-                    onClick = { showRecoveryKeyDialog = true }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Default.LockOpen,
-                    title = "立即锁定",
-                    badgeText = "$protectedBooksCount 本",
-                    onClick = { viewModel.lockAppImmediately() }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(60.dp))
-        }
-    }
-
-    if (showTimeoutDialog) {
-        val options = listOf("立即锁定", "30 秒后", "1 分钟后", "5 分钟后", "仅息屏锁定")
-        AlertDialog(
-            onDismissRequest = { showTimeoutDialog = false },
-            title = { Text("自动锁定时间", fontWeight = FontWeight.Bold, maxLines = 1) },
-            text = {
-                Column {
-                    options.forEach { option ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setAutoLockPolicyLabel(option)
-                                    showTimeoutDialog = false
-                                }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = uiState.autoLockPolicyLabel == option,
-                                onClick = {
-                                    viewModel.setAutoLockPolicyLabel(option)
-                                    showTimeoutDialog = false
-                                }
-                            )
-                            Text(option, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showTimeoutDialog = false }) { Text("关闭", maxLines = 1, softWrap = false) }
-            }
-        )
-    }
-
-    if (showPinDialog) {
-        AlertDialog(
-            onDismissRequest = { showPinDialog = false },
-            title = { Text("设置应用 PIN 码", fontWeight = FontWeight.Bold, maxLines = 1) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "输入 4-8 位数字作为 Aster Reader 独立解锁 PIN 码：",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    OutlinedTextField(
-                        value = tempPin,
-                        onValueChange = { if (it.length <= 8) tempPin = it },
-                        label = { Text("应用 PIN 码") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.setCustomPin(tempPin)
-                        showPinDialog = false
-                    }
-                ) {
-                    Text("保存", maxLines = 1, softWrap = false)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPinDialog = false }) { Text("取消", maxLines = 1, softWrap = false) }
-            }
-        )
-    }
-
-    if (showRecoveryKeyDialog) {
-        AlertDialog(
-            onDismissRequest = { showRecoveryKeyDialog = false },
-            title = { Text("应急恢复密钥", fontWeight = FontWeight.Bold, maxLines = 1) },
-            text = {
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest
-                ) {
-                    Text(
-                        text = "尚未配置可恢复保险库。当前版本不提供恢复密钥。",
-                        fontFamily = RobotoMonoFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = { showRecoveryKeyDialog = false }) {
-                    Text("确定", maxLines = 1, softWrap = false)
-                }
-            }
-        )
-    }
-}
-
-/**
  * 4. Global Settings Screen (Merged Appearance + Global Settings, accessible from Top-Right)
  */
 @Composable
@@ -1757,6 +1469,12 @@ fun SettingsScreen(
 
     var activeModal by remember { mutableStateOf<String?>(null) }
     var newRepoName by remember { mutableStateOf("") }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { viewModel.exportLibrary(it) } }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { viewModel.importLibrary(it) } }
 
     Column(
         modifier = Modifier
@@ -1765,38 +1483,28 @@ fun SettingsScreen(
             .statusBarsPadding()
             .testTag("settings_screen")
     ) {
-        // Header with Back Arrow - 压缩高度至 44dp，返回按钮靠最左
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp)
-                .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (onBack != null) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.testTag("settings_back_btn")
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                }
-            }
-            Text(
-                text = "设置",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                softWrap = false
-            )
-        }
+        AsterSubScreenHeader(
+            title = "设置",
+            onBack = onBack
+        )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // Group 0: 外观
+            AsterSettingsGroup(title = "外观") {
+                AsterSettingsRow(
+                    leadingIcon = Icons.Outlined.DarkMode,
+                    title = "主题",
+                    badgeText = uiState.themeMode.label,
+                    onClick = { activeModal = "THEME" }
+                )
+            }
+
             // Group 1: 阅读与排版配置
             AsterSettingsGroup(title = "阅读与排版") {
                 AsterSettingsRow(
@@ -1849,6 +1557,22 @@ fun SettingsScreen(
             }
 
             // Group 3: 本地书库与存储
+            AsterSettingsGroup(title = "阅读统计") {
+                AsterSwitchRow(
+                    title = "记录阅读时长",
+                    checked = uiState.showReadingStats,
+                    onCheckedChange = { viewModel.setShowReadingStats(it) }
+                )
+                if (uiState.showReadingStats) {
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                    AsterSettingsRow(
+                        leadingIcon = Icons.Outlined.Schedule,
+                        title = "查看统计",
+                        onClick = { viewModel.pushSubScreen(SubScreen.ReadingStats) }
+                    )
+                }
+            }
+
             AsterSettingsGroup(title = "本地书库") {
                 AsterSettingsRow(
                     leadingIcon = Icons.Outlined.Folder,
@@ -1869,6 +1593,27 @@ fun SettingsScreen(
                     badgeText = "释放空间",
                     onClick = { viewModel.clearRegenerableCache() }
                 )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                AsterSettingsRow(
+                    leadingIcon = Icons.Outlined.Image,
+                    title = "重建封面",
+                    subtitle = "按封面页重新截取，可修复显示不出来的封面",
+                    onClick = { viewModel.rebuildLibraryCovers() }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                AsterSettingsRow(
+                    leadingIcon = Icons.Outlined.Backup,
+                    title = "导出书库清单",
+                    subtitle = "备份进度、标签、书架与批注（不含漫画文件）",
+                    onClick = { exportLauncher.launch("aster-library.json") }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+                AsterSettingsRow(
+                    leadingIcon = Icons.Outlined.Folder,
+                    title = "恢复书库清单",
+                    subtitle = "从备份恢复元数据，来源文件需重新授权",
+                    onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }
+                )
             }
 
             // Group 4: 隐私与关于
@@ -1876,7 +1621,7 @@ fun SettingsScreen(
                 AsterSettingsRow(
                     leadingIcon = Icons.Default.Security,
                     title = "安全设置",
-                    badgeText = if (uiState.isAppLockEnabled) "已保护" else "未保护",
+                    badgeText = if (uiState.isAppLockEnabled) "已开启" else "未开启",
                     onClick = { viewModel.pushSubScreen(SubScreen.PrivacySecuritySettings) }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
@@ -1888,8 +1633,53 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "本机共 $booksCount 部作品 · 数据只留在这台设备",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 28.dp)
+            )
         }
+    }
+
+    // Theme Picker
+    if (activeModal == "THEME") {
+        AlertDialog(
+            onDismissRequest = { activeModal = null },
+            title = { Text("主题", fontWeight = FontWeight.Bold, maxLines = 1) },
+            text = {
+                Column {
+                    ThemeMode.entries.forEach { mode ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setThemeMode(mode)
+                                    activeModal = null
+                                }
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = uiState.themeMode == mode,
+                                onClick = {
+                                    viewModel.setThemeMode(mode)
+                                    activeModal = null
+                                }
+                            )
+                            Text(mode.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { activeModal = null }) { Text("关闭", maxLines = 1, softWrap = false) }
+            }
+        )
     }
 
     // Repositories Management Dialog (在文件管理器中直接选择目录，绝无手动填写)
@@ -1936,7 +1726,7 @@ fun SettingsScreen(
                     onClick = {
                         activeModal = null
                         // 直接启动系统文件管理器选取目录
-                        viewModel.addRepositoryAndScan("本地书库", "每个文件作为作品")
+                        viewModel.addRepositoryAndScan("本地书库", com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE)
                     }
                 ) {
                     Text("选择目录", maxLines = 1, softWrap = false)
@@ -2071,7 +1861,7 @@ fun SettingsScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "作品标签将根据漫画目录和元数据自动提取，便于在检索时精准筛选。",
+                        text = "标签来自作品详情的「编辑信息」，检索筛选会直接使用这些标签。",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

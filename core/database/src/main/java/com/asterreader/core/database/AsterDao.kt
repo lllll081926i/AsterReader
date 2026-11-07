@@ -75,7 +75,7 @@ interface AsterDao {
             insertBook(book)
             return book
         }
-        check(!current.isVaultProtected && !current.isVaultEncrypted) { "受保护作品不能通过普通扫描更新" }
+        check(!current.isVaultEncrypted) { "加密容器不受当前版本支持" }
         val page = current.currentPage.coerceIn(1, book.totalPages)
         val percent = if (current.progressPercent == 0) 0 else (page.toLong() * 100 / book.totalPages).toInt()
         val updated = current.copy(totalPages = book.totalPages, currentPage = page,
@@ -110,6 +110,12 @@ interface AsterDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChapters(chapters: List<ChapterEntity>)
+
+    @Transaction
+    suspend fun replaceChapters(bookId: String, chapters: List<ChapterEntity>) {
+        deleteChaptersForBooks(listOf(bookId))
+        if (chapters.isNotEmpty()) insertChapters(chapters)
+    }
 
     @Update
     suspend fun updateChapter(chapter: ChapterEntity)
@@ -177,7 +183,7 @@ interface AsterDao {
     @Transaction
     suspend fun saveViewport(id: String, position: com.asterreader.core.model.ReaderViewport) {
         val book = getBookById(id) ?: return
-        if (book.isVaultProtected || book.isVaultEncrypted) return
+        if (book.isVaultEncrypted) return
         val safe = position.sanitized(book.totalPages)
         val previous = getReaderState(id) ?: ReaderStateEntity(id)
         saveReaderState(previous.copy(page = safe.page, offsetFraction = safe.offsetFraction,
@@ -187,13 +193,22 @@ interface AsterDao {
     @Transaction
     suspend fun saveReaderOptions(id: String, mode: String?, fit: String?, cover: Boolean?, rtl: Boolean?) {
         val book = getBookById(id) ?: return
-        if (book.isVaultProtected || book.isVaultEncrypted) return
+        if (book.isVaultEncrypted) return
         val previous = getReaderState(id) ?: ReaderStateEntity(id, page = book.currentPage)
         saveReaderState(previous.copy(layoutMode = mode, fitMode = fit, coverSingle = cover, rightToLeft = rtl))
     }
 
     @Query("SELECT * FROM comic_pages WHERE bookId = :id AND number = :number")
     suspend fun getComicPage(id: String, number: Int): ComicPageEntity?
+
+    @Query("SELECT * FROM comic_pages WHERE bookId = :id ORDER BY number ASC")
+    suspend fun getComicPages(id: String): List<ComicPageEntity>
+
+    @Query("SELECT * FROM books WHERE series = :series AND series <> '' ORDER BY seriesOrder ASC, addedAt ASC")
+    suspend fun getSeriesBooks(series: String): List<BookEntity>
+
+    @Query("SELECT * FROM books WHERE sourceStatus = 'MISSING'")
+    fun observeMissingBooks(): Flow<List<BookEntity>>
 
     @Query("DELETE FROM comic_pages WHERE bookId = :id")
     suspend fun deleteComicPages(id: String)
@@ -215,24 +230,39 @@ interface AsterDao {
     @Query("UPDATE books SET sourceStatus = :status WHERE id = :id")
     suspend fun updateSourceStatus(id: String, status: String)
 
-    @Query("UPDATE books SET coverUrl = :cover, coverPage = :page WHERE id = :id AND isVaultProtected = 0 AND isVaultEncrypted = 0")
+    @Query("UPDATE books SET coverUrl = :cover, coverPage = :page WHERE id = :id AND isVaultEncrypted = 0")
     suspend fun updateCover(id: String, cover: String, page: Int)
 
     @Query("UPDATE books SET series = :series, seriesOrder = :position WHERE id = :id")
     suspend fun updateSeries(id: String, series: String, position: Int)
 
+    /** 「隐藏」只改可见性，不触碰文件字节；隐藏作品仍然可读、可扫描、可保存进度。 */
+    @Query("UPDATE books SET isVaultProtected = :hidden WHERE id = :id AND isVaultEncrypted = 0")
+    suspend fun setBookHidden(id: String, hidden: Boolean)
+
+    @Query("SELECT COUNT(*) FROM books WHERE isVaultProtected = 1")
+    fun observeHiddenCount(): Flow<Int>
+
     @Transaction
-    suspend fun reconcileSources(repositoryId: String, seen: Set<String>) {
+    suspend fun reconcileSources(repositoryId: String, seen: Set<String>): Int {
+        var missing = 0
         getRepositoryBooks(repositoryId).forEach { book ->
-            if (book.filePath !in seen && !book.isVaultProtected && !book.isVaultEncrypted)
+            val reachable = book.filePath in seen
+            if (book.isVaultEncrypted) return@forEach
+            if (!reachable && book.sourceStatus != "MISSING") {
                 updateSourceStatus(book.id, "MISSING")
+                missing++
+            } else if (reachable && book.sourceStatus == "MISSING") {
+                updateSourceStatus(book.id, "AVAILABLE")
+            }
         }
+        return missing
     }
 
     @Transaction
     suspend fun replaceSource(id: String, source: BookEntity): BookEntity {
         val current = getBookById(id) ?: error("作品已被移除")
-        check(!current.isVaultProtected && !current.isVaultEncrypted)
+        check(!current.isVaultEncrypted) { "加密容器不受当前版本支持" }
         val duplicate = getBookByUri(source.filePath)
         check(duplicate == null || duplicate.id == id) { "此来源已关联另一部漫画" }
         val page = current.currentPage.coerceIn(1, source.totalPages)
@@ -247,4 +277,29 @@ interface AsterDao {
         deleteComicPages(id)
         return updated
     }
+
+    // ------------------------------------------------------------------
+    // 书库备份 / 恢复（只导出元数据，SAF 源文件授权需在新设备上重新选择）
+    // ------------------------------------------------------------------
+
+    @Query("SELECT * FROM books")
+    suspend fun getAllBooks(): List<BookEntity>
+
+    @Query("SELECT * FROM shelves")
+    suspend fun getAllShelves(): List<ShelfEntity>
+
+    @Query("SELECT * FROM annotations")
+    suspend fun getAllAnnotations(): List<AnnotationEntity>
+
+    @Query("SELECT * FROM reader_states")
+    suspend fun getAllReaderStates(): List<ReaderStateEntity>
+
+    @Query("SELECT * FROM repositories")
+    suspend fun getAllRepositories(): List<RepositoryEntity>
+
+    @Query("SELECT * FROM chapters")
+    suspend fun getAllChapters(): List<ChapterEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun restoreReaderStates(states: List<ReaderStateEntity>)
 }

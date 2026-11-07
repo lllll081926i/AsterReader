@@ -21,6 +21,9 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.snap
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.clickable
@@ -129,6 +132,41 @@ object AsterMotion {
 
         return enter togetherWith exit
     }
+}
+
+/**
+ * 卡片级微交互：按压时轻微回弹缩放 + 系统涟漪，同时保留长按。
+ * 用于书库 / 书架的作品卡片，比单纯 ripple 更有触感，且遵守「减弱动效」。
+ */
+@OptIn(ExperimentalFoundationApi::class)
+fun Modifier.asterCardInteraction(
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null
+): Modifier = composed {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val reduceMotion = LocalAsterReduceMotion.current
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed && enabled && !reduceMotion) 0.975f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "aster_card_scale"
+    )
+    this
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .combinedClickable(
+            interactionSource = interactionSource,
+            indication = LocalIndication.current,
+            enabled = enabled,
+            onLongClick = onLongClick,
+            onClick = onClick
+        )
 }
 
 /**
