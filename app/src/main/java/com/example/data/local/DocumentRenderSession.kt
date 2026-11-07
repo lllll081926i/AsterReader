@@ -13,7 +13,12 @@ import android.util.LruCache
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -22,7 +27,6 @@ import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
 /** 归档或目录页的打开方式；安全来源由 Repository 完成授权。 */
@@ -51,7 +55,9 @@ internal class DocumentRenderSession(context: Context) {
     private var source: OpenSource? = null
     private val dimensions = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Bitmap, Pair<Int, Int>>())
     fun nativeSize(bitmap: Bitmap): Pair<Int, Int>? = dimensions[bitmap]
-    private val inFlight = AtomicInteger(0)
+    private val inFlight = MutableStateFlow(0)
+    private val pageGates = Array(32) { Mutex() }
+    private val decodeSlots = Semaphore(2)
 
     suspend fun render(
         key: String,
@@ -62,13 +68,8 @@ internal class DocumentRenderSession(context: Context) {
         val open = ensureSource(key, prepare)
         try {
         val cacheKey = "${open.fingerprint}:$page:$maxPixels"
-        pages.get(cacheKey)?.let { return it }
-        return decode(open) {
-            val bitmap = renderBitmap(open, page, maxPixels)
-            if (bitmap.allocationByteCount <= pages.maxSize()) pages.put(cacheKey, bitmap)
-            bitmap
-        }
-        } finally { inFlight.decrementAndGet() }
+        return cachedDecode(open, cacheKey) { renderBitmap(open, page, maxPixels) }!!
+        } finally { inFlight.update { it - 1 } }
     }
 
     /**
@@ -85,18 +86,16 @@ internal class DocumentRenderSession(context: Context) {
         val open = ensureSource(key, prepare)
         try {
         for (page in pagesToLoad.distinct()) {
+            currentCoroutineContext().ensureActive()
             if (page < 1 || page > open.pageCount) continue
             val cacheKey = "${open.fingerprint}:$page:$maxPixels"
             if (pages.get(cacheKey) != null) continue
             try {
-                decode(open) {
-                    val bitmap = renderBitmap(open, page, maxPixels)
-                    if (bitmap.allocationByteCount <= pages.maxSize()) pages.put(cacheKey, bitmap)
-                }
+                cachedDecode(open, cacheKey) { renderBitmap(open, page, maxPixels) }
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
             catch (_: Exception) { /* 预取失败由可见页的加载状态呈现。 */ }
         }
-        } finally { inFlight.decrementAndGet() }
+        } finally { inFlight.update { it - 1 } }
     }
 
     /**
@@ -124,28 +123,23 @@ internal class DocumentRenderSession(context: Context) {
         val topKey = (top * 40).roundToInt()
         val bottomKey = (bottom * 40).roundToInt()
         val cacheKey = "${open.fingerprint}:region:$page:$topKey:$bottomKey:$maxPixels"
-        pages.get(cacheKey)?.let { return it }
         return try {
-            decode(open) {
-                val bitmap = renderRegionBitmap(open, page, top, bottom, maxPixels)
-                if (bitmap != null && bitmap.allocationByteCount <= pages.maxSize()) {
-                    pages.put(cacheKey, bitmap)
-                }
-                bitmap
-            }
+            cachedDecode(open, cacheKey) { renderRegionBitmap(open, page, top, bottom, maxPixels) }
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (_: OutOfMemoryError) { pages.evictAll(); null }
         catch (_: Exception) { null }
-        } finally { inFlight.decrementAndGet() }
+        } finally { inFlight.update { it - 1 } }
     }
 
     private suspend fun ensureSource(key: String, prepare: suspend () -> PageSource): OpenSource {
+        currentCoroutineContext().ensureActive()
         sourceMutex.withLock {
-            source?.let { if (it.key == key) { inFlight.incrementAndGet(); return it } }
-            while (inFlight.get() > 0) kotlinx.coroutines.delay(5)
+            source?.let { if (it.key == key) { inFlight.update { count -> count + 1 }; return it } }
+            inFlight.first { it == 0 }
             closeLocked()
             val opened = openSource(key, prepare())
             source = opened
-            inFlight.incrementAndGet()
+            inFlight.update { it + 1 }
             return opened
         }
     }
@@ -205,8 +199,17 @@ internal class DocumentRenderSession(context: Context) {
         }
     }
 
+    private suspend fun cachedDecode(open: OpenSource, key: String, block: () -> Bitmap?): Bitmap? {
+        pages.get(key)?.let { return it }
+        return pageGates[(key.hashCode() and Int.MAX_VALUE) % pageGates.size].withLock {
+            pages.get(key) ?: decode(open) {
+                block()?.also { if (it.allocationByteCount <= pages.maxSize()) pages.put(key, it) }
+            }
+        }
+    }
+
     private suspend fun <T> decode(open: OpenSource, block: () -> T): T {
-        return if (open.concurrent) withContext(Dispatchers.IO) { block() }
+        return if (open.concurrent) decodeSlots.withPermit { withContext(Dispatchers.IO) { block() } }
             else open.gate.withLock { withContext(Dispatchers.IO) { block() } }
     }
 
@@ -328,7 +331,7 @@ internal class DocumentRenderSession(context: Context) {
     suspend fun close() = withContext(Dispatchers.IO) {
         sourceMutex.withLock {
             withContext(kotlinx.coroutines.NonCancellable) {
-                while (inFlight.get() > 0) kotlinx.coroutines.delay(5)
+                inFlight.first { it == 0 }
                 closeLocked()
             }
         }

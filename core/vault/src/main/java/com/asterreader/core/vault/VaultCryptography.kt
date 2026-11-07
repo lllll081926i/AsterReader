@@ -100,6 +100,10 @@ object VaultCryptography {
         private val header = ByteArray(104)
         private var dek = byteArrayOf()
         private var closed = false
+        private val chunks = LinkedHashMap<Int, ByteArray>(2, 0.75f, true)
+        internal var authenticatedChunkReads = 0L
+            private set
+        @Synchronized internal fun cachedPlainBytes() = chunks.values.sumOf { it.size }
         val length: Long
         val objectId: UUID
         init {
@@ -124,7 +128,7 @@ object VaultCryptography {
 
         @Synchronized fun read(position: Long, count: Int): ByteArray {
             check(!closed) { "保险库会话已关闭" }
-            checkActive()
+            try { checkActive() } catch (failure: Throwable) { clearChunks(); throw failure }
             require(position in 0..length && count in 0..CHUNK_SIZE && count.toLong() <= length - position) { "读取范围无效" }
             val result = ByteArray(count)
             try {
@@ -135,20 +139,34 @@ object VaultCryptography {
                     val index = (location / CHUNK_SIZE).toInt()
                     val within = (location % CHUNK_SIZE).toInt()
                     val plainLength = minOf(CHUNK_SIZE.toLong(), length - index.toLong() * CHUNK_SIZE).toInt()
-                    val ciphertext = ByteArray(plainLength + 16)
-                    source.seek(offset + HEADER_SIZE + index.toLong() * (CHUNK_SIZE + 16))
-                    source.readFully(ciphertext)
-                    val plain = crypt(Cipher.DECRYPT_MODE, dek, nonce(header, index), aad(header, index, plainLength), ciphertext)
-                    try {
-                        val take = minOf(count - copied, plain.size - within)
-                        plain.copyInto(result, copied, within, within + take)
-                        copied += take
-                    } finally { plain.fill(0) }
+                    val plain = authenticatedChunk(index, plainLength)
+                    val take = minOf(count - copied, plain.size - within)
+                    plain.copyInto(result, copied, within, within + take)
+                    copied += take
                 }
                 checkActive()
                 return result
-            } catch (failure: Throwable) { result.fill(0); throw failure }
+            } catch (failure: Throwable) { result.fill(0); clearChunks(); throw failure }
         }
+
+        private fun authenticatedChunk(index: Int, plainLength: Int): ByteArray {
+            chunks[index]?.let { return it }
+            val ciphertext = ByteArray(plainLength + 16)
+            source.seek(offset + HEADER_SIZE + index.toLong() * (CHUNK_SIZE + 16))
+            source.readFully(ciphertext)
+            val plain = crypt(Cipher.DECRYPT_MODE, dek, nonce(header, index), aad(header, index, plainLength), ciphertext)
+            try { checkActive() } catch (failure: Throwable) { plain.fill(0); throw failure }
+            authenticatedChunkReads++
+            if (chunks.size == 2) {
+                val oldest = chunks.entries.iterator()
+                oldest.next().value.fill(0)
+                oldest.remove()
+            }
+            chunks[index] = plain
+            return plain
+        }
+
+        private fun clearChunks() { chunks.values.forEach { it.fill(0) }; chunks.clear() }
 
         fun stream(start: Long = 0, size: Long = length - start): InputStream {
             require(start in 0..length && size >= 0 && size <= length - start)
@@ -172,7 +190,7 @@ object VaultCryptography {
             }
         }
 
-        @Synchronized override fun close() { if (!closed) { closed = true; dek.fill(0); source.close() } }
+        @Synchronized override fun close() { if (!closed) { closed = true; clearChunks(); dek.fill(0); source.close() } }
     }
 
     private fun nonce(header: ByteArray, index: Int) = ByteBuffer.allocate(12).put(header, 36, 8).putInt(index).array()

@@ -111,13 +111,17 @@ fun PublicationPageCanvas(
     var panY by remember(publicationId, page) { mutableFloatStateOf(initialPanY) }
 
     // 相邻页预热：翻页之前就把下一/上一页读进缓存，消除翻页转圈
-    LaunchedEffect(publicationId, page, totalPages) {
-        val neighbors = buildList {
-            if (page + 1 <= totalPages) add(page + 1)
-            if (page - 1 >= 1) add(page - 1)
-            if (mode == ReaderLayoutMode.VERTICAL_SCROLL && page + 2 <= totalPages) add(page + 2)
+    val prefetchOwner = LocalLifecycleOwner.current
+    LaunchedEffect(publicationId, page, totalPages, mode, prefetchOwner) {
+        prefetchOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            val neighbors = buildList {
+                if (page + 1 <= totalPages) add(page + 1)
+                if (page - 1 >= 1) add(page - 1)
+                if (mode == ReaderLayoutMode.VERTICAL_SCROLL && page + 2 <= totalPages) add(page + 2)
+            }
+            onPrefetch(neighbors)
+            awaitCancellation()
         }
-        if (neighbors.isNotEmpty()) onPrefetch(neighbors)
     }
 
     if (mode == ReaderLayoutMode.VERTICAL_SCROLL) {

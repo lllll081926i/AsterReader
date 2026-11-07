@@ -6,6 +6,15 @@ import com.example.data.local.DocumentRenderSession
 import com.example.data.local.PageSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.withTimeout
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,6 +29,92 @@ import java.util.zip.ZipOutputStream
 class DocumentRenderSessionTest {
     private val png = java.util.Base64.getDecoder()
         .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
+
+    @Test fun renderAndPrefetchShareOneDecode() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val entered = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val streams = AtomicInteger()
+        val source = PageSource.Directory(1) {
+            streams.incrementAndGet()
+            entered.complete(Unit)
+            check(release.await(10, TimeUnit.SECONDS))
+            png.inputStream()
+        }
+        try {
+            withTimeout(15000) {
+                val first = async(start = CoroutineStart.UNDISPATCHED) { session.render("共享", 1, 1000) { source } }
+                entered.await()
+                val prefetch = async(start = CoroutineStart.UNDISPATCHED) { session.prefetch("共享", listOf(1), 1000) { error("重复打开") } }
+                val second = async(start = CoroutineStart.UNDISPATCHED) { session.render("共享", 1, 1000) { error("重复打开") } }
+                release.countDown()
+                assertSame(first.await(), second.await())
+                prefetch.await()
+                assertEquals("一次解码只打开尺寸和像素两个流", 2, streams.get())
+            }
+        } finally { release.countDown(); session.close() }
+    }
+
+    @Test fun parallelDecodesAreBoundedAndCloseWaitsForTheirCompletion() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val entered = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val active = AtomicInteger()
+        val peak = AtomicInteger()
+        val streams = AtomicInteger()
+        val source = PageSource.Directory(8) {
+            val count = active.incrementAndGet()
+            peak.updateAndGet { maxOf(it, count) }
+            streams.incrementAndGet()
+            if (count == 2) entered.complete(Unit)
+            check(release.await(10, TimeUnit.SECONDS))
+            object : java.io.ByteArrayInputStream(png) {
+                override fun close() { active.decrementAndGet(); super.close() }
+            }
+        }
+        try {
+            withTimeout(15000) {
+                val requests = (1..8).map { page -> async(start = CoroutineStart.UNDISPATCHED) { session.render("并发", page, 1000) { source } } }
+                entered.await()
+                val closing = async(start = CoroutineStart.UNDISPATCHED) { session.close() }
+                assertFalse("在途解码结束前不能关闭来源", closing.isCompleted)
+                release.countDown()
+                requests.awaitAll()
+                closing.await()
+                assertEquals(2, peak.get())
+                assertEquals(16, streams.get())
+                assertEquals(0, active.get())
+                assertEquals(0, session.cachedBytes())
+            }
+        } finally { release.countDown(); session.close() }
+    }
+
+    @Test fun cancellingQueuedDecodeReleasesItsSessionLease() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val entered = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val streams = AtomicInteger()
+        val source = PageSource.Directory(3) { page ->
+            check(page != 3) { "取消的预取不能开始读取" }
+            if (streams.incrementAndGet() == 2) entered.complete(Unit)
+            check(release.await(10, TimeUnit.SECONDS))
+            png.inputStream()
+        }
+        try {
+            withTimeout(15000) {
+                val active = (1..2).map { page -> async(start = CoroutineStart.UNDISPATCHED) { session.render("取消", page, 1000) { source } } }
+                entered.await()
+                val queued = async(start = CoroutineStart.UNDISPATCHED) { session.render("取消", 3, 1000) { source } }
+                queued.cancelAndJoin()
+                val closing = async(start = CoroutineStart.UNDISPATCHED) { session.close() }
+                release.countDown()
+                active.awaitAll()
+                closing.await()
+                assertEquals(4, streams.get())
+                assertEquals(0, session.cachedBytes())
+            }
+        } finally { release.countDown(); session.close() }
+    }
 
     private fun archive(app: Application, entries: List<String>): File =
         File.createTempFile("session-fixture-", ".cbz", app.cacheDir).apply {

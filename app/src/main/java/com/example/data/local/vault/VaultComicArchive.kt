@@ -16,6 +16,8 @@ internal class VaultComicArchive(private val store: FileVaultStore, record: Vaul
     private var zip: org.apache.commons.compress.archivers.zip.ZipFile? = null
     private var seven: org.apache.commons.compress.archivers.sevenz.SevenZFile? = null
     private var rar: com.github.junrar.Archive? = null
+    private var sevenEntries = emptyMap<String, org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry>()
+    private var rarEntries = emptyMap<String, com.github.junrar.rarfile.FileHeader>()
     private val names: List<String>
     private val tarOffsets = mutableMapOf<String, Pair<Long, Long>>()
     override val concurrentReads = false
@@ -34,7 +36,9 @@ internal class VaultComicArchive(private val store: FileVaultStore, record: Vaul
                 "7Z", "CB7" -> {
                     seven = org.apache.commons.compress.archivers.sevenz.SevenZFile.builder().setSeekableByteChannel(channel)
                         .setMaxMemoryLimitKb(65536).get()
-                    seven!!.entries.filter { !it.isDirectory }.map { it.name }
+                    val entries = seven!!.entries.filter { !it.isDirectory }
+                    sevenEntries = buildMap { entries.forEach { putIfAbsent(it.name, it) } }
+                    entries.map { it.name }
                 }
                 "RAR", "CBR" -> {
                     val manager = com.github.junrar.volume.VolumeManager { archive, previous ->
@@ -56,7 +60,9 @@ internal class VaultComicArchive(private val store: FileVaultStore, record: Vaul
                         }
                     }
                     rar = com.github.junrar.Archive(manager, null, null)
-                    rar!!.fileHeaders.filter { !it.isDirectory }.map { it.fileName }
+                    val entries = rar!!.fileHeaders.filter { !it.isDirectory }
+                    rarEntries = buildMap { entries.forEach { putIfAbsent(it.fileName, it) } }
+                    entries.map { it.fileName }
                 }
                 "TAR", "CBT" -> {
                     validateTar()
@@ -75,15 +81,16 @@ internal class VaultComicArchive(private val store: FileVaultStore, record: Vaul
                 else -> error("不支持的加密漫画格式")
             }
             names = if (record.pageNames.isNotEmpty()) record.pageNames else if (record.book.format == "IMAGE") available else ComicArchives.sortedImageNames(available)
-            require(names.size == record.book.totalPages && names.all { it in available }) { "加密漫画页索引不匹配" }
+            val availableNames = available.toHashSet()
+            require(names.size == record.book.totalPages && names.all { it in availableNames }) { "加密漫画页索引不匹配" }
         } catch (failure: Throwable) { close(); throw failure }
     }
 
     override fun openPage(number: Int): InputStream {
         val name = names.getOrNull(number - 1) ?: error("页码超出范围")
         zip?.let { return it.getInputStream(it.getEntry(name)) }
-        seven?.let { archive -> return archive.getInputStream(archive.entries.first { it.name == name }) }
-        rar?.let { archive -> return archive.getInputStream(archive.fileHeaders.first { it.fileName == name }) }
+        seven?.let { archive -> return archive.getInputStream(sevenEntries.getValue(name)) }
+        rar?.let { archive -> return archive.getInputStream(rarEntries.getValue(name)) }
         tarOffsets[name]?.let { (offset, size) -> return reader.stream(offset, size) }
         return reader.stream()
     }

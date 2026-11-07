@@ -32,7 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,7 +61,7 @@ fun ReadingStatsScreen(
     totalBooks: Int,
     onBack: (() -> Unit)? = null
 ) {
-    val stats by viewModel.readingStats.collectAsState()
+    val stats by viewModel.readingStats.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.refreshReadingStats() }
     val colorScheme = MaterialTheme.colorScheme
 

@@ -17,10 +17,14 @@ import java.util.concurrent.atomic.AtomicLong
 internal class FileVaultStore private constructor(
     context: Context, private val device: VaultDeviceKey, private val directorySync: (File) -> Unit
 ) {
-    private val root = File(context.noBackupFilesDir, "file-vault-v2").apply { mkdirs() }
+    private val root = File(context.noBackupFilesDir, "file-vault-v2")
     private val slot = AtomicFile(File(root, "device.slot"))
     private val guard = Any()
     private val writes = Any()
+    private val indexGuard = Any()
+    @Volatile private var committedIndex: Set<String>? = null
+    internal var directoryEnumerations = 0
+        private set
     private var master: ByteArray? = null
     private val generation = AtomicLong()
     private val readers = mutableSetOf<Crypto.Reader>()
@@ -30,8 +34,15 @@ internal class FileVaultStore private constructor(
     val unlocked get() = synchronized(guard) { master != null }
     fun sessionToken(): Long = generation.get()
     fun isSessionValid(token: Long): Boolean = token == generation.get() && unlocked
-    fun committedIds(): Set<String> = root.listFiles().orEmpty().filter { it.name.endsWith(".vmeta") }
-        .map { it.name.removeSuffix(".vmeta") }.toSet()
+    fun committedIds(): Set<String> = committedIndex ?: synchronized(indexGuard) {
+        committedIndex ?: refreshCommittedIds()
+    }
+    private fun refreshCommittedIds(): Set<String> = synchronized(indexGuard) {
+        val files = if (root.exists()) root.listFiles() ?: error("无法读取保险库目录") else emptyArray()
+        directoryEnumerations++
+        files.filter { it.name.endsWith(".vmeta") }.map { it.name.removeSuffix(".vmeta") }.toSet()
+            .also { committedIndex = it }
+    }
     fun sourceTag(uri: String) = device.sourceTag(uri)
     private fun readSlot(): ByteArray = slot.openRead().use { input ->
         require(input.channel.size() == 124L) { "设备密钥槽损坏" }
@@ -50,6 +61,8 @@ internal class FileVaultStore private constructor(
 
     fun open(password: CharArray, create: Boolean, checkActive: () -> Unit = {}) {
         val attempt = generation.get()
+        check(root.isDirectory || root.mkdirs()) { "无法创建保险库目录" }
+        refreshCommittedIds()
         val candidate: ByteArray
         if (create) {
             require(!configured && committedIds().isEmpty()) { "保险库已经存在，请解锁" }
@@ -140,8 +153,10 @@ internal class FileVaultStore private constructor(
             val current = records.value[id] ?: error("请先解锁文件保险库")
             val next = transform(current)
             require(next.book.id == id && next.dataName == current.dataName)
-            persist(next, key, active)
-            publish(next, active)
+            if (next != current) {
+                persist(next, key, active)
+                publish(next, active)
+            }
         }
     }
 
@@ -154,8 +169,12 @@ internal class FileVaultStore private constructor(
             try { Crypto.verify(staged, key, digest, checkActive = active) } finally { digest.fill(0) }
             active()
             // 元数据为唯一提交标记；原子替换后旧版本仍由文件系统保证完整性。
-            java.nio.file.Files.move(staged.toPath(), File(root, "${record.book.id}.vmeta").toPath(),
-                java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            synchronized(indexGuard) {
+                val previous = committedIds()
+                java.nio.file.Files.move(staged.toPath(), File(root, "${record.book.id}.vmeta").toPath(),
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                committedIndex = previous + record.book.id
+            }
             syncDirectory()
         } finally { bytes.fill(0) }
     }

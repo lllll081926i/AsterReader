@@ -37,5 +37,9 @@ class LibrarySearchTest {
         val result = searchLibrary(books, notes, request(sort = SortOption.RECENT_ADDED))
         assertEquals("漫画9999", result.books.first().id)
         assertEquals(10_000, result.annotations.size)
+        val tagged = books.mapIndexed { index, book -> book.copy(tagsCsv = if (index % 2 == 0) " 奇幻 , 漫画 " else "科幻") }
+        val filtered = searchLibrary(tagged, notes, request().copy(tags = setOf("冒险", "奇幻")))
+        assertEquals(5000, filtered.books.size)
+        assertEquals(5000, filtered.annotations.size)
     }
 }

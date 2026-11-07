@@ -55,6 +55,28 @@ class VaultCryptographyTest {
         assertThrows(Exception::class.java) { VaultCryptography.verify(file, key) }
     }
 
+    @Test fun smallReadsReuseAuthenticatedChunksWithBoundedMemoryAndRevocation() {
+        val bytes = ByteArray(VaultCryptography.CHUNK_SIZE * 3) { (it % 251).toByte() }
+        val file = temporary.newFile()
+        VaultCryptography.write(file, key, bytes.size.toLong(), bytes.inputStream())
+        var valid = true
+        VaultCryptography.Reader(file, key, checkActive = { check(valid) }).use { reader ->
+            repeat(256) { block ->
+                val position = block * 8192
+                assertArrayEquals(bytes.copyOfRange(position, position + 8192), reader.read(position.toLong(), 8192))
+            }
+            assertEquals(2L, reader.authenticatedChunkReads)
+            reader.read(2097152, 1)
+            assertEquals(3L, reader.authenticatedChunkReads)
+            assertEquals(2 * VaultCryptography.CHUNK_SIZE, reader.cachedPlainBytes())
+            reader.read(0, 1)
+            assertEquals(4L, reader.authenticatedChunkReads)
+            valid = false
+            assertThrows(IllegalStateException::class.java) { reader.read(0, 1) }
+            assertEquals(0, reader.cachedPlainBytes())
+        }
+    }
+
     @Test fun swappedChunksAndWholeChunkTruncationAreRejected() {
         val bytes = ByteArray(VaultCryptography.CHUNK_SIZE * 2) { (it / 1048576).toByte() }
         val file = temporary.newFile()
@@ -65,6 +87,28 @@ class VaultCryptographyTest {
         assertThrows(Exception::class.java) { VaultCryptography.verify(file, key) }
         file.writeBytes(original.copyOf(original.size - size))
         assertThrows(Exception::class.java) { VaultCryptography.verify(file, key) }
+    }
+
+    @Test fun cachedReaderClearsPlaintextAfterAuthenticationFailureAndClose() {
+        val bytes = ByteArray(VaultCryptography.CHUNK_SIZE + 32) { (it % 251).toByte() }
+        val file = temporary.newFile()
+        VaultCryptography.write(file, key, bytes.size.toLong(), bytes.inputStream())
+        val reader = VaultCryptography.Reader(file, key)
+        reader.use {
+            it.read(0, 1)
+            assertEquals(VaultCryptography.CHUNK_SIZE, it.cachedPlainBytes())
+            RandomAccessFile(file, "rw").use { output ->
+                output.seek(file.length() - 1)
+                val value = output.read()
+                output.seek(file.length() - 1)
+                output.write(value xor 1)
+            }
+            assertThrows(Exception::class.java) { it.read(VaultCryptography.CHUNK_SIZE.toLong(), 1) }
+            assertEquals(0, it.cachedPlainBytes())
+            it.read(0, 1)
+            assertTrue(it.cachedPlainBytes() > 0)
+        }
+        assertEquals(0, reader.cachedPlainBytes())
     }
 
     @Test fun cancellationAndSourceSizeChangeDoNotProduceValidObject() {

@@ -70,6 +70,51 @@ class FileVaultStoreTest {
         }
     }
 
+    @Test fun committedIndexAvoidsRepeatedDiskScansAndSurvivesLockAndRestart() {
+        val directory = temporary.newFolder()
+        val device = Device()
+        var syncs = 0
+        val store = FileVaultStore.forTest(context(directory), device) { syncs++ }
+        assertTrue(store.committedIds().isEmpty())
+        val initial = store.directoryEnumerations
+        repeat(1000) { assertTrue(store.committedIds().isEmpty()) }
+        assertEquals(initial, store.directoryEnumerations)
+        store.open(password, true)
+        val data = byteArrayOf(1, 2, 3)
+        val saved = store.create(record(), data.size.toLong(), { data.inputStream() })
+        val scans = store.directoryEnumerations
+        repeat(1000) { assertEquals(setOf(saved.book.id), store.committedIds()) }
+        assertEquals(scans, store.directoryEnumerations)
+        val writes = syncs
+        store.update(saved.book.id) { it.copy() }
+        assertEquals("未改变的元数据不应触发密文重写和同步", writes, syncs)
+        store.lock()
+        assertEquals(setOf(saved.book.id), store.committedIds())
+        val recreated = FileVaultStore.forTest(context(directory), device) {}
+        assertEquals(setOf(saved.book.id), recreated.committedIds())
+        recreated.open(password, false)
+        assertEquals(saved.book.title, recreated.records.value[saved.book.id]!!.book.title)
+        recreated.lock()
+    }
+
+    @Test fun committedIndexProtectsMetadataEvenIfDirectorySyncFailsBeforePublish() {
+        val directory = temporary.newFolder()
+        val device = Device()
+        var failSync = false
+        val store = FileVaultStore.forTest(context(directory), device) { if (failSync) error("同步失败") }
+        store.open(password, true)
+        val record = record()
+        failSync = true
+        assertThrows(Exception::class.java) { store.create(record, 3, { byteArrayOf(1, 2, 3).inputStream() }) }
+        assertTrue(store.records.value.isEmpty())
+        assertEquals(setOf(record.book.id), store.committedIds())
+        store.lock()
+        val recreated = FileVaultStore.forTest(context(directory), device) {}
+        recreated.open(password, false)
+        assertTrue(recreated.records.value.containsKey(record.book.id))
+        recreated.lock()
+    }
+
     @Test fun exportRestoresOnIndependentDeviceAndTamperNeverCommits() {
         val first = FileVaultStore.forTest(context(temporary.newFolder()), Device()) {}
         first.open(password, true)

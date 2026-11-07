@@ -24,7 +24,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.transform
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import com.example.data.local.BookEntity
@@ -216,6 +217,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private var persistJob: kotlinx.coroutines.Job? = null
     private val cleanupScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
     private var scanJob: kotlinx.coroutines.Job? = null
+    private var prefetchJob: kotlinx.coroutines.Job? = null
     private var backgroundAt: Long? = null
     private var backgroundLock: kotlinx.coroutines.Job? = null
     private val operationErrors = CoroutineExceptionHandler { _, _ ->
@@ -257,7 +259,11 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 state.isVaultUnlocked -> repository.observeAllBooks()
                 else -> repository.observePublicBooks()
             }
-        }.sample(150).stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
+        }.conflate().transform { books ->
+            emit(books)
+            // 只在数据变化后合并短时突发，空闲时不启动周期计时器。
+            kotlinx.coroutines.delay(150)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
 
     val allShelves: StateFlow<List<ShelfEntity>> = uiState
         .distinctUntilChangedBy { it.isAppLockedNow to it.isVaultUnlocked }
@@ -442,8 +448,11 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     /** 预取相邻页；失败静默，不影响阅读。 */
     fun prefetchPages(id: String, pages: List<Int>) {
-        viewModelScope.launch {
-            runCatching { repository.prefetchPages(id, pages) }
+        prefetchJob?.cancel()
+        prefetchJob = viewModelScope.launch {
+            try { repository.prefetchPages(id, pages) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { /* 可见页负责显示加载错误。 */ }
         }
     }
 
@@ -1173,6 +1182,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun releaseReaderResources() {
+        prefetchJob?.cancel()
+        prefetchJob = null
         repository.trimPageMemory()
         cleanupScope.launch {
             try { flushReadingState() }

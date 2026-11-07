@@ -31,7 +31,7 @@ suspend fun searchLibrary(
         (request.unlocked || (!book.isVaultProtected && !book.isVaultEncrypted)) &&
             (request.status == "全部" || book.statusBadge == request.status) &&
             (request.formats.isEmpty() || book.format in request.formats) &&
-            (request.tags.isEmpty() || request.tags.any { it in book.tagsCsv.split(',').map(String::trim) }) &&
+            (request.tags.isEmpty() || book.tagsCsv.split(',').any { it.trim() in request.tags }) &&
             (request.repositories.isEmpty() || book.repositoryName in request.repositories)
 
     val parents = HashMap<String, BookEntity>(books.size)

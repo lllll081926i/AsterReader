@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.distinctUntilChanged
 import com.example.data.local.vault.FileVaultStore
 import com.example.data.local.vault.VaultRecord
 import com.asterreader.core.database.ReaderStateEntity
@@ -73,35 +75,38 @@ class LibraryRepository(
 
     fun observeAllBooks() = combine(dao.observeAllBooks(), fileVault.records) { books, records ->
         val committed = fileVault.committedIds()
-        (books.map { records[it.id]?.book ?: if (it.id in committed) vaultShell(it) else it } + records.values.filter { r -> books.none { it.id == r.book.id } }.map { it.book })
+        val existing = books.mapTo(HashSet()) { it.id }
+        (books.map { records[it.id]?.book ?: if (it.id in committed) vaultShell(it) else it } + records.values.filter { it.book.id !in existing }.map { it.book })
             .sortedByDescending { it.lastReadTimestamp }
-    }
+    }.distinctUntilChanged().flowOn(Dispatchers.IO)
     fun observePublicBooks() = combine(dao.observePublicBooks(), fileVault.records) { books, _ ->
         val committed = fileVault.committedIds()
         books.filterNot { it.id in committed }
-    }
+    }.distinctUntilChanged().flowOn(Dispatchers.IO)
     fun observeAccessibleBookById(id: String, unlocked: Boolean) =
         combine(dao.observeAccessibleBookById(id, unlocked), fileVault.records) { book, records ->
             if (unlocked) records[id]?.book ?: if (id in fileVault.committedIds()) book?.let { vaultShell(it) } else book
             else if (id in fileVault.committedIds()) null else book
-        }
+        }.distinctUntilChanged().flowOn(Dispatchers.IO)
     fun observeAllShelves() = dao.observeAllShelves()
     fun observeAllAnnotations() = combine(dao.observeAllAnnotations(), fileVault.records) { notes, records ->
-        notes.filterNot { it.bookId in fileVault.committedIds() } + records.values.flatMap { it.annotations }
-    }
+        val committed = fileVault.committedIds()
+        notes.filterNot { it.bookId in committed } + records.values.flatMap { it.annotations }
+    }.distinctUntilChanged().flowOn(Dispatchers.IO)
     fun observeVisibleAnnotations(unlocked: Boolean) = combine(dao.observeVisibleAnnotations(unlocked), fileVault.records) { notes, records ->
-        notes.filterNot { it.bookId in fileVault.committedIds() } + if (unlocked) records.values.flatMap { it.annotations } else emptyList()
-    }
+        val committed = fileVault.committedIds()
+        notes.filterNot { it.bookId in committed } + if (unlocked) records.values.flatMap { it.annotations } else emptyList()
+    }.distinctUntilChanged().flowOn(Dispatchers.IO)
     fun observeAllRepositories() = dao.observeAllRepositories()
     fun observeChaptersForBook(id: String) = combine(dao.observeChapterSummaries(id), fileVault.records) { chapters, records ->
         records[id]?.chapters ?: if (id in fileVault.committedIds()) emptyList() else chapters
-    }
+    }.distinctUntilChanged().flowOn(Dispatchers.IO)
     fun observeAnnotationsForBook(id: String) = combine(dao.observeAnnotationsForBook(id), fileVault.records) { notes, records ->
         records[id]?.annotations ?: if (id in fileVault.committedIds()) emptyList() else notes
-    }
+    }.distinctUntilChanged().flowOn(Dispatchers.IO)
     fun observeReaderState(id: String) = combine(dao.observeReaderState(id), fileVault.records) { state, records ->
         records[id]?.reader ?: if (id in fileVault.committedIds()) null else state
-    }
+    }.distinctUntilChanged().flowOn(Dispatchers.IO)
     suspend fun getBookById(id: String) = fileVault.records.value[id]?.book ?: dao.getBookById(id)?.let {
         if (id in fileVault.committedIds()) vaultShell(it) else it
     }

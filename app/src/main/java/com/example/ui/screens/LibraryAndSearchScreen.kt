@@ -113,7 +113,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import com.asterreader.core.designsystem.rememberAsterSheetState as rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -133,6 +132,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.History
@@ -193,7 +195,7 @@ fun LibraryHomeScreen(
     val inspectedChapters by remember(inspectedBook?.id, isExpandedTablet) {
         if (isExpandedTablet && inspectedBook != null) viewModel.observeChapters(inspectedBook.id)
         else kotlinx.coroutines.flow.flowOf(emptyList())
-    }.collectAsState(initial = emptyList())
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
 
     val gridColumns = when (uiState.libraryLayoutMode) {
         LibraryLayoutMode.GRID_2 -> GridCells.Adaptive(minSize = 148.dp)
@@ -1754,11 +1756,17 @@ fun SearchAndFilterScreen(
     val request = com.example.ui.LibrarySearchRequest(uiState.searchQuery, searchScopeTab,
         uiState.sortOption, uiState.searchStatusFilter, uiState.searchFormatFilters,
         uiState.searchTagFilters, uiState.searchStorageFilters, uiState.isVaultUnlocked)
+    val searchOwner = LocalLifecycleOwner.current
     val results by androidx.compose.runtime.produceState<Pair<Pair<com.example.ui.LibrarySearchRequest,
-        Pair<List<BookEntity>, List<AnnotationEntity>>>, com.example.ui.LibrarySearchResult>?>(null, books, annotations, request) {
-        kotlinx.coroutines.delay(120)
-        val result = com.example.ui.searchLibrary(books, annotations, request)
-        value = (request to (books to annotations)) to result
+        Pair<List<BookEntity>, List<AnnotationEntity>>>, com.example.ui.LibrarySearchResult>?>(null, books, annotations, request, searchOwner) {
+        searchOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            try {
+                kotlinx.coroutines.delay(120)
+                val result = com.example.ui.searchLibrary(books, annotations, request)
+                value = (request to (books to annotations)) to result
+                kotlinx.coroutines.awaitCancellation()
+            } finally { value = null }
+        }
     }
     val currentResult = results?.takeIf {
         it.first.first == request && it.first.second.first === books && it.first.second.second === annotations
