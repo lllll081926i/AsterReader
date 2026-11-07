@@ -89,3 +89,20 @@ API35 模拟器已覆盖安装。通过 SAF 导入生成的 aster-scan-validatio
 本轮修改 :app 与 :core:designsystem。数据库版本、加密与数据迁移没有变化；覆盖安装保留原数据，另保留一部自生成 ZIP 测试作品供验收。API31/API37 真机、TalkBack 尚未人工验收。RAR5、密码归档、ZIP 内嵌套归档集合与小说 EPUB 排版暂不支持；格式边界见 docs/09_FORMAT_MATRIX.md。上文较大能力缺口仍按未完成管理。
 
 最终安装包 SHA-256：9068E74FC9EBED0FFE475266308EBC1D5C35FC7E5021B2505214A515388A04B7。
+## ZIP 平铺结构复查与应用重置（17:31）
+
+实际复查模拟器中的 ZIP：根目录直接放置 11 张 JPG，无子目录。归档本身可正常解析。旧记录已存在但 isVaultProtected 为 true，增量扫描保留隐藏状态且摘要仅报告新增 0，造成未扫描到的误解。单文件导入与目录扫描返回不同 URI 表达，旧版又将它们识别为两份来源。
+
+本轮修复：
+
+- SAF 单文档 URI 与目录 URI 按 authority/documentId 识别同一文件，转义 LIKE 通配符，并保留隐藏状态、页码及进度。命中隐藏记录时不创建可见副本。外部打开与导入均给出验证提示。
+- 扫描摘要区分新增、更新、已存在、忽略、失败与失联；有隐藏作品时提示验证后查看，不输出名称、封面或路径。解析失败给出归档无图片、授权失效、文件不可读或格式异常等分类原因。
+- 扩展名、MIME 类型与固定长度文件头识别结合；支持无后缀、错误后缀的 ZIP 等已实现容器。不依赖 SAF 的真实文件路径。明确测试平铺根目录与 Store/Deflate 两种 ZIP。
+- Provider 不支持 last_modified 时重试基础字段；显示名称缺失时采用文档标识中的名称。Provider 缺少文件标识时给出错误，避免静默跳过。
+- 导入面板说明改为漫画压缩包 / PDF / 图片。
+
+按用户明确要求，已对模拟器执行 pm clear com.asterreader.app，返回 Success，清除旧索引、隐藏设置、PIN 和阅读设置；外部漫画文件不删除。随后保留重新导入的数据。新 Debug 覆盖安装成功，11 页漫画与第 10 页进度正常。再次选择原目录扫描，摘要实测为“扫描完成：新增 0，更新 0，已存在 1”，书库仍为 1 部；没有生成重复条目。证据：app/build/ui-review/scan-existing-no-duplicate-api35.xml。隐藏提示与 URI 去重由 API31/API35 回归测试验证，没有在用户当前漫画上另设 PIN 或改变隐藏状态。
+
+验证：app 与 core:database 共 143 项测试，0 失败、0 错误；Debug 构建与 Lint 通过，0 错误、48 提醒（新增一条 String.toUri KTX 建议）。日志 build/scan-reset-final.log。修改 :app、:core:database；仅新增 DAO 查询，无数据库 schema/version 变更，无破坏性迁移。API31/API37 真机、TalkBack 仍未人工验收；RAR5、密码归档、嵌套归档集合仍不支持，未宣称覆盖任意压缩算法。
+
+安装包 SHA-256：ABAD1597AF51A0659F13A112711820B74D2FBB60D39D6AB9C39C28D50CDCEDFB。

@@ -123,6 +123,12 @@ interface AsterDao {
     @Query("SELECT * FROM books WHERE filePath = :uri LIMIT 1")
     suspend fun getBookByUri(uri: String): BookEntity?
 
+    @Query("""SELECT * FROM books WHERE filePath = :uri OR filePath LIKE :documentPattern ESCAPE '\'""")
+    suspend fun getDocumentSourceCandidates(uri: String, documentPattern: String): List<BookEntity>
+
+    @Query("UPDATE books SET repositoryId = :repositoryId, repositoryName = :name WHERE id = :id")
+    suspend fun attachSourceRepository(id: String, repositoryId: String, name: String)
+
     @Query("SELECT * FROM chapters WHERE bookId = :id ORDER BY chapterNumber")
     suspend fun getChapters(id: String): List<ChapterEntity>
 

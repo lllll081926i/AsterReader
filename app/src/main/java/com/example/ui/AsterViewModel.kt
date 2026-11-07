@@ -1265,6 +1265,11 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 showSnackbar(failure.message ?: "无法打开该文件", SnackbarTone.ERROR)
                 return@launch
             }
+            if ((book.isVaultProtected || book.isVaultEncrypted) && !_uiState.value.isVaultUnlocked) {
+                showSnackbar("此文件已在隐藏作品中，验证后可查看")
+                requestVaultUnlock { openBookReader(book.id) }
+                return@launch
+            }
             _uiState.update {
                 it.copy(
                     currentTab = MainNavDestination.LIBRARY,
@@ -1314,7 +1319,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(operationErrors) {
             try {
                 val book = repository.importDocument(uri)
-                showSnackbar("已导入《${book.title}》· ${book.totalPages} 页")
+                if ((book.isVaultProtected || book.isVaultEncrypted) && !_uiState.value.isVaultUnlocked)
+                    showSnackbar("此文件已在隐藏作品中，请验证后查看")
+                else showSnackbar("已导入《${book.title}》· ${book.totalPages} 页")
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -1373,6 +1380,10 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             var updated = 0
             var failed = 0
             var missing = 0
+            var unchanged = 0
+            var hidden = 0
+            var ignored = 0
+            val reasons = linkedSetOf<String>()
             repos.forEach { repo ->
                 try {
                     val report = repository.scanRepository(
@@ -1382,27 +1393,23 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                     updated += report.updated
                     failed += report.failed
                     missing += report.missing
+                    unchanged += report.unchanged
+                    hidden += report.hidden
+                    ignored += report.ignored
+                    reasons.addAll(report.failureReasons)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
                     failed++
+                    reasons.add("目录授权失效或读取失败")
                 }
             }
-            buildString {
-                if (covers > 0) append("补全 $covers 本封面 · ")
-                append("新增 $imported，更新 $updated")
-                if (failed > 0) append("，失败 $failed")
-                if (missing > 0) append("，失联 $missing")
-            }
+            (if (covers > 0) "补全 $covers 本封面 · " else "") +
+                com.example.data.local.ScanReport(imported, updated, failed, missing, unchanged, hidden, ignored, reasons.toList()).summary()
         }
     }
 
-    private fun scanSummary(report: com.example.data.local.ScanReport): String = buildString {
-        append("扫描完成：新增 ${report.imported}")
-        if (report.updated > 0) append("，更新 ${report.updated}")
-        if (report.failed > 0) append("，失败 ${report.failed}")
-        if (report.missing > 0) append("，失联 ${report.missing}")
-    }
+    private fun scanSummary(report: com.example.data.local.ScanReport): String = report.summary()
 
     /** 失联作品重新定位：目录作品走目录选择器，其余走文件选择器。 */
     fun beginRelocate(bookId: String) {

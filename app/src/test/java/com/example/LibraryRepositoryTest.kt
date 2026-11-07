@@ -42,6 +42,7 @@ class LibraryRepositoryTest {
     private lateinit var repository: LibraryRepository
     private val files = mutableMapOf<String, File>()
     private val mimeTypes = mutableMapOf<String, String>()
+    private var rejectModifiedColumn = false
     private val opened = java.util.concurrent.atomic.AtomicInteger()
     private var onOpen: (() -> Unit)? = null
 
@@ -54,6 +55,8 @@ class LibraryRepositoryTest {
             override fun onCreate() = true
             override fun getType(uri: Uri) = mimeTypes[uri.lastPathSegment] ?: "application/octet-stream"
             override fun query(uri: Uri, projection: Array<out String>?, selection: String?, args: Array<out String>?, sort: String?): Cursor {
+                if (rejectModifiedColumn && projection?.contains(android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED) == true)
+                    throw IllegalArgumentException("提供者不支持 last_modified")
                 if (uri.lastPathSegment == "children") {
                     return MatrixCursor(arrayOf(android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                         android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE,
@@ -126,6 +129,72 @@ class LibraryRepositoryTest {
 
     private val png: ByteArray = java.util.Base64.getDecoder()
         .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
+
+    private fun flatComicBytes(stored: Boolean): ByteArray = java.io.ByteArrayOutputStream().also { bytes ->
+        ZipOutputStream(bytes).use { zip ->
+            for (number in listOf(1, 2, 10)) {
+                val entry = ZipEntry("$number.png")
+                if (stored) {
+                    entry.method = ZipEntry.STORED
+                    entry.size = png.size.toLong()
+                    entry.compressedSize = entry.size
+                    entry.crc = java.util.zip.CRC32().apply { update(png) }.value
+                }
+                zip.putNextEntry(entry); zip.write(png); zip.closeEntry()
+            }
+        }
+    }.toByteArray()
+
+    @Test fun flatRootZipWorksWithStoredAndDeflatedImages() = runBlocking {
+        for (stored in listOf(false, true)) {
+            val book = repository.importDocument(document("平铺$stored.zip", flatComicBytes(stored)), persist = false)
+            assertEquals(3, book.totalPages)
+            assertNotNull(android.graphics.BitmapFactory.decodeFile(book.coverUrl))
+            assertTrue(repository.renderPage(book.id, 3).width > 0)
+        }
+    }
+
+    @Test fun signaturesFindFlatZipsWithoutExtensionsOrWithWrongExtensions() = runBlocking {
+        document("没有后缀", flatComicBytes(false))
+        document("错后缀.dat", flatComicBytes(true))
+        document("伪图片.jpg", flatComicBytes(false))
+        val report = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "文件头识别", LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(3, report.imported)
+        assertEquals(0, report.failed)
+        assertEquals(setOf(3), repository.observeAllBooks().first().map { it.totalPages }.toSet())
+    }
+
+    @Test fun documentAndTreeUrisReuseHiddenRecordAndReportWhyItIsInvisible() = runBlocking {
+        val name = "原有%_隐藏.zip"
+        document(name, flatComicBytes(true))
+        val tree = Uri.parse("content://audit.documents/tree/root")
+        val treeDocument = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, name)
+        val original = repository.importDocument(treeDocument, persist = false)
+        db.asterDao().updateBook(original.copy(isVaultProtected = true, currentPage = 2, progressPercent = 66))
+        val plain = android.provider.DocumentsContract.buildDocumentUri("audit.documents", name)
+        val existing = repository.importDocument(plain, persist = false)
+        assertEquals(original.id, existing.id)
+        assertTrue(existing.isVaultProtected)
+        assertEquals(2, existing.currentPage)
+        assertEquals(1, db.asterDao().getBookCount())
+        val report = repository.scanRepository(tree, "重复扫描", LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(0, report.imported)
+        assertEquals(1, report.unchanged)
+        assertEquals(1, report.hidden)
+        assertTrue(report.summary().contains("隐藏作品"))
+        assertFalse(report.summary().contains(name))
+        assertTrue(repository.observePublicBooks().first().isEmpty())
+    }
+
+    @Test fun providerWithoutLastModifiedStillAllowsImportAndScan() = runBlocking {
+        rejectModifiedColumn = true
+        document("精简提供者.zip", flatComicBytes(false))
+        val uri = android.provider.DocumentsContract.buildDocumentUri("audit.documents", "精简提供者.zip")
+        assertEquals(3, repository.importDocument(uri, persist = false).totalPages)
+        val report = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "精简提供者", LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(0, report.failed)
+        assertEquals(1, report.unchanged)
+    }
 
     /** 构造真实 USTAR 归档，用于验证 TAR 随机读取与按目录分章。 */
     private fun tarBytes(names: List<String>): ByteArray {
@@ -300,7 +369,9 @@ class LibraryRepositoryTest {
         val second = repository.scanRepository(tree, "测试仓库", "每个文件作为作品")
         assertEquals(0, second.imported)
         assertEquals(0, second.updated)
-        assertEquals(count, opened.get())
+        assertEquals(2, second.unchanged)
+        // 未知后缀仍需重读文件头；两部未变化的漫画不重新打开归档。
+        assertEquals(count + 1, opened.get())
         assertEquals(2, db.asterDao().getBookCount())
     }
 

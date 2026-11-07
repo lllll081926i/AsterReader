@@ -769,7 +769,7 @@ fun LibraryHomeScreen(
                                 maxLines = 1
                             )
                             Text(
-                                text = "CBZ / PDF",
+                                text = "漫画压缩包 / PDF / 图片",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = colorScheme.onSurfaceVariant,
                                 maxLines = 1

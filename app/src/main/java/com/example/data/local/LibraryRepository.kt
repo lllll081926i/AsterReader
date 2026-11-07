@@ -39,9 +39,21 @@ data class ScanReport(
     val imported: Int = 0,
     val updated: Int = 0,
     val failed: Int = 0,
-    val missing: Int = 0
+    val missing: Int = 0,
+    val unchanged: Int = 0,
+    val hidden: Int = 0,
+    val ignored: Int = 0,
+    val failureReasons: List<String> = emptyList()
 ) {
     val success: Int get() = imported + updated
+
+    fun summary(): String = buildString {
+        append("扫描完成：新增 $imported，更新 $updated，已存在 $unchanged")
+        if (hidden > 0) append("；包含隐藏作品，请验证后查看")
+        if (ignored > 0) append("；忽略 $ignored 个非漫画文件")
+        if (failed > 0) append("；失败 $failed：${failureReasons.joinToString("、")}")
+        if (missing > 0) append("；失联 $missing")
+    }
 }
 
 /** 所有文档访问都在数据层执行，来源始终保留为 SAF URI。 */
@@ -142,14 +154,14 @@ class LibraryRepository(
         replaceId: String? = null
     ): BookEntity = withContext(Dispatchers.IO) {
         require(uri.scheme == "content" || uri.scheme == "file") { "请选择系统文件提供者中的文档" }
+        val linked = findDocumentSource(uri)
         if (persist && uri.scheme == "content") {
             try {
                 resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             } catch (_: SecurityException) {
-                return@withContext importManagedDocument(uri, repositoryName, repositoryId, coverPage, replaceId)
+                if (linked == null) return@withContext importManagedDocument(uri, repositoryName, repositoryId, coverPage, replaceId)
             }
         }
-        val linked = dao.getBookByUri(uri.toString())
         require(replaceId == null || linked == null || linked.id == replaceId) { "此来源已关联另一部漫画" }
         val existing = if (replaceId != null) dao.getBookById(replaceId) ?: error("作品已被移除") else linked
         if (replaceId == null && existing != null && !refreshExisting) return@withContext existing
@@ -157,10 +169,14 @@ class LibraryRepository(
         val info = queryDocument(uri)
         if (replaceId == null && existing != null && existing.sourceStatus == "AVAILABLE" && info.modifiedAt > 0 && existing.sizeBytes == info.size &&
             existing.sourceModifiedAt == info.modifiedAt) {
+            if (repositoryId.isNotBlank() && existing.repositoryId != repositoryId) {
+                dao.attachSourceRepository(existing.id, repositoryId, repositoryName)
+                return@withContext existing.copy(repositoryId = repositoryId, repositoryName = repositoryName)
+            }
             return@withContext existing
         }
         require(info.size <= MAX_FILE_BYTES) { "当前版本单文件上限为 512 MB" }
-        val format = detectFormat(info.name, info.mimeType)
+        val format = resolveFormat(info.name, info.mimeType, uri)
         require(format in READABLE_FORMATS) { "此格式尚不支持读取" }
         val id = existing?.id ?: UUID.randomUUID().toString()
         val selectedCover = existing?.coverPage ?: coverPage
@@ -178,6 +194,7 @@ class LibraryRepository(
             else -> withTemporaryCopy(uri) { file ->
                 ComicArchives.open(file, format).use { archive ->
                     val count = archive.pageCount
+                    require(count > 0) { "归档内没有可读取的图片页面" }
                     val cover = writeCover(
                         { archive.openPage(selectedCover.coerceIn(1, count.coerceAtLeast(1))) },
                         coverFile
@@ -207,7 +224,7 @@ class LibraryRepository(
             statusBadge = existing?.statusBadge ?: "未读",
             seriesBadge = if (volOrder > 1) "卷 $volOrder" else "",
             fileSizeText = formatSize(info.size),
-            filePath = uri.toString(),
+            filePath = if (replaceId == null && existing != null) existing.filePath else uri.toString(),
             repositoryName = repositoryName,
             updatedTimeText = "刚刚导入",
             synopsis = existing?.synopsis.orEmpty(),
@@ -330,6 +347,10 @@ class LibraryRepository(
         var updated = 0
         var failed = 0
         var processed = 0
+        var unchanged = 0
+        var hidden = 0
+        var ignored = 0
+        val failureReasons = linkedSetOf<String>()
         val seen = mutableSetOf<String>()
         try {
             kotlinx.coroutines.coroutineScope {
@@ -346,24 +367,39 @@ class LibraryRepository(
                     enumerated += children.size
                     check(enumerated <= MAX_SCAN_ITEMS) { "单次扫描最多处理 $MAX_SCAN_ITEMS 项，请缩小授权范围" }
                     children.filter { it.isDirectory }.forEach { queue.add(it.documentId) }
-                    val archives = children.filter { !it.isDirectory && detectFormat(it.name, it.mimeType) in ARCHIVE_EXTENSIONS }
-                    val images = children.filter { !it.isDirectory && detectFormat(it.name, it.mimeType) == "IMAGE" }
+                    val classified = children.filter { !it.isDirectory }.map { child ->
+                        currentCoroutineContext().ensureActive()
+                        val declared = detectFormat(child.name, child.mimeType)
+                        child to if (declared in READABLE_FORMATS && declared != "IMAGE") declared else try {
+                            resolveFormat(child.name, child.mimeType, child.uri)
+                        } catch (failure: Exception) {
+                            failed++
+                            failureReasons.add(scanFailureReason(failure))
+                            "ERROR"
+                        }
+                    }
+                    val archives = classified.filter { it.second in ARCHIVE_EXTENSIONS }.map { it.first }
+                    val images = classified.filter { it.second == "IMAGE" }.map { it.first }
+                    ignored += classified.count { it.second !in ARCHIVE_EXTENSIONS && it.second != "IMAGE" && it.second != "ERROR" }
                     for (child in archives) {
                         currentCoroutineContext().ensureActive()
                         seen.add(child.uriString)
                         try {
-                            val before = dao.getBookByUri(child.uriString)
+                            val before = findDocumentSource(child.uri)
                             val after = importDocument(child.uri, repoName, repoId, persist = false, refreshExisting = true)
                             when {
                                 before == null -> imported++
                                 after.totalPages != before.totalPages || after.sourceModifiedAt != before.sourceModifiedAt -> updated++
+                                else -> unchanged++
                             }
-                            seen.add(child.uriString)
+                            if (after.isVaultProtected || after.isVaultEncrypted) hidden++
+                            seen.add(after.filePath)
                         } catch (cancelled: kotlinx.coroutines.CancellationException) {
                             throw cancelled
-                        } catch (_: Exception) {
+                        } catch (failure: Exception) {
                             failed++
-                            dao.getBookByUri(child.uriString)?.let { dao.updateSourceStatus(it.id, "ERROR") }
+                            failureReasons.add(scanFailureReason(failure))
+                            findDocumentSource(child.uri)?.let { seen.add(it.filePath); dao.updateSourceStatus(it.id, "ERROR") }
                         }
                         onProgress(++processed, enumerated)
                     }
@@ -376,12 +412,15 @@ class LibraryRepository(
                             when {
                                 before == null -> imported++
                                 after.contentFingerprint != before.contentFingerprint -> updated++
+                                else -> unchanged++
                             }
+                            if (after.isVaultProtected || after.isVaultEncrypted) hidden++
                             seen.add(parentUri)
                         } catch (cancelled: kotlinx.coroutines.CancellationException) {
                             throw cancelled
-                        } catch (_: Exception) {
+                        } catch (failure: Exception) {
                             failed++
+                            failureReasons.add(scanFailureReason(failure))
                             dao.getBookByUri(parentUri)?.let { dao.updateSourceStatus(it.id, "ERROR") }
                         }
                         onProgress(++processed, enumerated)
@@ -403,7 +442,7 @@ class LibraryRepository(
         val missing = dao.reconcileSources(repoId, seen)
         dao.insertRepository(RepositoryEntity(repoId, repoName, uri.toString(), "SMARTPHONE",
             dao.getRepositoryBooks(repoId).size, "", java.time.Instant.now().toString(), rule, failed == 0 && missing == 0))
-        ScanReport(imported, updated, failed, missing)
+        ScanReport(imported, updated, failed, missing, unchanged, hidden, ignored, failureReasons.toList())
     }
 
     // ------------------------------------------------------------------
@@ -603,6 +642,64 @@ class LibraryRepository(
 
     private data class ImagePage(val uri: Uri, val name: String, val size: Long, val modifiedAt: Long)
 
+    /** SAF 的单文档 URI 与目录授权 URI 可以指向同一 documentId。 */
+    private suspend fun findDocumentSource(uri: Uri): BookEntity? {
+        val documentId = runCatching { DocumentsContract.getDocumentId(uri) }.getOrNull()
+            ?: return dao.getBookByUri(uri.toString())
+        fun escape(value: String) = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        val pattern = escape("content://${uri.authority}/") + "%document/" + escape(Uri.encode(documentId))
+        return dao.getDocumentSourceCandidates(uri.toString(), pattern).filter { candidate ->
+            val source = Uri.parse(candidate.filePath)
+            source.authority == uri.authority && runCatching { DocumentsContract.getDocumentId(source) }.getOrNull() == documentId
+        }.sortedByDescending { it.isVaultProtected || it.isVaultEncrypted }.firstOrNull()
+    }
+
+    private fun scanFailureReason(failure: Exception): String = when (failure) {
+        is SecurityException -> "读取授权失效"
+        is java.io.FileNotFoundException -> "来源文件不可读取"
+        is java.util.zip.ZipException -> "ZIP 损坏、加密或压缩方式不支持"
+        is IllegalArgumentException -> when {
+            failure.message?.contains("512") == true -> "超过 512 MB 上限"
+            failure.message?.contains("页面") == true -> "归档内没有可读取的图片"
+            else -> "文件类型或内容无效"
+        }
+        else -> "解析失败，请尝试单文件导入查看原因"
+    }
+
+    private fun resolveFormat(name: String, mimeType: String, uri: Uri): String {
+        val declared = detectFormat(name, mimeType)
+        val signature = sniffFormat(uri)
+        return when {
+            signature == "ZIP" && declared in setOf("CBZ", "ZIP", "EPUB") -> declared
+            signature == "TAR" && declared in setOf("CBT", "TAR") -> declared
+            signature == "RAR" && declared in setOf("CBR", "RAR") -> declared
+            signature == "7Z" && declared in setOf("CB7", "7Z") -> declared
+            else -> signature ?: declared
+        }
+    }
+
+    /** 只读固定长度文件头，不解压、不按真实路径猜测 SAF 来源。 */
+    private fun sniffFormat(uri: Uri): String? = resolver.openInputStream(uri)?.use { input ->
+        val header = ByteArray(512)
+        var size = 0
+        while (size < header.size) {
+            val read = input.read(header, size, header.size - size)
+            if (read <= 0) break
+            size += read
+        }
+        fun starts(vararg bytes: Int) = size >= bytes.size && bytes.indices.all { (header[it].toInt() and 255) == bytes[it] }
+        when {
+            starts(0x50, 0x4b, 3, 4) || starts(0x50, 0x4b, 5, 6) || starts(0x50, 0x4b, 7, 8) -> "ZIP"
+            starts(0x52, 0x61, 0x72, 0x21, 0x1a, 7) -> "RAR"
+            starts(0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c) -> "7Z"
+            starts(0x25, 0x50, 0x44, 0x46, 0x2d) -> "PDF"
+            starts(0xff, 0xd8, 0xff) || starts(0x89, 0x50, 0x4e, 0x47) || starts(0x47, 0x49, 0x46, 0x38) || starts(0x42, 0x4d) -> "IMAGE"
+            size >= 12 && String(header, 0, 4, Charsets.US_ASCII) == "RIFF" && String(header, 8, 4, Charsets.US_ASCII) == "WEBP" -> "IMAGE"
+            size >= 262 && String(header, 257, 5, Charsets.US_ASCII) == "ustar" -> "TAR"
+            else -> null
+        }
+    }
+
     private fun detectFormat(name: String, mimeType: String): String {
         val extension = name.trim().substringAfterLast('.', "").uppercase(Locale.ROOT)
         if (extension in ARCHIVE_EXTENSIONS || extension == "PDF") return extension
@@ -620,6 +717,12 @@ class LibraryRepository(
         }
     }
 
+    private fun queryWithOptionalModified(uri: Uri, columns: Array<String>, signal: android.os.CancellationSignal? = null): android.database.Cursor? =
+        try { resolver.query(uri, columns, null, null, null, signal) }
+        catch (_: IllegalArgumentException) {
+            resolver.query(uri, columns.filter { it != DocumentsContract.Document.COLUMN_LAST_MODIFIED }.toTypedArray(), null, null, null, signal)
+        }
+
     private fun queryDocument(uri: Uri): DocumentInfo {
         // 外部「打开方式」偶尔会给 file:// URI：ContentResolver 查不到元数据，直接读文件属性
         if (uri.scheme == "file") {
@@ -627,17 +730,17 @@ class LibraryRepository(
             require(file.isFile) { "文件不可访问，请重新选择" }
             return DocumentInfo(file.name, file.length(), file.lastModified(), resolver.getType(uri).orEmpty())
         }
-        return resolver.query(
+        return queryWithOptionalModified(
             uri,
             arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE, DocumentsContract.Document.COLUMN_LAST_MODIFIED),
-            null, null, null
         )?.use { cursor ->
             check(cursor.moveToFirst()) { "文档不可访问" }
-            val nameIndex = cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
             val modifiedIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
             DocumentInfo(
-                name = cursor.getString(nameIndex) ?: "未命名",
+                name = if (nameIndex >= 0 && !cursor.isNull(nameIndex)) cursor.getString(nameIndex)
+                    else uri.lastPathSegment.orEmpty().substringAfterLast('/').substringAfterLast(':').ifBlank { "未命名" },
                 size = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else 0L,
                 modifiedAt = if (modifiedIndex >= 0 && !cursor.isNull(modifiedIndex)) cursor.getLong(modifiedIndex) else 0L,
                 mimeType = resolver.getType(uri).orEmpty()
@@ -657,7 +760,7 @@ class LibraryRepository(
             try {
                 val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId)
                 val result = ArrayList<ChildEntry>()
-                resolver.query(
+                queryWithOptionalModified(
                     children,
                     arrayOf(
                         DocumentsContract.Document.COLUMN_DOCUMENT_ID,
@@ -666,20 +769,22 @@ class LibraryRepository(
                         DocumentsContract.Document.COLUMN_SIZE,
                         DocumentsContract.Document.COLUMN_LAST_MODIFIED
                     ),
-                    null, null, null, signal
+                    signal
                 )?.use { cursor ->
                     val idIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
                     val mimeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
                     val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
                     val sizeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
                     val modifiedIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+                    check(idIndex >= 0 || cursor.count == 0) { "文件提供者没有返回文件标识，无法扫描此目录" }
                     while (cursor.moveToNext()) {
                         continuation.context.ensureActive()
                         check(result.size < limit) { "单次扫描最多处理 $MAX_SCAN_ITEMS 项，请缩小授权范围" }
                         val documentId = if (idIndex >= 0) cursor.getString(idIndex) else null
                         if (documentId == null) continue
                         val mime = if (mimeIndex >= 0) cursor.getString(mimeIndex).orEmpty() else ""
-                        val name = if (nameIndex >= 0) cursor.getString(nameIndex).orEmpty() else ""
+                        val name = if (nameIndex >= 0) cursor.getString(nameIndex).orEmpty()
+                            else documentId.substringAfterLast('/').substringAfterLast(':')
                         val size = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else 0L
                         val modified = if (modifiedIndex >= 0 && !cursor.isNull(modifiedIndex)) cursor.getLong(modifiedIndex) else 0L
                         result.add(
@@ -703,7 +808,7 @@ class LibraryRepository(
     private suspend fun listImages(treeUri: Uri, folderUri: Uri): List<ImagePage> {
         val folderId = DocumentsContract.getDocumentId(folderUri)
         return queryChildren(treeUri, folderId)
-            .filter { !it.isDirectory && detectFormat(it.name, it.mimeType) == "IMAGE" }
+            .filter { !it.isDirectory && resolveFormat(it.name, it.mimeType, it.uri) == "IMAGE" }
             .sortedWith { a, b -> naturalCompare(a.name, b.name) }
             .map { ImagePage(it.uri, it.name, it.size, it.modifiedAt) }
     }
