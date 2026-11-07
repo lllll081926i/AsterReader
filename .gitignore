@@ -18,3 +18,8 @@ local.properties
 debug.keystore
 .trash/
 /my-upload-key.jks
+*.jks
+*.keystore
+*.p12
+*.pfx
+release-signing.json
