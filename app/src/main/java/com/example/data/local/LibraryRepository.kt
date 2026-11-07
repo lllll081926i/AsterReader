@@ -64,11 +64,17 @@ class LibraryRepository(
     fun observeReaderState(id: String) = dao.observeReaderState(id)
     suspend fun getBookById(id: String) = dao.getBookById(id)
     suspend fun updateBook(book: BookEntity) = dao.updateBook(book)
+    suspend fun updateMetadata(id: String, title: String, author: String, series: String, synopsis: String, tags: String) =
+        dao.updateMetadata(id, title, author, series, synopsis, tags)
+    suspend fun addBooksToShelf(ids: List<String>, shelfId: String) = dao.addBooksToShelf(ids, shelfId)
+    suspend fun moveShelf(id: String, offset: Int) = dao.moveShelf(id, offset)
     suspend fun toggleFavorite(id: String) = dao.toggleFavorite(id)
     suspend fun updateProgress(id: String, page: Int, percent: Int, badge: String, chapter: String?, time: Long) =
         dao.updateProgress(id, page, percent, badge, chapter, time)
     suspend fun insertShelf(shelf: ShelfEntity) = dao.insertShelf(shelf)
-    suspend fun deleteShelfById(id: String) = dao.deleteShelfById(id)
+    suspend fun deleteShelfById(id: String) = dao.removeShelfAndMembership(id)
+    suspend fun renameShelf(id: String, name: String) = dao.renameShelf(id, name)
+    suspend fun renameTag(old: String, new: String) = dao.renamePublicTag(old, new)
     suspend fun updateShelf(shelf: ShelfEntity) = dao.updateShelf(shelf)
     suspend fun insertAnnotation(annotation: AnnotationEntity) = dao.insertAnnotation(annotation)
     suspend fun deleteAnnotationById(id: Int) = dao.deleteAnnotationById(id)
@@ -82,8 +88,8 @@ class LibraryRepository(
 
     suspend fun saveViewport(id: String, viewport: ReaderViewport) = dao.saveViewport(id, viewport)
 
-    suspend fun saveReaderOptions(id: String, mode: String?, fit: String?, cover: Boolean?) =
-        dao.saveReaderOptions(id, mode, fit, cover, null)
+    suspend fun saveReaderOptions(id: String, mode: String?, fit: String?, cover: Boolean?, rtl: Boolean? = null) =
+        dao.saveReaderOptions(id, mode, fit, cover, rtl)
 
     suspend fun readerState(id: String) = dao.getReaderState(id)
 
@@ -107,14 +113,14 @@ class LibraryRepository(
      */
     fun parseSeriesAndVolume(fileName: String): Pair<String, Int> {
         val cleanName = fileName.substringBeforeLast('.', fileName).trim()
-        val volumePattern = Pattern.compile("(.*?)(?:[vV][oO][lL]\\.?|卷|第|#|Vol\\.)?\\s*([0-9]{1,4})\\s*(?:卷|话|集|章)?$")
+        val volumePattern = Pattern.compile("(.+?)(?:\\s+(?:vol\\.?|v)|\\s*卷|\\s*第|\\s*#)\\s*([0-9]{1,4})\\s*(?:卷|话|集|章)?$", Pattern.CASE_INSENSITIVE)
         val matcher = volumePattern.matcher(cleanName)
         return if (matcher.matches()) {
-            val series = matcher.group(1)?.trim().orEmpty().ifBlank { cleanName }
+            val series = matcher.group(1)?.trim().orEmpty()
             val volume = matcher.group(2)?.toIntOrNull() ?: 1
             series to volume
         } else {
-            cleanName to 1
+            "" to 0
         }
     }
 
@@ -128,7 +134,8 @@ class LibraryRepository(
         repositoryId: String = "",
         persist: Boolean = true,
         refreshExisting: Boolean = false,
-        coverPage: Int = 1
+        coverPage: Int = 1,
+        replaceId: String? = null
     ): BookEntity = withContext(Dispatchers.IO) {
         require(uri.scheme == "content" || uri.scheme == "file") { "请选择系统文件提供者中的文档" }
         if (persist) {
@@ -136,11 +143,13 @@ class LibraryRepository(
                 resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             } catch (_: SecurityException) {}
         }
-        val existing = dao.getBookByUri(uri.toString())
-        if (existing != null && !refreshExisting) return@withContext existing
+        val linked = dao.getBookByUri(uri.toString())
+        require(replaceId == null || linked == null || linked.id == replaceId) { "此来源已关联另一部漫画" }
+        val existing = if (replaceId != null) dao.getBookById(replaceId) ?: error("作品已被移除") else linked
+        if (replaceId == null && existing != null && !refreshExisting) return@withContext existing
         require(existing == null || !existing.isVaultEncrypted) { "该文件不受当前版本支持，无法重新扫描" }
         val info = queryDocument(uri)
-        if (existing != null && info.modifiedAt > 0 && existing.sizeBytes == info.size &&
+        if (replaceId == null && existing != null && existing.sourceStatus == "AVAILABLE" && info.modifiedAt > 0 && existing.sizeBytes == info.size &&
             existing.sourceModifiedAt == info.modifiedAt) {
             return@withContext existing
         }
@@ -148,13 +157,14 @@ class LibraryRepository(
         val format = detectFormat(info.name, info.mimeType)
         require(format in READABLE_FORMATS) { "此格式尚不支持读取" }
         val id = existing?.id ?: UUID.randomUUID().toString()
+        val selectedCover = existing?.coverPage ?: coverPage
         val coverFile = File(context.cacheDir, "covers/${id}.jpg")
         coverFile.parentFile?.mkdirs()
         // 单次临时拷贝内完成「页数 + 章节 + 封面」，避免大文件被完整复制多次
         val scanned = when (format) {
             "PDF" -> withTemporaryCopy(uri) { file ->
                 val (count, _) = readPdf(file)
-                Triple(count, emptyList<Pair<String, Int>>(), generatePdfCover(file, coverPage, coverFile))
+                Triple(count, emptyList<Pair<String, Int>>(), generatePdfCover(file, selectedCover, coverFile))
             }
             "IMAGE" -> withTemporaryCopy(uri) { file ->
                 Triple(1, emptyList<Pair<String, Int>>(), writeCover({ file.inputStream() }, coverFile))
@@ -163,7 +173,7 @@ class LibraryRepository(
                 ComicArchives.open(file, format).use { archive ->
                     val count = archive.pageCount
                     val cover = writeCover(
-                        { archive.openPage(coverPage.coerceIn(1, count.coerceAtLeast(1))) },
+                        { archive.openPage(selectedCover.coerceIn(1, count.coerceAtLeast(1))) },
                         coverFile
                     )
                     Triple(count, chapterSpans(archive.pageNames), cover)
@@ -202,17 +212,11 @@ class LibraryRepository(
             sourceModifiedAt = info.modifiedAt,
             repositoryId = repositoryId,
             sourceStatus = "AVAILABLE",
-            coverPage = coverPage,
+            coverPage = selectedCover.coerceIn(1, pageCount),
             seriesOrder = if (existing != null && existing.series.isNotBlank()) existing.seriesOrder else volOrder
         )
         currentCoroutineContext().ensureActive()
-        val saved = dao.importComic(book)
-        if (chapterSpans.isNotEmpty()) {
-            dao.replaceChapters(saved.id, buildChapters(saved.id, chapterSpans))
-        } else {
-            dao.replaceChapters(saved.id, emptyList())
-        }
-        saved
+        dao.commitParsedSource(book, buildChapters(book.id, chapterSpans), emptyList(), replaceId)
     }
 
     /** 以「一个文件夹 = 一部作品」的方式导入散图目录。 */
@@ -221,19 +225,24 @@ class LibraryRepository(
         folderUri: Uri,
         repositoryName: String,
         repositoryId: String,
-        refreshExisting: Boolean = false
+        refreshExisting: Boolean = false,
+        replaceId: String? = null
     ): BookEntity = withContext(Dispatchers.IO) {
         val images = listImages(treeUri, folderUri)
         require(images.isNotEmpty()) { "目录内没有图片" }
-        val existing = dao.getBookByUri(folderUri.toString())
-        if (existing != null && !refreshExisting) return@withContext existing
+        val linked = dao.getBookByUri(folderUri.toString())
+        require(replaceId == null || linked == null || linked.id == replaceId) { "此来源已关联另一部漫画" }
+        val existing = if (replaceId != null) dao.getBookById(replaceId) ?: error("作品已被移除") else linked
+        if (replaceId == null && existing != null && !refreshExisting) return@withContext existing
         val signature = images.joinToString("|") { "${it.name}:${it.size}:${it.modifiedAt}" }
-        if (existing != null && existing.contentFingerprint == signature) return@withContext existing
+        if (replaceId == null && existing != null && existing.sourceStatus == "AVAILABLE" &&
+            existing.contentFingerprint == signature && dao.getComicPages(existing.id).size == images.size) return@withContext existing
         val id = existing?.id ?: UUID.randomUUID().toString()
         val name = documentDisplayName(folderUri) ?: "未命名目录"
         val (seriesName, volOrder) = parseSeriesAndVolume(name)
         val coverFile = File(context.cacheDir, "covers/${id}.jpg")
-        val coverPath = writeCover({ runCatching { resolver.openInputStream(images.first().uri) }.getOrNull() }, coverFile)
+        val selectedCover = (existing?.coverPage ?: 1).coerceIn(1, images.size)
+        val coverPath = writeCover({ runCatching { resolver.openInputStream(images[selectedCover - 1].uri) }.getOrNull() }, coverFile)
             ?: existing?.coverUrl.orEmpty()
         val totalSize = images.sumOf { it.size }
         val book = BookEntity(
@@ -262,17 +271,15 @@ class LibraryRepository(
             repositoryId = repositoryId,
             sourceStatus = "AVAILABLE",
             contentFingerprint = signature,
-            coverPage = 1,
+            coverPage = selectedCover,
             seriesOrder = if (existing != null && existing.series.isNotBlank()) existing.seriesOrder else volOrder
         )
         val pages = images.mapIndexed { index, image ->
             ComicPageEntity(book.id, index + 1, image.uri.toString(), image.name, image.size, image.modifiedAt)
         }
         currentCoroutineContext().ensureActive()
-        val saved = dao.importDirectory(book, pages)
         val spans = chapterSpans(images.map { it.name })
-        dao.replaceChapters(saved.id, if (spans.isEmpty()) emptyList() else buildChapters(saved.id, spans))
-        saved
+        dao.commitParsedSource(book, buildChapters(book.id, spans), pages, replaceId)
     }
 
     // ------------------------------------------------------------------
@@ -296,6 +303,7 @@ class LibraryRepository(
         var imported = 0
         var updated = 0
         var failed = 0
+        var processed = 0
         val seen = mutableSetOf<String>()
         try {
             kotlinx.coroutines.coroutineScope {
@@ -308,7 +316,7 @@ class LibraryRepository(
                     val parent = queue.removeFirst()
                     if (!visited.add(parent)) continue
                     val parentUri = DocumentsContract.buildDocumentUriUsingTree(uri, parent).toString()
-                    val children = queryChildren(uri, parent)
+                    val children = queryChildren(uri, parent, MAX_SCAN_ITEMS - enumerated)
                     enumerated += children.size
                     check(enumerated <= MAX_SCAN_ITEMS) { "单次扫描最多处理 $MAX_SCAN_ITEMS 项，请缩小授权范围" }
                     children.filter { it.isDirectory }.forEach { queue.add(it.documentId) }
@@ -316,6 +324,7 @@ class LibraryRepository(
                     val images = children.filter { !it.isDirectory && it.extension in IMAGE_EXTENSIONS }
                     for (child in archives) {
                         currentCoroutineContext().ensureActive()
+                        seen.add(child.uriString)
                         try {
                             val before = dao.getBookByUri(child.uriString)
                             val after = importDocument(child.uri, repoName, repoId, persist = false, refreshExisting = true)
@@ -328,11 +337,13 @@ class LibraryRepository(
                             throw cancelled
                         } catch (_: Exception) {
                             failed++
+                            dao.getBookByUri(child.uriString)?.let { dao.updateSourceStatus(it.id, "ERROR") }
                         }
-                        onProgress(imported + updated + failed, enumerated)
+                        onProgress(++processed, enumerated)
                     }
                     if (images.isNotEmpty()) {
                         currentCoroutineContext().ensureActive()
+                        seen.add(parentUri)
                         try {
                             val before = dao.getBookByUri(parentUri)
                             val after = importImageFolder(uri, Uri.parse(parentUri), repoName, repoId, refreshExisting = true)
@@ -345,8 +356,9 @@ class LibraryRepository(
                             throw cancelled
                         } catch (_: Exception) {
                             failed++
+                            dao.getBookByUri(parentUri)?.let { dao.updateSourceStatus(it.id, "ERROR") }
                         }
-                        onProgress(imported + updated + failed, enumerated)
+                        onProgress(++processed, enumerated)
                     }
                 }
             }
@@ -364,7 +376,7 @@ class LibraryRepository(
         currentCoroutineContext().ensureActive()
         val missing = dao.reconcileSources(repoId, seen)
         dao.insertRepository(RepositoryEntity(repoId, repoName, uri.toString(), "SMARTPHONE",
-            imported + updated, "", java.time.Instant.now().toString(), rule, failed == 0 && missing == 0))
+            dao.getRepositoryBooks(repoId).size, "", java.time.Instant.now().toString(), rule, failed == 0 && missing == 0))
         ScanReport(imported, updated, failed, missing)
     }
 
@@ -495,6 +507,14 @@ class LibraryRepository(
         released
     }
 
+    suspend fun clearRegenerableDiskCache(): Long = withContext(Dispatchers.IO) {
+        closeReadSession()
+        localCopyMutex.withLock {
+            val files = listOf("covers", "read").flatMap { File(context.cacheDir, it).listFiles()?.toList().orEmpty() }
+            files.filter { it.isFile }.sumOf { file -> val size = file.length(); if (file.delete()) size else 0L }
+        }
+    }
+
     private suspend fun regenerateDirectoryCover(book: BookEntity, target: File): String? {
         val uri = dao.getComicPage(book.id, book.coverPage)?.uri
             ?: dao.getComicPage(book.id, 1)?.uri
@@ -514,37 +534,26 @@ class LibraryRepository(
         if (book.format == "IMAGE_DIR" && DocumentsContract.isTreeUri(newUri)) {
             return@withContext relocateFolderSource(book, newUri)
         }
-        val source = runCatching {
-            importDocument(newUri, book.repositoryName, book.repositoryId, persist = false, refreshExisting = false)
-        }.getOrNull() ?: return@withContext false
-        if (source.id == book.id) {
-            dao.updateSourceStatus(book.id, "AVAILABLE")
-            return@withContext true
-        }
-        replaceWith(book.id, source)
+        try {
+            importDocument(newUri, book.repositoryName, book.repositoryId, persist = false,
+                refreshExisting = true, replaceId = book.id)
+            closeReadSession()
+            true
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) { false }
     }
 
     private suspend fun relocateFolderSource(book: BookEntity, treeUri: Uri): Boolean {
-        val source = runCatching {
-            importImageFolder(treeUri, treeUri, book.repositoryName, book.repositoryId)
-        }.getOrNull() ?: return false
-        if (source.id == book.id) {
-            dao.updateSourceStatus(book.id, "AVAILABLE")
-            return true
-        }
-        return replaceWith(book.id, source)
-    }
-
-    /** 用新来源替换旧来源，并迁移目录作品的页索引。 */
-    private suspend fun replaceWith(bookId: String, source: BookEntity): Boolean {
-        val sourcePages = if (source.format == "IMAGE_DIR") dao.getComicPages(source.id) else emptyList()
-        return runCatching {
-            dao.replaceSource(bookId, source)
-            if (sourcePages.isNotEmpty()) {
-                dao.insertComicPages(sourcePages.map { page -> page.copy(bookId = bookId) })
-            }
-            dao.removeBooks(listOf(source.id))
-        }.isSuccess
+        return try {
+            val folder = DocumentsContract.buildDocumentUriUsingTree(treeUri, DocumentsContract.getTreeDocumentId(treeUri))
+            importImageFolder(treeUri, folder, book.repositoryName, book.repositoryId,
+                refreshExisting = true, replaceId = book.id)
+            closeReadSession()
+            true
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) { false }
     }
 
     // ------------------------------------------------------------------
@@ -612,7 +621,7 @@ class LibraryRepository(
             if (cursor.moveToFirst()) cursor.getString(0) else null
         }
 
-    private fun queryChildren(treeUri: Uri, parentId: String): List<ChildEntry> {
+    private suspend fun queryChildren(treeUri: Uri, parentId: String, limit: Int = MAX_SCAN_ITEMS): List<ChildEntry> {
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId)
         val result = ArrayList<ChildEntry>()
         resolver.query(
@@ -632,6 +641,8 @@ class LibraryRepository(
             val sizeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
             val modifiedIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
             while (cursor.moveToNext()) {
+                currentCoroutineContext().ensureActive()
+                check(result.size < limit) { "单次扫描最多处理 $MAX_SCAN_ITEMS 项，请缩小授权范围" }
                 val documentId = if (idIndex >= 0) cursor.getString(idIndex) else null
                 if (documentId == null) continue
                 val mime = if (mimeIndex >= 0) cursor.getString(mimeIndex).orEmpty() else ""
@@ -653,7 +664,7 @@ class LibraryRepository(
         return result
     }
 
-    private fun listImages(treeUri: Uri, folderUri: Uri): List<ImagePage> {
+    private suspend fun listImages(treeUri: Uri, folderUri: Uri): List<ImagePage> {
         val folderId = DocumentsContract.getDocumentId(folderUri)
         return queryChildren(treeUri, folderId)
             .filter { !it.isDirectory && it.extension in IMAGE_EXTENSIONS }
@@ -744,12 +755,10 @@ class LibraryRepository(
 
     private fun writeCover(open: () -> java.io.InputStream?, target: File): String? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        open()?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
+        val stream = open() ?: return null
+        stream.use { BitmapFactory.decodeStream(it, null, bounds) }
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-            // 少数编码（老机型的 AVIF/HEIC、被裁剪的 JPEG）拿不到尺寸信息，
-            // 退回「整图解码 + 手动缩放」，否则 ZIP 漫画会出现导入成功但没有封面的情况。
-            val decoded = open()?.use { BitmapFactory.decodeStream(it) } ?: return null
-            return writeBitmap(scaleDown(decoded, 720, 1280), target)
+            return null
         }
         var sample = 1
         while (bounds.outWidth / sample > 720 || bounds.outHeight / sample > 1280) sample *= 2
@@ -820,9 +829,11 @@ class LibraryRepository(
      */
     private suspend fun localCopy(book: BookEntity): File = localCopyMutex.withLock {
         val dir = File(context.cacheDir, "read").apply { mkdirs() }
-        val name = "${book.id.hashCode().toUInt().toString(16)}-${book.sizeBytes}-${book.sourceModifiedAt}.arc"
+        val identity = "${book.id}:${book.filePath}:${book.sizeBytes}:${book.sourceModifiedAt}:${book.contentFingerprint}"
+        val name = java.security.MessageDigest.getInstance("SHA-256").digest(identity.toByteArray())
+            .joinToString("") { "%02x".format(it) } + ".arc"
         val target = File(dir, name)
-        if (target.isFile && target.length() > 0) {
+        if (book.sourceModifiedAt > 0 && book.sizeBytes > 0 && target.isFile && target.length() > 0) {
             target.setLastModified(System.currentTimeMillis())
             // 上次复制中断留下的 .part 不该一直占着缓存额度
             dir.listFiles()?.filter {

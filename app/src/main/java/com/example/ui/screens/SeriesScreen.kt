@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.components.AsterSubScreenHeader
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +15,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -79,30 +83,7 @@ fun SeriesScreen(
             .fillMaxSize()
             .statusBarsPadding()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
-            }
-            Column(modifier = Modifier.padding(start = 4.dp).weight(1f)) {
-                Text(
-                    text = "系列与卷",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1
-                )
-                Text(
-                    text = if (series.isEmpty()) "按书名自动归组" else "${series.size} 个系列" +
-                        if (looseCount > 0) " · 另有 $looseCount 本单卷" else "",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
-        }
+        AsterSubScreenHeader("系列与卷", onBack)
 
         if (series.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -118,12 +99,13 @@ fun SeriesScreen(
         }
 
         LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
+            modifier = Modifier.navigationBarsPadding(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(series, key = { it.first }) { (name, volumes) ->
                 val isOpen = expanded == name
-                val readVolume = volumes.lastOrNull { it.currentPage > 0 }
+                val readVolume = volumes.filter { it.lastReadTimestamp > 0 }.maxByOrNull { it.lastReadTimestamp }
                 Surface(
                     shape = RoundedCornerShape(20.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -137,14 +119,13 @@ fun SeriesScreen(
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 volumes.take(3).forEachIndexed { index, book ->
                                     AsterBookCover(
                                         coverUrl = book.coverUrl,
                                         title = book.title,
                                         format = book.format,
                                         modifier = Modifier
-                                            .padding(end = if (index == 2) 0.dp else (-18).dp)
                                             .width(48.dp)
                                             .aspectRatio(0.68f)
                                             .clip(RoundedCornerShape(8.dp))
@@ -264,6 +245,7 @@ private fun VolumeRow(book: BookEntity, onOpen: () -> Unit, onRead: () -> Unit) 
             modifier = Modifier
                 .padding(start = 10.dp)
                 .clickable(onClick = onRead)
+                .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
         )
     }
 }

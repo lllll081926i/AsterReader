@@ -1,5 +1,12 @@
 package com.example
 
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import com.example.ui.components.AsterMainNavigation
+
 import android.os.Bundle
 import android.app.KeyguardManager
 import android.content.BroadcastReceiver
@@ -195,6 +202,7 @@ fun AsterReaderAppRoot(
 ) {
     val reduceMotion = LocalAsterReduceMotion.current
     val snackbar by viewModel.snackbar.collectAsStateWithLifecycle()
+    val snackbarHost = remember { androidx.compose.material3.SnackbarHostState() }
     if (!uiState.settingsLoaded || uiState.isAppLockedNow || uiState.showQuickAuthSheet) {
         val colorScheme = MaterialTheme.colorScheme
         Surface(modifier = Modifier.fillMaxSize(), color = colorScheme.surface) {
@@ -249,6 +257,14 @@ fun AsterReaderAppRoot(
     val allShelves by viewModel.allShelves.collectAsStateWithLifecycle()
     val allAnnotations by viewModel.allAnnotations.collectAsStateWithLifecycle()
     val allRepositories by viewModel.allRepositories.collectAsStateWithLifecycle()
+    val pendingRemoval by viewModel.pendingRemoval.collectAsStateWithLifecycle()
+    if (pendingRemoval.isNotEmpty()) androidx.compose.material3.AlertDialog(
+        onDismissRequest = viewModel::cancelBookRemoval,
+        title = { Text("移除 ${pendingRemoval.size} 部作品") },
+        text = { Text("将删除作品索引、阅读进度和批注。外部源文件将保留。") },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = viewModel::confirmBookRemoval) { Text("移除") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = viewModel::cancelBookRemoval) { Text("取消") } }
+    )
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -310,21 +326,33 @@ fun AsterReaderAppRoot(
     }
 
     LaunchedEffect(snackbar?.id) {
-        if (snackbar != null) {
-            delay(if (snackbar?.tone == SnackbarTone.ERROR) 3400 else 2600)
-            viewModel.consumeSnackbar()
+        val event = snackbar
+        if (event != null) {
+            snackbarHost.showSnackbar(event.message, withDismissAction = true,
+                duration = if (event.tone == SnackbarTone.ERROR) androidx.compose.material3.SnackbarDuration.Long
+                    else androidx.compose.material3.SnackbarDuration.Short)
+            if (viewModel.snackbar.value?.id == event.id) viewModel.consumeSnackbar()
+        } else {
+            snackbarHost.currentSnackbarData?.dismiss()
         }
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         // 严格界定平板横屏/展开模式：不仅要求宽度 >= 720dp，还要求处于横屏比例（宽 > 高）
         // 杜绝竖屏大手机或折叠屏竖屏时被误判为平板双栏导致布局异常
-        val isExpandedTablet = maxWidth >= 720.dp && maxWidth > maxHeight
+        val isExpandedTablet = maxWidth >= 720.dp
         val activeSub = uiState.activeSubScreen
+        val showAppleBottomDock = activeSub == null && !uiState.isBatchSelectionMode
+        var navigationWidth by remember { mutableIntStateOf(0) }
+        var navigationHeight by remember { mutableIntStateOf(0) }
+        val density = LocalDensity.current
 
         Box(modifier = Modifier.fillMaxSize()) {
             AnimatedContent(
-                targetState = activeSub to uiState.currentTab,
+                modifier = Modifier.padding(
+                    start = if (showAppleBottomDock && isExpandedTablet) with(density) { navigationWidth.toDp() } else 0.dp,
+                    bottom = if (showAppleBottomDock && !isExpandedTablet) with(density) { navigationHeight.toDp() } else 0.dp),
+                targetState = Triple(activeSub, uiState.currentTab, uiState.subScreenStack.size),
                 transitionSpec = {
                     val (targetSub, targetTab) = targetState
                     val (initialSub, initialTab) = initialState
@@ -333,8 +361,7 @@ fun AsterReaderAppRoot(
                         // 子页面与主页面之间的推入/退出导航转场
                         AsterMotion.pageTransition(
                             reduceMotion = reduceMotion,
-                            forward = targetSub != null && initialSub == null ||
-                                    (targetSub is SubScreen.Reader && initialSub !is SubScreen.Reader)
+                            forward = targetState.third >= initialState.third
                         )
                     } else {
                         // 主 Tab 底部导航切换动画：精致滑入与淡入淡出（向左/向右有序切换）
@@ -381,6 +408,7 @@ fun AsterReaderAppRoot(
                             if (targetBook != null) {
                                 PublicationDetailScreen(
                                     book = targetBook,
+                                    section = subScreen.section,
                                     uiState = uiState,
                                     isExpandedTablet = isExpandedTablet,
                                     viewModel = viewModel,
@@ -443,6 +471,18 @@ fun AsterReaderAppRoot(
                                 onTriggerImportFile = triggerSystemFilePicker,
                                 onBack = { viewModel.popSubScreen() }
                             )
+                        }
+
+                        is SubScreen.SettingsSection -> {
+                            SettingsScreen(uiState = uiState, repositories = allRepositories,
+                                booksCount = allBooks.size, viewModel = viewModel,
+                                onTriggerImportFile = triggerSystemFilePicker,
+                                onBack = { viewModel.popSubScreen() }, section = subScreen.section)
+                        }
+
+                        is SubScreen.SecuritySection -> {
+                            PrivacySecuritySettingsScreen(uiState, viewModel,
+                                onBack = { viewModel.popSubScreen() }, section = subScreen.section)
                         }
 
                         SubScreen.HiddenBooks -> {
@@ -539,91 +579,24 @@ fun AsterReaderAppRoot(
             }
 
             // Compact Apple-style Floating Bottom Dock (Icon on Top, Title Below: 书库 / 书架 / 搜索)
-            val showAppleBottomDock = activeSub == null && !uiState.isBatchSelectionMode
             AnimatedVisibility(
                 visible = showAppleBottomDock,
                 enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically { it } + fadeIn(),
                 exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else slideOutVertically { it } + fadeOut(),
-                modifier = Modifier.align(Alignment.BottomCenter)
+                modifier = Modifier.align(if (isExpandedTablet) Alignment.CenterStart else Alignment.BottomCenter)
             ) {
-                val lastReadBook = allBooks.firstOrNull { !it.isVaultProtected && it.progressPercent > 0 }
-                AppleFloatingBottomDock(
-                    currentDestination = uiState.currentTab,
-                    onSelectDestination = { dest -> viewModel.selectMainTab(dest) },
-                    libraryCount = allBooks.size,
-                    isVaultUnlocked = uiState.isVaultUnlocked,
-                    isExpandedTablet = isExpandedTablet,
-                    lastReadTitle = lastReadBook?.title,
-                    onQuickResumeRead = lastReadBook?.let { b ->
-                        {
-                            viewModel.openBookReader(
-                                bookId = b.id,
-                                preferDualPageOnTablet = isExpandedTablet
-                            )
-                        }
-                    }
-                )
+                AsterMainNavigation(isExpandedTablet, uiState.currentTab, viewModel::selectMainTab,
+                    Modifier.onSizeChanged { navigationWidth = it.width; navigationHeight = it.height })
             }
 
-            // Floating Snackbar Feedback Pill
-            AnimatedVisibility(
-                visible = snackbar != null,
-                enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else fadeIn() + slideInVertically { it / 2 },
-                exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else fadeOut() + slideOutVertically { it / 2 },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = if (showAppleBottomDock) 78.dp else 24.dp, start = 20.dp, end = 20.dp)
-            ) {
-                val tone = snackbar?.tone ?: SnackbarTone.INFO
-                val feedbackColor = when (tone) {
-                    SnackbarTone.ERROR -> MaterialTheme.colorScheme.errorContainer
-                    SnackbarTone.SUCCESS -> MaterialTheme.colorScheme.primaryContainer
-                    SnackbarTone.INFO -> MaterialTheme.colorScheme.inverseSurface
-                }
-                val feedbackContent = when (tone) {
-                    SnackbarTone.ERROR -> MaterialTheme.colorScheme.onErrorContainer
-                    SnackbarTone.SUCCESS -> MaterialTheme.colorScheme.onPrimaryContainer
-                    SnackbarTone.INFO -> MaterialTheme.colorScheme.inverseOnSurface
-                }
-                Surface(
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                    color = feedbackColor,
-                    tonalElevation = 8.dp,
-                    shadowElevation = 10.dp,
-                    modifier = Modifier
-                        .widthIn(max = 480.dp)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
-                        .clickable { viewModel.consumeSnackbar() }
-                        .semantics { contentDescription = "关闭提示" }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = when (tone) {
-                                SnackbarTone.ERROR -> Icons.Filled.ErrorOutline
-                                SnackbarTone.SUCCESS -> Icons.Filled.CheckCircle
-                                SnackbarTone.INFO -> Icons.Filled.Info
-                            },
-                            contentDescription = null,
-                            tint = feedbackContent,
-                            modifier = Modifier.size(17.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = snackbar?.message.orEmpty(),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Medium,
-                            color = feedbackContent,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                    }
-                }
-            }
+            androidx.compose.material3.SnackbarHost(
+                hostState = snackbarHost,
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .then(if (showAppleBottomDock && !isExpandedTablet)
+                        Modifier.padding(bottom = with(density) { navigationHeight.toDp() })
+                        else Modifier.navigationBarsPadding())
+                    .padding(horizontal = 12.dp)
+            )
         }
     }
 }

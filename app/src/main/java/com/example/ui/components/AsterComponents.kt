@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.toggleable
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.ui.semantics.selected
@@ -425,7 +428,7 @@ fun AsterSettingsGroup(
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
 
-    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (!title.isNullOrBlank()) {
             // 分组标题只保留一行小字：不再画图标徽章 + 主色标题 + 说明，
             // 三层信息堆在一起既抢眼又让每屏看起来杂乱。
@@ -487,7 +490,8 @@ fun AsterSettingsRow(
             .fillMaxWidth()
             .clickable { onClick() }
             .semantics { role = Role.Button }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .heightIn(min = com.asterreader.core.designsystem.AsterLayout.SettingsRowHeight)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -500,7 +504,7 @@ fun AsterSettingsRow(
                 Icon(
                     imageVector = leadingIcon,
                     contentDescription = null,
-                    tint = if (isDanger) colorScheme.error else colorScheme.primary,
+                    tint = if (isDanger) colorScheme.error else colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -509,10 +513,10 @@ fun AsterSettingsRow(
                     text = title,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = titleColor,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (!subtitle.isNullOrBlank()) {
+                if (isDanger && !subtitle.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = subtitle,
@@ -534,16 +538,14 @@ fun AsterSettingsRow(
             if (!badgeText.isNullOrBlank()) {
                 Box(
                     modifier = Modifier
-                        .clip(CircleShape)
-                        .background(colorScheme.secondaryContainer)
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .widthIn(max = 120.dp)
                 ) {
                     Text(
                         text = badgeText,
                         style = MaterialTheme.typography.labelSmall,
-                        color = colorScheme.onSecondaryContainer,
+                        color = colorScheme.onSurfaceVariant,
                         maxLines = 1,
-                        softWrap = false
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -587,9 +589,9 @@ fun AsterSwitchRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled) { onCheckedChange(!checked) }
-            .semantics { role = Role.Switch }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+            .heightIn(min = com.asterreader.core.designsystem.AsterLayout.SettingsRowHeight)
+            .padding(horizontal = 16.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -602,7 +604,7 @@ fun AsterSwitchRow(
                     text = title,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = colorScheme.onSurface,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (!badgeText.isNullOrBlank()) {
@@ -622,7 +624,7 @@ fun AsterSwitchRow(
                     }
                 }
             }
-            if (!subtitle.isNullOrBlank()) {
+            if (!enabled && !subtitle.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = subtitle,
@@ -638,7 +640,7 @@ fun AsterSwitchRow(
 
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             enabled = enabled,
             thumbContent = if (checked) {
                 {

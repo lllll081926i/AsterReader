@@ -84,7 +84,7 @@ enum class SortOption(val label: String) {
 
 sealed interface SubScreen {
     data class Search(val openFilterSheetInitially: Boolean = false, val initialScope: String = "全部") : SubScreen
-    data class PublicationDetail(val bookId: String) : SubScreen
+    data class PublicationDetail(val bookId: String, val section: String? = null) : SubScreen
     data class Reader(val bookId: String, val initialPage: Int? = null) : SubScreen
     data class ShelfDetail(
         val shelfId: String,
@@ -96,6 +96,8 @@ sealed interface SubScreen {
     data object SeriesList : SubScreen
     data object HiddenBooks : SubScreen
     data object Settings : SubScreen
+    data class SettingsSection(val section: String) : SubScreen
+    data class SecuritySection(val section: String) : SubScreen
     data object ReadingStats : SubScreen
     data object Onboarding : SubScreen
 }
@@ -181,6 +183,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private val appContext: Application = application
     private val repository = LibraryRepository(application)
     private val preferences = ReaderPreferences(application)
+    private val pinAttempts = application.getSharedPreferences("pin_attempts", 0)
     private val annotationMutex = Mutex()
     private val progressMutex = Mutex()
 
@@ -198,6 +201,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(AsterUiState())
     val uiState: StateFlow<AsterUiState> = _uiState.asStateFlow()
+    private val _pendingRemoval = MutableStateFlow<List<String>>(emptyList())
+    val pendingRemoval = _pendingRemoval.asStateFlow()
 
     private val _scanProgress = MutableStateFlow(ScanProgress())
     val scanProgress: StateFlow<ScanProgress> = _scanProgress.asStateFlow()
@@ -207,7 +212,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     private var pendingPostAuthAction: (() -> Unit)? = null
     private var systemAuthenticationInProgress = false
-    private var pinFailures = 0
+    private var pinFailures = pinAttempts.getInt("failures", 0)
     private var pendingExternalUri: Uri? = null
 
     val allBooks: StateFlow<List<BookEntity>> = uiState
@@ -260,7 +265,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch(operationErrors) {
-            try { _uiState.value = preferences.load() }
+            try { _uiState.value = preferences.load().copy(
+                pinLockedUntilMs = withContext(Dispatchers.IO) { pinAttempts.getLong("lockedUntil", 0L) }
+            ) }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
                 _uiState.update { it.copy(settingsLoaded = true, isAppLockEnabled = true,
@@ -335,8 +342,10 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private fun encodeNavStack(stack: List<SubScreen>): String = stack.joinToString("\n") { screen ->
         when (screen) {
             is SubScreen.Search -> "SEARCH|${if (screen.openFilterSheetInitially) 1 else 0}|${navEnc(screen.initialScope)}"
-            is SubScreen.PublicationDetail -> "DETAIL|${navEnc(screen.bookId)}"
-            is SubScreen.Reader -> "READER|${navEnc(screen.bookId)}|${screen.initialPage ?: -1}"
+            is SubScreen.PublicationDetail -> "DETAIL|${navEnc(screen.bookId)}|${navEnc(screen.section.orEmpty())}"
+            is SubScreen.Reader -> "READER|${navEnc(screen.bookId)}|-1"
+            is SubScreen.SettingsSection -> "SETTINGS_SECTION|${navEnc(screen.section)}"
+            is SubScreen.SecuritySection -> "SECURITY_SECTION|${navEnc(screen.section)}"
             is SubScreen.ShelfDetail -> listOf(
                 "SHELF", navEnc(screen.shelfId), navEnc(screen.title),
                 navEnc(screen.subtitle), navEnc(screen.quickType.orEmpty())
@@ -356,7 +365,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 val parts = line.split('|')
                 when (parts[0]) {
                     "SEARCH" -> SubScreen.Search(parts.getOrNull(1) == "1", navDec(parts.getOrElse(2) { "" }))
-                    "DETAIL" -> SubScreen.PublicationDetail(navDec(parts[1]))
+                    "DETAIL" -> SubScreen.PublicationDetail(navDec(parts[1]), parts.getOrNull(2)?.let(::navDec)?.ifBlank { null })
                     "READER" -> SubScreen.Reader(
                         navDec(parts[1]), parts.getOrNull(2)?.toIntOrNull()?.takeIf { it > 0 }
                     )
@@ -368,6 +377,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                     "SERIES" -> SubScreen.SeriesList
                     "HIDDEN" -> SubScreen.HiddenBooks
                     "SETTINGS" -> SubScreen.Settings
+                    "SETTINGS_SECTION" -> SubScreen.SettingsSection(navDec(parts[1]))
+                    "SECURITY_SECTION" -> SubScreen.SecuritySection(navDec(parts[1]))
                     "STATS" -> SubScreen.ReadingStats
                     "ONBOARDING" -> SubScreen.Onboarding
                     else -> null
@@ -485,9 +496,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun openBookReader(bookId: String, initialPage: Int? = null, preferDualPageOnTablet: Boolean = false) {
         val book = allBooks.value.find { it.id == bookId }
         val launchReader = {
-            if (preferDualPageOnTablet && book != null && book.totalPages > 1) {
-                _uiState.update { it.copy(readerLayoutMode = ReaderLayoutMode.DUAL_PAGE) }
-            }
             pushSubScreen(SubScreen.Reader(bookId, initialPage))
         }
         if (book != null && book.isVaultProtected && !_uiState.value.isVaultUnlocked) {
@@ -502,6 +510,16 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
      * 避免「隐藏了但还停在书里」。
      */
     fun setBookHidden(bookId: String, hidden: Boolean) {
+        if (hidden && !_uiState.value.hasCustomPin) {
+            _uiState.update { it.copy(requestPinSetup = true) }
+            pushSubScreen(SubScreen.PrivacySecuritySettings)
+            showSnackbar("请先设置 PIN，再隐藏作品")
+            return
+        }
+        if (!hidden && !_uiState.value.isVaultUnlocked) {
+            requestVaultUnlock { setBookHidden(bookId, false) }
+            return
+        }
         viewModelScope.launch(operationErrors) {
             runCatching { repository.setBookHidden(bookId, hidden) }
                 .onFailure { showSnackbar(it.message ?: "操作失败"); return@launch }
@@ -536,24 +554,41 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     // Security & System Authentication
     // ========================================================================
     fun lockAppImmediately() {
+        _pendingRemoval.value = emptyList()
+        val hiddenIds = allBooks.value.filter { it.isVaultProtected || it.isVaultEncrypted }.map { it.id }.toSet()
         releaseReaderResources()
         systemAuthenticationInProgress = false
         pendingPostAuthAction = null
-        _uiState.update { it.copy(isAppLockedNow = it.isAppLockEnabled, isVaultUnlocked = false,
-            showQuickAuthSheet = false, subScreenStack = emptyList(), tabletInspectedBookId = "",
-            selectedBookIds = emptySet(), isBatchSelectionMode = false, searchQuery = "") }
+        _uiState.update { state -> state.copy(isAppLockedNow = state.isAppLockEnabled, isVaultUnlocked = false,
+            showQuickAuthSheet = false,
+            subScreenStack = if (state.isAppLockEnabled) emptyList() else state.subScreenStack.filterNot { screen ->
+                screen is SubScreen.HiddenBooks || screen is SubScreen.Reader && screen.bookId in hiddenIds ||
+                    screen is SubScreen.PublicationDetail && screen.bookId in hiddenIds
+            },
+            tabletInspectedBookId = if (state.isAppLockEnabled || state.tabletInspectedBookId in hiddenIds) "" else state.tabletInspectedBookId,
+            selectedBookIds = emptySet(), isBatchSelectionMode = false,
+            searchQuery = if (state.isVaultUnlocked) "" else state.searchQuery) }
         _snackbar.value = null
     }
 
     fun verifyPin(input: String): Boolean {
         val hash = _uiState.value.pinHash
-        return if (hash.isBlank()) input.trim() == DEFAULT_PIN else PinCredentials.verify(input, hash)
+        return hash.isNotBlank() && PinCredentials.verify(input, hash)
     }
 
     fun setCustomPin(pin: String) {
+        if (_uiState.value.hasCustomPin) {
+            pendingPostAuthAction = { applyCustomPin(pin) }
+            _uiState.update { it.copy(showQuickAuthSheet = true) }
+            return
+        }
+        applyCustomPin(pin)
+    }
+
+    private fun applyCustomPin(pin: String) {
         val sanitized = pin.trim()
-        if (sanitized.isEmpty() && _uiState.value.isAppLockEnabled) {
-            showSnackbar("请先关闭应用锁，再清除 PIN 码", SnackbarTone.ERROR)
+        if (sanitized.isEmpty()) {
+            showSnackbar("安全凭据不可清空；请输入新的 PIN 码", SnackbarTone.ERROR)
             return
         }
         if (sanitized.isNotEmpty() && (sanitized.length !in 4..8 || !sanitized.all(Char::isDigit))) {
@@ -561,24 +596,28 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         val activate = _uiState.value.pendingAppLockActivation && sanitized.isNotEmpty()
-        _uiState.update {
-            it.copy(
-                pinHash = if (sanitized.isEmpty()) "" else PinCredentials.hash(sanitized),
-                requestPinSetup = false,
-                pendingAppLockActivation = false,
-                isAppLockEnabled = if (activate) true else it.isAppLockEnabled
-            )
-        }
-        pinFailures = 0
-        _uiState.update { it.copy(pinLockedUntilMs = 0L) }
-        if (activate) {
-            viewModelScope.launch { preferences.save(_uiState.value) }
-            showSnackbar("应用 PIN 已设置，应用锁已开启", SnackbarTone.SUCCESS)
-        } else {
-            showSnackbar(
-                if (sanitized.isEmpty()) "已清除自定义 PIN，将使用默认 $DEFAULT_PIN" else "应用 PIN 已更新",
-                SnackbarTone.SUCCESS
-            )
+        viewModelScope.launch(operationErrors) {
+            val hash = withContext(Dispatchers.Default) { PinCredentials.hash(sanitized) }
+            _uiState.update {
+                it.copy(
+                    pinHash = hash,
+                    requestPinSetup = false,
+                    pendingAppLockActivation = false,
+                    isAppLockEnabled = if (activate) true else it.isAppLockEnabled
+                )
+            }
+            pinFailures = 0
+            _uiState.update { it.copy(pinLockedUntilMs = 0L) }
+            withContext(Dispatchers.IO) { pinAttempts.edit().clear().commit() }
+            preferences.save(_uiState.value)
+            if (activate) {
+                showSnackbar("应用 PIN 已设置，应用锁已开启", SnackbarTone.SUCCESS)
+            } else {
+                showSnackbar(
+                    "应用 PIN 已更新",
+                    SnackbarTone.SUCCESS
+                )
+            }
         }
     }
 
@@ -590,7 +629,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(requestPinSetup = false) }
     }
 
-    /** 用户放弃设置 PIN：撤销「待开启应用锁」，避免出现默认 1234 的弱锁。 */
+    /** 用户放弃设置 PIN 时撤销待开启状态。 */
     fun cancelPendingAppLockActivation() {
         _uiState.update { it.copy(pendingAppLockActivation = false) }
     }
@@ -601,26 +640,29 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun cancelUnlockAttempt() { systemAuthenticationInProgress = false }
 
     fun pinLockRemainingSeconds(): Long =
-        ((_uiState.value.pinLockedUntilMs - System.currentTimeMillis()) / 1000L).coerceAtLeast(0L)
+        ((_uiState.value.pinLockedUntilMs - System.currentTimeMillis() + 999L) / 1000L).coerceAtLeast(0L)
 
-    /**
-     * PIN 解锁：连续 5 次失败后冷却 30 秒。冷却与失败计数只在本次进程内保留，
-     * 应用锁本身不依赖它们做安全边界（PIN 摘要也不在明文里）。
-     */
-    fun unlockWithPin(pin: String): Boolean {
+    /** PIN 解锁：连续 5 次失败后冷却 30 秒，失败计数和截止时间跨进程保存。 */
+    suspend fun unlockWithPin(pin: String): Boolean {
         if (!systemAuthenticationInProgress) return false
         if (pinLockRemainingSeconds() > 0) return false
-        if (!verifyPin(pin)) {
+        val hash = _uiState.value.pinHash
+        val matches = withContext(Dispatchers.Default) { hash.isNotBlank() && PinCredentials.verify(pin, hash) }
+        if (!systemAuthenticationInProgress || hash != _uiState.value.pinHash) return false
+        if (!matches) {
             pinFailures++
             if (pinFailures >= MAX_PIN_ATTEMPTS) {
                 pinFailures = 0
                 _uiState.update { it.copy(pinLockedUntilMs = System.currentTimeMillis() + PIN_LOCKOUT_MS) }
                 showSnackbar("尝试次数过多，请 30 秒后重试", SnackbarTone.ERROR)
             }
+            withContext(Dispatchers.IO) { pinAttempts.edit().putInt("failures", pinFailures)
+                .putLong("lockedUntil", _uiState.value.pinLockedUntilMs).commit() }
             return false
         }
         pinFailures = 0
         _uiState.update { it.copy(pinLockedUntilMs = 0L) }
+        withContext(Dispatchers.IO) { pinAttempts.edit().clear().commit() }
         return performUnlock()
     }
 
@@ -695,6 +737,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onBackground() {
+        endReadingSession()
         if (scanJob?.isActive == true) cancelScanning(false)
         releaseReaderResources()
         backgroundAt = SystemClock.elapsedRealtime()
@@ -724,6 +767,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         val expired = backgroundAt?.let { SystemClock.elapsedRealtime() - it >= timeout } ?: false
         backgroundAt = null
         if ((state.lockOnScreenOff && deviceLocked) || expired) lockAppImmediately()
+        if (!_uiState.value.isAppLockedNow && _uiState.value.subScreenStack.lastOrNull() is SubScreen.Reader) beginReadingSession()
     }
 
     fun onScreenOff() { if (_uiState.value.lockOnScreenOff) lockAppImmediately() }
@@ -828,6 +872,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     fun beginReadingSession() {
         if (!_uiState.value.showReadingStats) return
+        if (readingHeartbeatJob?.isActive == true) return
         if (readingStartedAt == 0L) readingStartedAt = android.os.SystemClock.elapsedRealtime()
         // 每整分钟落一次盘：进程被系统杀死时最多丢最后一分钟，而不是整段阅读时长
         readingHeartbeatJob?.cancel()
@@ -873,7 +918,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun flushReadingState() = progressMutex.withLock {
         val progressSnapshot = pendingProgress.entries.map { it.key to it.value }
         for ((id, requested) in progressSnapshot) {
-            pendingProgress.remove(id, requested)
             val book = repository.getBookById(id) ?: continue
             val page = requested.first.coerceIn(1, book.totalPages.coerceAtLeast(1))
             val percent = (page.toLong() * 100 / book.totalPages.coerceAtLeast(1)).toInt().coerceIn(0, 100)
@@ -882,18 +926,18 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 repository.updateProgress(id, page, percent, if (percent >= 100) "已读完" else "在读",
                     requested.second, System.currentTimeMillis())
             }
+            pendingProgress.remove(id, requested)
         }
         val viewportSnapshot = pendingViewports.entries.map { it.key to it.value }
         for ((id, viewport) in viewportSnapshot) {
+            repository.saveViewport(id, viewport)
             pendingViewports.remove(id, viewport)
-            runCatching { repository.saveViewport(id, viewport) }
         }
     }
 
-    fun saveReaderOptionsFor(bookId: String) {
+    fun saveReaderOptionsFor(bookId: String, mode: ReaderLayoutMode?, fit: String?, cover: Boolean?, rtl: Boolean?) {
         viewModelScope.launch(operationErrors) {
-            val state = _uiState.value
-            repository.saveReaderOptions(bookId, state.readerLayoutMode.name, state.fitModeLabel, state.smartSpreadStitch)
+            repository.saveReaderOptions(bookId, mode?.name, fit, cover, rtl)
         }
     }
 
@@ -924,41 +968,40 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         newAuthor: String,
         newSeries: String,
         newSynopsis: String,
-        newTagsCsv: String
+        newTagsCsv: String,
+        onSaved: () -> Unit = {}
     ) {
         viewModelScope.launch(operationErrors) {
-            val book = repository.getBookById(bookId) ?: return@launch
-            repository.updateBook(
-                book.copy(
-                    title = newTitle.trim().ifEmpty { book.title },
-                    author = newAuthor.trim().ifEmpty { book.author },
-                    series = newSeries.trim(),
-                    synopsis = newSynopsis.trim(),
-                    tagsCsv = newTagsCsv.trim()
-                )
-            )
+            repository.updateMetadata(bookId, newTitle.trim(), newAuthor.trim(), newSeries.trim(),
+                newSynopsis.trim(), newTagsCsv.split(',', '，').map(String::trim).filter(String::isNotBlank).distinct().joinToString(","))
             showSnackbar("已保存元数据")
+            onSaved()
         }
     }
 
-    fun setCoverPage(bookId: String, page: Int) {
+    fun setCoverPage(bookId: String, page: Int, onSaved: () -> Unit = {}) {
         viewModelScope.launch(operationErrors) {
-            if (repository.setCoverPage(bookId, page)) showSnackbar("封面已更新为第 $page 页")
+            if (repository.setCoverPage(bookId, page)) {
+                showSnackbar("封面已更新为第 $page 页")
+                onSaved()
+            }
             else showSnackbar("无法从第 $page 页生成封面")
         }
     }
 
-    fun moveSeriesOrder(bookId: String, series: String, order: Int) {
+    fun moveSeriesOrder(bookId: String, series: String, order: Int, onSaved: () -> Unit = {}) {
         viewModelScope.launch(operationErrors) {
             repository.updateSeries(bookId, series.trim(), order)
             showSnackbar("已更新系列与卷序")
+            onSaved()
         }
     }
 
     fun openNextVolume(current: BookEntity) {
         viewModelScope.launch(operationErrors) {
             val next = repository.seriesBooks(current.series)
-                .filter { it.id != current.id && it.seriesOrder >= current.seriesOrder }
+                .filter { it.id != current.id && it.seriesOrder > current.seriesOrder && it.sourceStatus == "AVAILABLE" &&
+                    (!it.isVaultProtected || _uiState.value.isVaultUnlocked) && !it.isVaultEncrypted }
                 .minByOrNull { it.seriesOrder }
             if (next == null) {
                 showSnackbar(if (current.series.isBlank()) "这是单卷作品" else "已是《${current.series}》最后一卷")
@@ -1000,12 +1043,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         val ids = _uiState.value.selectedBookIds.toList()
         if (ids.isEmpty()) return
         viewModelScope.launch(operationErrors) {
-            ids.forEach { id ->
-                val book = repository.getBookById(id) ?: return@forEach
-                val currentShelves = book.shelfIdsCsv.split(",").filter { it.isNotBlank() }.toMutableSet()
-                currentShelves.add(shelfId)
-                repository.updateBook(book.copy(shelfIdsCsv = currentShelves.joinToString(",")))
-            }
+            repository.addBooksToShelf(ids, shelfId)
             exitBatchSelection()
             showSnackbar("已将 ${ids.size} 部作品加入书架「$shelfName」")
         }
@@ -1014,8 +1052,17 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun batchRemoveSelectedFromLibrary() {
         val ids = _uiState.value.selectedBookIds.toList()
         if (ids.isEmpty()) return
+        _pendingRemoval.value = ids
+    }
+
+    fun cancelBookRemoval() { _pendingRemoval.value = emptyList() }
+
+    fun confirmBookRemoval() {
+        val ids = _pendingRemoval.value
+        if (ids.isEmpty()) return
         viewModelScope.launch(operationErrors) {
             repository.removeBooks(ids)
+            _pendingRemoval.value = emptyList()
             exitBatchSelection()
             showSnackbar("已移除 ${ids.size} 部作品索引（保留外部源文件）")
         }
@@ -1095,7 +1142,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(operationErrors) {
             repository.insertShelf(
                 ShelfEntity(
-                    id = "shelf_${System.currentTimeMillis()}",
+                    id = "shelf_${java.util.UUID.randomUUID()}",
                     name = cleanName,
                     subtitle = subtitle.trim().ifBlank { "0 本 · 刚刚创建" },
                     itemCountDisplay = 0,
@@ -1111,15 +1158,19 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteCustomShelf(shelfId: String) {
         viewModelScope.launch(operationErrors) {
-            allBooks.value.forEach { book ->
-                val shelfIds = book.shelfIdsCsv.split(",").filter { it.isNotBlank() }
-                if (shelfId in shelfIds) {
-                    repository.updateBook(book.copy(shelfIdsCsv = shelfIds.filter { it != shelfId }.joinToString(",")))
-                }
-            }
             repository.deleteShelfById(shelfId)
             showSnackbar("已删除书架分类（书籍本体保留）")
         }
+    }
+
+    fun renameShelf(id: String, name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch(operationErrors) { repository.renameShelf(id, name.trim()) }
+    }
+
+    fun renameTag(old: String, new: String) {
+        if (new.isBlank() || ',' in new) return
+        viewModelScope.launch(operationErrors) { repository.renameTag(old, new.trim()) }
     }
 
     fun deleteRepository(repoId: String) {
@@ -1132,13 +1183,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     /** 按 sortOrder 交换相邻书架，真正改变展示顺序。 */
     fun moveShelf(shelf: ShelfEntity, offset: Int) {
         viewModelScope.launch(operationErrors) {
-            val ordered = allShelves.value.sortedBy { it.sortOrder }
-            val index = ordered.indexOfFirst { it.id == shelf.id }
-            val target = index + offset
-            if (index < 0 || target !in ordered.indices) return@launch
-            val other = ordered[target]
-            repository.updateShelf(shelf.copy(sortOrder = other.sortOrder))
-            repository.updateShelf(other.copy(sortOrder = shelf.sortOrder))
+            repository.moveShelf(shelf.id, offset)
         }
     }
 
@@ -1414,13 +1459,12 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun clearRegenerableCache() {        viewModelScope.launch(operationErrors) {
             repository.trimPageMemory()
             coil.Coil.imageLoader(getApplication()).memoryCache?.clear()
-            val covers = repository.clearCoverCache()
+            val covers = repository.clearRegenerableDiskCache()
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 coil.Coil.imageLoader(getApplication()).diskCache?.clear()
             }
-            repository.refreshMissingCovers()
             val mb = String.format(java.util.Locale.ROOT, "%.1f", covers / 1048576.0)
-            showSnackbar("已清理缓存（封面 $mb MB），原文件未修改")
+            showSnackbar("已清理缓存 $mb MB，封面将在需要时重建")
         }
     }
 
@@ -1465,8 +1509,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
-        const val DEFAULT_PIN = "1234"
-
         private const val MAX_PIN_ATTEMPTS = 5
         private const val PIN_LOCKOUT_MS = 30_000L
 

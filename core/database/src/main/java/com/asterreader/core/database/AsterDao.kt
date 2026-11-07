@@ -38,6 +38,33 @@ interface AsterDao {
     @Update
     suspend fun updateBook(book: BookEntity)
 
+    @Query("UPDATE books SET title = CASE WHEN :title = '' THEN title ELSE :title END, author = :author, series = :series, synopsis = :synopsis, tagsCsv = :tags WHERE id = :id")
+    suspend fun updateMetadata(id: String, title: String, author: String, series: String, synopsis: String, tags: String)
+
+    @Transaction
+    suspend fun addBooksToShelf(ids: List<String>, shelfId: String) {
+        check(getAllShelves().any { it.id == shelfId }) { "书架不存在" }
+        ids.forEach { id ->
+            val book = getBookById(id) ?: return@forEach
+            val membership = book.shelfIdsCsv.split(',').filter(String::isNotBlank).toMutableSet()
+            membership.add(shelfId)
+            updateShelfMembership(id, membership.joinToString(","))
+        }
+    }
+
+    @Query("UPDATE shelves SET sortOrder = :position WHERE id = :id")
+    suspend fun updateShelfPosition(id: String, position: Int)
+
+    @Transaction
+    suspend fun moveShelf(id: String, offset: Int) {
+        val ordered = getAllShelves().sortedWith(compareBy<ShelfEntity> { it.sortOrder }.thenBy { it.id }).toMutableList()
+        val index = ordered.indexOfFirst { it.id == id }
+        val target = index + offset
+        if (index < 0 || target !in ordered.indices) return
+        ordered.add(target, ordered.removeAt(index))
+        ordered.forEachIndexed { position, shelf -> updateShelfPosition(shelf.id, position) }
+    }
+
     @Query("UPDATE books SET isFavorite = NOT isFavorite WHERE id = :id")
     suspend fun toggleFavorite(id: String)
 
@@ -86,6 +113,7 @@ interface AsterDao {
             fileSizeText = book.fileSizeText, repositoryName = book.repositoryName,
             repositoryId = book.repositoryId.ifBlank { current.repositoryId }, sourceStatus = "AVAILABLE",
             contentFingerprint = book.contentFingerprint,
+            coverPage = book.coverPage,
             coverUrl = book.coverUrl.ifBlank { current.coverUrl },
             series = current.series.ifBlank { book.series })
         updateBook(updated)
@@ -135,6 +163,32 @@ interface AsterDao {
 
     @Query("DELETE FROM shelves WHERE id = :shelfId")
     suspend fun deleteShelfById(shelfId: String)
+
+    @Query("UPDATE books SET shelfIdsCsv = :value WHERE id = :id")
+    suspend fun updateShelfMembership(id: String, value: String)
+
+    @Query("UPDATE shelves SET name = :name WHERE id = :id")
+    suspend fun renameShelf(id: String, name: String)
+
+    @Query("UPDATE books SET tagsCsv = :tags WHERE id = :id")
+    suspend fun updateTags(id: String, tags: String)
+
+    @Transaction
+    suspend fun removeShelfAndMembership(id: String) {
+        getAllBooks().forEach { book ->
+            val ids = book.shelfIdsCsv.split(',').filter(String::isNotBlank)
+            if (id in ids) updateShelfMembership(book.id, ids.filter { it != id }.joinToString(","))
+        }
+        deleteShelfById(id)
+    }
+
+    @Transaction
+    suspend fun renamePublicTag(old: String, new: String) {
+        getAllBooks().filter { !it.isVaultProtected && !it.isVaultEncrypted }.forEach { book ->
+            val tags = book.tagsCsv.split(',').map(String::trim).filter(String::isNotBlank)
+            if (old in tags) updateTags(book.id, tags.map { if (it == old) new else it }.distinct().joinToString(","))
+        }
+    }
 
     // Annotations
     @Query("SELECT * FROM annotations WHERE bookId = :bookId ORDER BY id DESC")
@@ -224,6 +278,15 @@ interface AsterDao {
         return saved
     }
 
+    @Transaction
+    suspend fun commitParsedSource(book: BookEntity, chapters: List<ChapterEntity>, pages: List<ComicPageEntity>, replaceId: String?): BookEntity {
+        val saved = if (replaceId == null) importComic(book) else replaceSource(replaceId, book)
+        deleteComicPages(saved.id)
+        if (pages.isNotEmpty()) insertComicPages(pages.map { it.copy(bookId = saved.id) })
+        replaceChapters(saved.id, chapters.map { it.copy(bookId = saved.id) })
+        return saved
+    }
+
     @Query("SELECT * FROM books WHERE repositoryId = :id")
     suspend fun getRepositoryBooks(id: String): List<BookEntity>
 
@@ -302,4 +365,40 @@ interface AsterDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun restoreReaderStates(states: List<ReaderStateEntity>)
+
+    /** 默认按阅读时间合并；整个恢复失败时回滚所有表。 */
+    @Transaction
+    suspend fun restoreBackup(books: List<BookEntity>, shelves: List<ShelfEntity>,
+        annotations: List<AnnotationEntity>, states: List<ReaderStateEntity>,
+        chapters: List<ChapterEntity>, repositories: List<RepositoryEntity>, pages: List<ComicPageEntity>) {
+        val accepted = mutableSetOf<String>()
+        val added = mutableSetOf<String>()
+        books.forEach { incoming ->
+            val current = getBookById(incoming.id)
+            if (current == null) {
+                insertBook(incoming)
+                accepted.add(incoming.id)
+                added.add(incoming.id)
+            } else if (incoming.lastReadTimestamp > current.lastReadTimestamp) {
+                val page = incoming.currentPage.coerceIn(1, current.totalPages)
+                updateBook(current.copy(currentPage = page,
+                    progressPercent = incoming.progressPercent, currentChapterTitle = incoming.currentChapterTitle,
+                    lastReadTimestamp = incoming.lastReadTimestamp, statusBadge = incoming.statusBadge))
+                accepted.add(incoming.id)
+            }
+        }
+        val existingShelves = getAllShelves().map { it.id }.toSet()
+        insertShelves(shelves.filter { it.id !in existingShelves })
+        val noteKeys = getAllAnnotations().map { it.copy(id = 0) }.toMutableSet()
+        val newNotes = annotations.map { it.copy(id = 0) }.filter { noteKeys.add(it) }
+        if (newNotes.isNotEmpty()) insertAnnotations(newNotes)
+        states.filter { it.bookId in accepted }.forEach { state ->
+            val total = getBookById(state.bookId)?.totalPages ?: error("恢复作品不存在")
+            saveReaderState(state.copy(page = state.page.coerceIn(1, total)))
+        }
+        insertChapters(chapters.filter { it.bookId in added })
+        insertComicPages(pages.filter { it.bookId in added })
+        val existingRepos = getAllRepositories().map { it.id }.toSet()
+        insertRepositories(repositories.filter { it.id !in existingRepos })
+    }
 }

@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.displayCutoutPadding
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.asterreader.core.designsystem.AsterModalBottomSheet as ModalBottomSheet
@@ -174,12 +177,23 @@ fun ReaderScreen(
         mutableStateOf<com.asterreader.core.database.ReaderStateEntity?>(null)
     }
     var stateLoaded by remember(book.id) { mutableStateOf(false) }
+    var modeOverride by remember(book.id) { mutableStateOf<ReaderLayoutMode?>(null) }
+    var fitOverride by remember(book.id) { mutableStateOf<String?>(null) }
+    var coverOverride by remember(book.id) { mutableStateOf<Boolean?>(null) }
+    var rtlOverride by remember(book.id) { mutableStateOf<Boolean?>(null) }
+    val readerMode = modeOverride ?: uiState.readerLayoutMode
+    val readerFit = fitOverride ?: uiState.fitModeLabel
+    val readerCover = coverOverride ?: uiState.smartSpreadStitch
     var currentPage by remember(book.id, initialPage) {
         mutableIntStateOf((initialPage ?: book.currentPage).coerceIn(1, totalPages))
     }
     LaunchedEffect(book.id) {
         restored = viewModel.loadReaderState(book.id)
         val saved = restored
+        modeOverride = saved?.layoutMode?.let { name -> ReaderLayoutMode.entries.find { it.name == name } }
+        fitOverride = saved?.fitMode
+        coverOverride = saved?.coverSingle
+        rtlOverride = saved?.rightToLeft
         if (saved != null && initialPage == null) currentPage = saved.page.coerceIn(1, totalPages)
         stateLoaded = true
     }
@@ -193,7 +207,7 @@ fun ReaderScreen(
     var tabletSideTab by remember { mutableIntStateOf(0) }
 
     val readerBrightness = uiState.readerBrightness
-    var dualPageCoverOffset by remember(book.id) { mutableStateOf(uiState.smartSpreadStitch) }
+
     val bookmarkedPages = annotations.filter { it.type == "BOOKMARK" }.map { it.pageNumber }.toSet()
 
     var sliderPreview by remember(book.id) { mutableStateOf<Float?>(null) }
@@ -204,8 +218,8 @@ fun ReaderScreen(
         currentChapterIndex = chapters.indexOfFirst { currentPage in it.startPage..it.endPage }.coerceAtLeast(0)
         viewModel.updateReadingProgress(book.id, currentPage, activeChapterTitle)
     }
-    LaunchedEffect(uiState.readerLayoutMode, uiState.fitModeLabel, uiState.smartSpreadStitch) {
-        viewModel.saveReaderOptionsFor(book.id)
+    LaunchedEffect(stateLoaded, modeOverride, fitOverride, coverOverride, rtlOverride) {
+        if (stateLoaded) viewModel.saveReaderOptionsFor(book.id, modeOverride, fitOverride, coverOverride, rtlOverride)
     }
 
     val focusRequester = remember { FocusRequester() }
@@ -239,13 +253,14 @@ fun ReaderScreen(
                     publicationId = book.id,
                     page = currentPage,
                     totalPages = totalPages,
-                    mode = uiState.readerLayoutMode,
+                    mode = readerMode,
                     expanded = isExpandedTablet,
-                    coverSingle = uiState.smartSpreadStitch,
-                    fitMode = uiState.fitModeLabel,
-                    initialScale = restored?.scale ?: 1f,
-                    initialPanX = restored?.panX ?: 0f,
-                    initialPanY = restored?.panY ?: 0f,
+                    coverSingle = readerCover,
+                    rightToLeft = rtlOverride ?: (readerMode == ReaderLayoutMode.RTL_PAGER),
+                    fitMode = readerFit,
+                    initialScale = if (restored?.page == currentPage && initialPage == null) restored?.scale ?: 1f else 1f,
+                    initialPanX = if (restored?.page == currentPage && initialPage == null) restored?.panX ?: 0f else 0f,
+                    initialPanY = if (restored?.page == currentPage && initialPage == null) restored?.panY ?: 0f else 0f,
                     initialOffsetFraction = if (restored?.page == currentPage) restored?.offsetFraction ?: 0f else 0f,
                     loadPage = { targetPage, maxPixels -> viewModel.renderPage(book.id, targetPage, maxPixels) },
                     loadRegion = { targetPage, top, bottom, pixels ->
@@ -259,8 +274,6 @@ fun ReaderScreen(
                     onNextPage = {
                         if (currentPage < totalPages) {
                             currentPage++
-                        } else {
-                            viewModel.openNextVolume(book)
                         }
                     },
                     onPrevPage = {
@@ -298,7 +311,8 @@ fun ReaderScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .displayCutoutPadding()
+                            .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight)
                             .padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -581,16 +595,17 @@ fun ReaderScreen(
             TabletReaderSidePanel(
                 chapters = chapters,
                 currentChapterIndex = currentChapterIndex,
-                uiState = uiState,
+                uiState = uiState.copy(readerLayoutMode = readerMode, fitModeLabel = readerFit, smartSpreadStitch = readerCover),
                 selectedTab = tabletSideTab,
-                dualPageCoverOffset = dualPageCoverOffset,
+                dualPageCoverOffset = readerCover,
                 viewModel = viewModel,
                 onSelectTab = { tabletSideTab = it },
                 onClose = { tabletSideDrawerOpen = false },
-                onSelectLayoutMode = { viewModel.setReaderLayoutMode(it) },
+                onSelectLayoutMode = { modeOverride = it },
+                onSelectFit = { fitOverride = it },
                 onToggleCoverOffset = {
-                    dualPageCoverOffset = it
-                    viewModel.setSmartSpreadStitch(it)
+
+                    coverOverride = it
                 },
 
                 onSelectChapter = { idx, chapter ->
@@ -630,6 +645,17 @@ fun ReaderScreen(
                         Icon(Icons.Default.Close, contentDescription = "关闭")
                     }
                 }
+                TextButton(onClick = {
+                    modeOverride = null; fitOverride = null; coverOverride = null; rtlOverride = null
+
+                }) { Text("恢复全局默认") }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("从右向左翻页", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Switch(checked = rtlOverride ?: (readerMode == ReaderLayoutMode.RTL_PAGER), onCheckedChange = { rtlOverride = it })
+                }
+                if (currentPage == totalPages && book.series.isNotBlank()) {
+                    TextButton(onClick = { viewModel.openNextVolume(book) }) { Text("打开下一卷") }
+                }
 
 
                     // ================= COMIC-ONLY SETTINGS =================
@@ -650,9 +676,9 @@ fun ReaderScreen(
                             ReaderLayoutMode.DUAL_PAGE to "双页展开"
                         )
                         modes.forEach { (mode, title) ->
-                            val selected = uiState.readerLayoutMode == mode
+                            val selected = readerMode == mode
                             Surface(
-                                onClick = { viewModel.setReaderLayoutMode(mode) },
+                                onClick = { modeOverride = mode },
                                 shape = MaterialTheme.shapes.medium,
                                 color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                                 border = BorderStroke(
@@ -699,10 +725,10 @@ fun ReaderScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf("适合屏幕", "原始比例").forEach { fitMode ->
-                            val selected = uiState.fitModeLabel == fitMode
+                            val selected = readerFit == fitMode
                             FilterChip(
                                 selected = selected,
-                                onClick = { viewModel.setFitModeLabel(fitMode) },
+                                onClick = { fitOverride = fitMode },
                                 label = { Text(fitMode, maxLines = 1, softWrap = false) },
                                 modifier = Modifier.weight(1f)
                             )
@@ -717,10 +743,9 @@ fun ReaderScreen(
                     ) {
                         Text("封面单页", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         Switch(
-                            checked = dualPageCoverOffset,
+                            checked = readerCover,
                             onCheckedChange = {
-                                dualPageCoverOffset = it
-                                viewModel.setSmartSpreadStitch(it)
+                                coverOverride = it
                             }
                         )
                     }
@@ -903,6 +928,7 @@ private fun TabletReaderSidePanel(
     onSelectTab: (Int) -> Unit,
     onClose: () -> Unit,
     onSelectLayoutMode: (ReaderLayoutMode) -> Unit,
+    onSelectFit: (String) -> Unit,
     onToggleCoverOffset: (Boolean) -> Unit,
     onSelectChapter: (Int, ChapterEntity) -> Unit
 ) {
@@ -941,7 +967,7 @@ private fun TabletReaderSidePanel(
                         softWrap = false
                     )
                 }
-                IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) {
+                IconButton(onClick = onClose, modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)) {
                     Icon(Icons.Default.Close, contentDescription = "收起", modifier = Modifier.size(18.dp))
                 }
             }
@@ -1040,7 +1066,7 @@ private fun TabletReaderSidePanel(
                                     title = fitMode,
                                     selected = uiState.fitModeLabel == fitMode,
                                     modifier = Modifier.weight(1f),
-                                    onClick = { viewModel.setFitModeLabel(fitMode) }
+                                    onClick = { onSelectFit(fitMode) }
                                 )
                             }
                         }

@@ -47,8 +47,8 @@ val AsterTypography = Typography(
     titleLarge = TextStyle(
         fontFamily = SystemRobotoFlexFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 21.sp,
-        lineHeight = 28.sp,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
         letterSpacing = 0.sp
     ),
     titleMedium = TextStyle(

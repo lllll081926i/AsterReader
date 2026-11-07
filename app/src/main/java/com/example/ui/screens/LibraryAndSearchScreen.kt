@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.layout.heightIn
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -259,8 +261,8 @@ fun LibraryHomeScreen(
                     contentPadding = PaddingValues(
                         start = 16.dp,
                         end = 16.dp,
-                        top = 14.dp,
-                        bottom = 136.dp
+                        top = 4.dp,
+                        bottom = 16.dp
                     ),
                     horizontalArrangement = Arrangement.spacedBy(
                         if (uiState.libraryLayoutMode == LibraryLayoutMode.GRID_3) 10.dp else 12.dp
@@ -277,7 +279,7 @@ fun LibraryHomeScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 8.dp, bottom = 4.dp),
+                                .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -306,11 +308,11 @@ fun LibraryHomeScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                // 统一 36dp 纯图标切换按钮
+                                // 切换视图。
                                 IconButton(
                                     onClick = { viewModel.cycleLibraryLayoutMode() },
                                     modifier = Modifier
-                                        .size(36.dp)
+                                        .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                         .testTag("library_layout_cycle_btn")
                                 ) {
                                     Icon(
@@ -330,7 +332,7 @@ fun LibraryHomeScreen(
                                     IconButton(
                                         onClick = { showOverflowMenu = true },
                                         modifier = Modifier
-                                            .size(36.dp)
+                                            .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                             .testTag("scope_overflow_menu_btn")
                                     ) {
                                         Icon(
@@ -388,7 +390,7 @@ fun LibraryHomeScreen(
                                 IconButton(
                                     onClick = { viewModel.pushSubScreen(SubScreen.Settings) },
                                     modifier = Modifier
-                                        .size(36.dp)
+                                        .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                         .testTag("header_settings_btn")
                                 ) {
                                     Icon(
@@ -666,8 +668,7 @@ fun LibraryHomeScreen(
                 shadowElevation = 6.dp,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .navigationBarsPadding()
-                    .padding(end = 16.dp, bottom = 84.dp)
+                    .padding(end = 16.dp, bottom = 16.dp)
                     .size(52.dp)
                     .clip(MaterialTheme.shapes.medium)
                     .clickable { showAddContentSheet = true }
@@ -1475,7 +1476,7 @@ private fun TabletSupportingDetailPane(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(start = 20.dp, end = 20.dp, bottom = 164.dp),
+                    .padding(start = 16.dp, end = 16.dp, bottom = 112.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
                 Row(
@@ -1629,7 +1630,7 @@ private fun TabletSupportingDetailPane(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 80.dp)
+                .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -1734,13 +1735,15 @@ fun SearchAndFilterScreen(
     val request = com.example.ui.LibrarySearchRequest(uiState.searchQuery, searchScopeTab,
         uiState.sortOption, uiState.searchStatusFilter, uiState.searchFormatFilters,
         uiState.searchTagFilters, uiState.searchStorageFilters, uiState.isVaultUnlocked)
-    val results by androidx.compose.runtime.produceState<Triple<com.example.ui.LibrarySearchRequest,
-        List<BookEntity>, com.example.ui.LibrarySearchResult>?>(null, books, annotations, request) {
+    val results by androidx.compose.runtime.produceState<Pair<Pair<com.example.ui.LibrarySearchRequest,
+        Pair<List<BookEntity>, List<AnnotationEntity>>>, com.example.ui.LibrarySearchResult>?>(null, books, annotations, request) {
         kotlinx.coroutines.delay(120)
         val result = com.example.ui.searchLibrary(books, annotations, request)
-        value = Triple(request, books, result)
+        value = (request to (books to annotations)) to result
     }
-    val currentResult = results?.takeIf { it.first == request && it.second === books }?.third
+    val currentResult = results?.takeIf {
+        it.first.first == request && it.first.second.first === books && it.first.second.second === annotations
+    }?.second
     val matchingBooks = currentResult?.books.orEmpty()
     val matchingAnnotations = currentResult?.annotations.orEmpty()
 
@@ -1823,7 +1826,7 @@ fun SearchAndFilterScreen(
                         IconButton(
                             onClick = { viewModel.updateSearchQuery("") },
                             modifier = Modifier
-                                .size(34.dp)
+                                .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                 .testTag("search_clear_btn")
                         ) {
                             Icon(
@@ -1840,7 +1843,7 @@ fun SearchAndFilterScreen(
                         color = colorScheme.secondaryContainer,
                         contentColor = colorScheme.onSecondaryContainer,
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                             .clip(CircleShape)
                             .clickable { showFilterSheet = true }
                             .testTag("toggle_filter_sheet_btn")
@@ -1875,7 +1878,7 @@ fun SearchAndFilterScreen(
                     color = if (isSelected) colorScheme.primary else asterColors.surfaceContainer,
                     contentColor = if (isSelected) colorScheme.onPrimary else colorScheme.onSurfaceVariant,
                     modifier = Modifier
-                        .height(32.dp)
+                        .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                         .clip(CircleShape)
                         .clickable { searchScopeTab = tab }
                 ) {
@@ -1902,7 +1905,7 @@ fun SearchAndFilterScreen(
                 color = colorScheme.secondaryContainer,
                 contentColor = colorScheme.onSecondaryContainer,
                 modifier = Modifier
-                    .height(32.dp)
+                    .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                     .clip(CircleShape)
                     .clickable { showFilterSheet = true }
             ) {
@@ -1941,7 +1944,7 @@ fun SearchAndFilterScreen(
                 color = asterColors.surfaceContainerLow,
                 border = BorderStroke(0.8.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
                 modifier = Modifier
-                    .height(32.dp)
+                    .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                     .clip(CircleShape)
                     .clickable { showFilterSheet = true }
             ) {
@@ -2032,7 +2035,7 @@ fun SearchAndFilterScreen(
                                         color = asterColors.surfaceContainerLow,
                                         border = BorderStroke(0.8.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
                                         modifier = Modifier
-                                            .height(32.dp)
+                                            .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                             .clip(CircleShape)
                                             .clickable { viewModel.updateSearchQuery(historyItem) }
                                     ) {
@@ -2050,7 +2053,7 @@ fun SearchAndFilterScreen(
                                             )
                                             Box(
                                                 modifier = Modifier
-                                                    .size(20.dp)
+                                                    .size(48.dp)
                                                     .clip(CircleShape)
                                                     .clickable { viewModel.removeSearchHistoryItem(historyItem) },
                                                 contentAlignment = Alignment.Center
@@ -2113,7 +2116,11 @@ fun SearchAndFilterScreen(
                     }
                 }
 
-                if (matchingBooks.isEmpty()) {
+                if (currentResult == null) {
+                    item {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp))
+                    }
+                } else if (matchingBooks.isEmpty()) {
                     item {
                         AsterEmptyState(
                             title = "未找到匹配的作品",
@@ -2146,6 +2153,15 @@ fun SearchAndFilterScreen(
             }
 
             // Annotations & Bookmarks Section
+            if (searchScopeTab == "书签札记" && matchingAnnotations.isEmpty()) {
+                item {
+                    if (currentResult == null) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp))
+                    } else {
+                        AsterEmptyState("未找到匹配的书签与札记", "更换关键词，或在阅读时添加书签与札记。", compact = true)
+                    }
+                }
+            }
             if ((searchScopeTab == "全部" || searchScopeTab == "书签札记") && matchingAnnotations.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(4.dp))
@@ -2174,7 +2190,7 @@ fun SearchAndFilterScreen(
                 }
             }
 
-            item { Spacer(modifier = Modifier.height(100.dp)) }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 

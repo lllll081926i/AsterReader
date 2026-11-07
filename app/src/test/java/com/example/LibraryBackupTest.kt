@@ -79,6 +79,7 @@ class LibraryBackupTest {
         val book = dao.getBookById("bk2") ?: error("作品丢失")
         assertEquals("local-cover.jpg", book.coverUrl)
         assertEquals("AVAILABLE", book.sourceStatus)
+        assertEquals(20, book.currentPage)
     }
 
     @Test

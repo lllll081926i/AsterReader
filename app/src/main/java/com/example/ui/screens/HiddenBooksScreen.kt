@@ -72,7 +72,6 @@ fun HiddenBooksScreen(
         AsterSubScreenHeader(
             title = "已隐藏",
             onBack = onBack,
-            subtitle = "验证后可见 · 文件未改动",
             trailing = {
                 if (books.isNotEmpty()) {
                     Surface(
@@ -106,41 +105,13 @@ fun HiddenBooksScreen(
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 152.dp),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .navigationBarsPadding()
             ) {
-                item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = asterColors.surfaceContainerLow,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.VisibilityOff,
-                                contentDescription = null,
-                                tint = colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(17.dp)
-                            )
-                            Text(
-                                text = "这些作品只是从书库移出，文件本身没有改动。点封面即可继续阅读。",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
                 items(books, key = { it.id }) { book ->
                     Surface(
                         shape = RoundedCornerShape(16.dp),

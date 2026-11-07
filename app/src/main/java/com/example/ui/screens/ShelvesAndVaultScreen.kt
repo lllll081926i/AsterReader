@@ -171,7 +171,7 @@ fun ShelvesScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight)
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -188,12 +188,12 @@ fun ShelvesScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 统一 36dp 尺寸的排序按钮
+                // 排序入口。
                 Surface(
                     onClick = { showShelfOrderDialog = true },
                     shape = androidx.compose.foundation.shape.CircleShape,
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -205,13 +205,13 @@ fun ShelvesScreen(
                     }
                 }
 
-                // 统一 36dp 尺寸的新建书架按钮
+                // 新建书架。
                 Surface(
                     onClick = { showCreateDialog = true },
                     shape = androidx.compose.foundation.shape.CircleShape,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                         .testTag("create_shelf_button")
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -224,11 +224,11 @@ fun ShelvesScreen(
                     }
                 }
 
-                // 统一 36dp 尺寸的设置按钮
+                // 设置入口。
                 IconButton(
                     onClick = { viewModel.pushSubScreen(SubScreen.Settings) },
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                         .testTag("shelves_settings_btn")
                 ) {
                     Icon(
@@ -243,7 +243,7 @@ fun ShelvesScreen(
 
         LazyVerticalGrid(
             columns = shelvesGridColumns,
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 130.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxSize()
@@ -377,8 +377,7 @@ fun ShelvesScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
-                        .padding(top = 8.dp, bottom = 2.dp),
+                        .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -395,7 +394,7 @@ fun ShelvesScreen(
                     IconButton(
                         onClick = { viewModel.cycleShelvesViewMode() },
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                             .testTag("shelves_layout_switcher")
                     ) {
                         val icon = when (uiState.shelvesViewMode) {
@@ -530,20 +529,20 @@ fun ShelvesScreen(
                                 IconButton(
                                     onClick = { viewModel.moveShelfUp(shelf) },
                                     enabled = index > 0,
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                 ) {
                                     Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上移", modifier = Modifier.size(18.dp))
                                 }
                                 IconButton(
                                     onClick = { viewModel.moveShelfDown(shelf) },
                                     enabled = index < shelves.lastIndex,
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                 ) {
                                     Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "下移", modifier = Modifier.size(18.dp))
                                 }
                                 IconButton(
                                     onClick = { viewModel.deleteCustomShelf(shelf.id) },
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                 ) {
                                     Icon(
                                         Icons.Default.DeleteOutline,
@@ -803,7 +802,7 @@ private fun ShelfCollageGridCard(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(6.dp)
-                            .size(32.dp)
+                            .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                             .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
                     ) {
                         Icon(
@@ -937,7 +936,7 @@ private fun ShelfCompactGridCard(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(4.dp)
-                            .size(26.dp)
+                            .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                             .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
                     ) {
                         Icon(
@@ -1236,7 +1235,7 @@ fun ShelfDetailScreen(
     BackHandler(onBack = onBack)
 
     val booksInShelf = remember(allBooks, shelfDetail) {
-        allBooks.filter { it.shelfIdsCsv.contains(shelfDetail.shelfId) }
+        allBooks.filter { shelfDetail.shelfId in it.shelfIdsCsv.split(',').map(String::trim) }
     }
 
     val gridColumns = when (uiState.libraryLayoutMode) {
@@ -1251,62 +1250,13 @@ fun ShelfDetailScreen(
             .background(MaterialTheme.colorScheme.surface)
             .statusBarsPadding()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+        AsterSubScreenHeader("${shelfDetail.title} (${booksInShelf.size})", onBack,
+            trailing = {
+                IconButton(onClick = { viewModel.cycleLibraryLayoutMode() },
+                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)) {
+                    Icon(Icons.Outlined.GridView, contentDescription = "切换视图")
                 }
-                Text(
-                    text = "${shelfDetail.title} (${booksInShelf.size})",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Layout Switcher inside Shelf Detail
-            Surface(
-                shape = androidx.compose.foundation.shape.CircleShape,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    LibraryLayoutMode.entries.forEach { mode ->
-                        val selected = uiState.libraryLayoutMode == mode
-                        Surface(
-                            onClick = { viewModel.setLibraryLayoutMode(mode) },
-                            shape = androidx.compose.foundation.shape.CircleShape,
-                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
-                        ) {
-                            Text(
-                                text = mode.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
+            })
         if (booksInShelf.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -1323,7 +1273,7 @@ fun ShelfDetailScreen(
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(gridColumns),
-                contentPadding = PaddingValues(20.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
@@ -1448,472 +1398,5 @@ fun ShelfDetailScreen(
                 }
             }
         }
-    }
-}
-
-/**
- * 4. Global Settings Screen (Merged Appearance + Global Settings, accessible from Top-Right)
- */
-@Composable
-fun SettingsScreen(
-    uiState: AsterUiState,
-    repositories: List<RepositoryEntity>,
-    booksCount: Int,
-    viewModel: AsterViewModel,
-    onTriggerImportFile: () -> Unit,
-    onBack: (() -> Unit)? = null
-) {
-    if (onBack != null) {
-        BackHandler(onBack = onBack)
-    }
-
-    var activeModal by remember { mutableStateOf<String?>(null) }
-    var newRepoName by remember { mutableStateOf("") }
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
-    ) { uri -> uri?.let { viewModel.exportLibrary(it) } }
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { viewModel.importLibrary(it) } }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
-            .statusBarsPadding()
-            .testTag("settings_screen")
-    ) {
-        AsterSubScreenHeader(
-            title = "设置",
-            onBack = onBack
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            // Group 0: 外观
-            AsterSettingsGroup(title = "外观") {
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.DarkMode,
-                    title = "主题",
-                    badgeText = uiState.themeMode.label,
-                    onClick = { activeModal = "THEME" }
-                )
-            }
-
-            // Group 1: 阅读与排版配置
-            AsterSettingsGroup(title = "阅读与排版") {
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Tune,
-                    title = "排版管理",
-                    badgeText = "${uiState.readerLayoutMode.shortBadge} · ${uiState.fitModeLabel}",
-                    onClick = { activeModal = "COMIC_PREFS" }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSwitchRow(
-                    title = "减弱动效",
-                    checked = uiState.reduceMotion,
-                    onCheckedChange = { viewModel.setReduceMotion(it) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSwitchRow(
-                    title = "音量键翻页",
-                    checked = uiState.volumeKeyPageTurn,
-                    onCheckedChange = { viewModel.setVolumeKeyPageTurn(it) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSwitchRow(
-                    title = "跨页对齐拼接",
-                    checked = uiState.smartSpreadStitch,
-                    onCheckedChange = { viewModel.setSmartSpreadStitch(it) }
-                )
-            }
-
-            // Group 2: 书架与标签管理
-            AsterSettingsGroup(title = "书架与标签") {
-                AsterSettingsRow(
-                    leadingIcon = Icons.AutoMirrored.Outlined.LibraryBooks,
-                    title = "书架管理",
-                    badgeText = "管理分组",
-                    onClick = { activeModal = "SHELF_MGR" }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Tag,
-                    title = "标签管理",
-                    badgeText = "作品分类",
-                    onClick = { activeModal = "TAG_MGR" }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSwitchRow(
-                    title = "首页继续阅读栏",
-                    checked = uiState.showRecentReading,
-                    onCheckedChange = { viewModel.setShowRecentReading(it) }
-                )
-            }
-
-            // Group 3: 本地书库与存储
-            AsterSettingsGroup(title = "阅读统计") {
-                AsterSwitchRow(
-                    title = "记录阅读时长",
-                    checked = uiState.showReadingStats,
-                    onCheckedChange = { viewModel.setShowReadingStats(it) }
-                )
-                if (uiState.showReadingStats) {
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                    AsterSettingsRow(
-                        leadingIcon = Icons.Outlined.Schedule,
-                        title = "查看统计",
-                        onClick = { viewModel.pushSubScreen(SubScreen.ReadingStats) }
-                    )
-                }
-            }
-
-            AsterSettingsGroup(title = "本地书库") {
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Folder,
-                    title = "书库目录",
-                    badgeText = "${repositories.size} 个",
-                    onClick = { activeModal = "REPOS" }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.CreateNewFolder,
-                    title = "导入书籍",
-                    onClick = onTriggerImportFile
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Storage,
-                    title = "清理图片缓存",
-                    badgeText = "释放空间",
-                    onClick = { viewModel.clearRegenerableCache() }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Image,
-                    title = "重建封面",
-                    subtitle = "按封面页重新截取，可修复显示不出来的封面",
-                    onClick = { viewModel.rebuildLibraryCovers() }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Backup,
-                    title = "导出书库清单",
-                    subtitle = "备份进度、标签、书架与批注（不含漫画文件）",
-                    onClick = { exportLauncher.launch("aster-library.json") }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Folder,
-                    title = "恢复书库清单",
-                    subtitle = "从备份恢复元数据，来源文件需重新授权",
-                    onClick = { importLauncher.launch(arrayOf("application/json", "*/*")) }
-                )
-            }
-
-            // Group 4: 隐私与关于
-            AsterSettingsGroup(title = "安全与关于") {
-                AsterSettingsRow(
-                    leadingIcon = Icons.Default.Security,
-                    title = "安全设置",
-                    badgeText = if (uiState.isAppLockEnabled) "已开启" else "未开启",
-                    onClick = { viewModel.pushSubScreen(SubScreen.PrivacySecuritySettings) }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-                AsterSettingsRow(
-                    leadingIcon = Icons.Outlined.Info,
-                    title = "关于 Aster Reader",
-                    badgeText = "v2.4.0",
-                    onClick = { activeModal = "ABOUT" }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "本机共 $booksCount 部作品 · 数据只留在这台设备",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.outline,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 28.dp)
-            )
-        }
-    }
-
-    // Theme Picker
-    if (activeModal == "THEME") {
-        AlertDialog(
-            onDismissRequest = { activeModal = null },
-            title = { Text("主题", fontWeight = FontWeight.Bold, maxLines = 1) },
-            text = {
-                Column {
-                    ThemeMode.entries.forEach { mode ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setThemeMode(mode)
-                                    activeModal = null
-                                }
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = uiState.themeMode == mode,
-                                onClick = {
-                                    viewModel.setThemeMode(mode)
-                                    activeModal = null
-                                }
-                            )
-                            Text(mode.label, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { activeModal = null }) { Text("关闭", maxLines = 1, softWrap = false) }
-            }
-        )
-    }
-
-    // Repositories Management Dialog (在文件管理器中直接选择目录，绝无手动填写)
-    if (activeModal == "REPOS") {
-        AlertDialog(
-            onDismissRequest = { activeModal = null },
-            title = { Text("书库目录 (${repositories.size})", fontWeight = FontWeight.Bold, maxLines = 1) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (repositories.isEmpty()) {
-                        Text(
-                            text = "暂无已挂载的书库目录。点击下方按钮直接在系统文件管理器中选取。",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        repositories.forEach { repo ->
-                            Surface(
-                                shape = MaterialTheme.shapes.medium,
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(repo.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-                                        Text(repo.pathUri, style = MaterialTheme.typography.labelSmall, fontFamily = RobotoMonoFontFamily, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                    IconButton(onClick = { viewModel.deleteRepository(repo.id) }) {
-                                        Icon(Icons.Default.DeleteOutline, contentDescription = "删除目录", tint = MaterialTheme.colorScheme.error)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        activeModal = null
-                        // 直接启动系统文件管理器选取目录
-                        viewModel.addRepositoryAndScan("本地书库", com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE)
-                    }
-                ) {
-                    Text("选择目录", maxLines = 1, softWrap = false)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { activeModal = null }) { Text("关闭", maxLines = 1, softWrap = false) }
-            }
-        )
-    }
-
-    // Dedicated Comic Default Settings Modal
-    if (activeModal == "COMIC_PREFS") {
-        AlertDialog(
-            onDismissRequest = { activeModal = null },
-            title = { Text("漫画默认阅读设置", fontWeight = FontWeight.Bold, maxLines = 1) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("默认翻页方向", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        ReaderLayoutMode.entries.forEach { mode ->
-                            val selected = uiState.readerLayoutMode == mode
-                            Surface(
-                                onClick = { viewModel.setReaderLayoutMode(mode) },
-                                shape = MaterialTheme.shapes.small,
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    text = mode.shortBadge,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Text("画面缩放模式", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        listOf("适合屏幕", "原始比例").forEach { fit ->
-                            val selected = uiState.fitModeLabel == fit
-                            Surface(
-                                onClick = { viewModel.setFitModeLabel(fit) },
-                                shape = MaterialTheme.shapes.small,
-                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    text = fit,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(vertical = 8.dp)
-                                )
-                            }
-                        }
-                    }
-
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("双页跨页智能拼接", style = MaterialTheme.typography.bodyMedium)
-                        Switch(
-                            checked = uiState.smartSpreadStitch,
-                            onCheckedChange = { viewModel.setSmartSpreadStitch(it) }
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = { activeModal = null }) {
-                    Text("完成", maxLines = 1, softWrap = false)
-                }
-            }
-        )
-    }
-
-
-    // Shelf Manager Modal
-    if (activeModal == "SHELF_MGR") {
-        AlertDialog(
-            onDismissRequest = { activeModal = null },
-            title = { Text("书架管理", fontWeight = FontWeight.Bold, maxLines = 1) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "书架用于整理与聚合不同来源的漫画。可直接在首页或详情页快速入架。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Button(
-                        onClick = {
-                            activeModal = null
-                            viewModel.createCustomShelf("新书架", "自定义收藏", false)
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("新建自定义书架", maxLines = 1, softWrap = false)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { activeModal = null }) {
-                    Text("完成", maxLines = 1, softWrap = false)
-                }
-            }
-        )
-    }
-
-    // Tag Manager Modal
-    if (activeModal == "TAG_MGR") {
-        AlertDialog(
-            onDismissRequest = { activeModal = null },
-            title = { Text("标签管理", fontWeight = FontWeight.Bold, maxLines = 1) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "标签来自作品详情的「编辑信息」，检索筛选会直接使用这些标签。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Button(
-                        onClick = {
-                            activeModal = null
-                            viewModel.openSearch(openFilterInitially = false, initialQuery = "", initialScope = "全部")
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("前往标签检索", maxLines = 1, softWrap = false)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { activeModal = null }) {
-                    Text("完成", maxLines = 1, softWrap = false)
-                }
-            }
-        )
-    }
-
-    // About Modal
-    if (activeModal == "ABOUT") {
-        AlertDialog(
-            onDismissRequest = { activeModal = null },
-            title = {
-                Text(
-                    text = "Aster Reader",
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-            },
-            text = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    BotanicalGrimoireIllustration(modifier = Modifier.size(110.dp))
-                    Text(
-                        text = "Aster Reader v2.4.0\n轻量、安全、纯粹的本地漫画阅读器",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = { activeModal = null }) {
-                    Text("确定", maxLines = 1, softWrap = false)
-                }
-            }
-        )
     }
 }

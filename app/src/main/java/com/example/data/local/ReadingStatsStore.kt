@@ -3,6 +3,8 @@ package com.example.data.local
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -28,14 +30,17 @@ class ReadingStatsStore(context: Context) {
     data class DailyMinutes(val day: LocalDate, val minutes: Int)
 
     suspend fun record(minutes: Double) = withContext(Dispatchers.IO) {
-        if (minutes <= 0.0 || minutes > 24 * 60) return@withContext
+        if (!minutes.isFinite() || minutes <= 0.0 || minutes > 24 * 60) return@withContext
+        mutationMutex.withLock {
         val today = LocalDate.now()
         val key = today.format(STORAGE_DATE)
         val current = preferences.getFloat(key, 0f)
         // 分钟按整分累加，避免每次进出都写小数
         val updated = current + minutes.toFloat()
-        check(preferences.edit().putFloat(key, updated).commit()) { "无法保存阅读统计" }
+        val total = preferences.getFloat("lifetime_minutes", preferences.all.values.filterIsInstance<Float>().sum())
+        check(preferences.edit().putFloat(key, updated).putFloat("lifetime_minutes", total + minutes.toFloat()).commit()) { "无法保存阅读统计" }
         prune(today)
+        }
     }
 
     suspend fun read(): Summary = withContext(Dispatchers.IO) {
@@ -57,7 +62,7 @@ class ReadingStatsStore(context: Context) {
         Summary(
             todayMinutes = todayMinutes.toInt(),
             weekMinutes = week.toInt(),
-            totalMinutes = total.toInt(),
+            totalMinutes = preferences.getFloat("lifetime_minutes", total.toFloat()).toInt(),
             daily = (0..6).map { offset ->
                 val day = weekStart.plusDays(offset.toLong())
                 DailyMinutes(day, perDay[day] ?: 0)
@@ -80,6 +85,7 @@ class ReadingStatsStore(context: Context) {
     }
 
     private companion object {
+        val mutationMutex = Mutex()
         val STORAGE_DATE: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
         fun formatDuration(minutes: Int): String = when {

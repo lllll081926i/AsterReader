@@ -48,6 +48,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +72,7 @@ import com.example.ui.AsterViewModel
 import com.example.ui.theme.LocalAsterColors
 import com.example.ui.theme.LoraFontFamily
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** 从 Compose 的 Context 里找到宿主 Activity（系统生物识别需要 Activity 句柄）。 */
 private fun Context.findActivity(): Activity? {
@@ -147,6 +149,8 @@ fun AppLockScreen(
     var shakeToken by remember { mutableIntStateOf(0) }
     var remainingSeconds by remember { mutableLongStateOf(viewModel.pinLockRemainingSeconds()) }
     var autoPrompted by remember { mutableStateOf(false) }
+    var checkingPin by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val availability = remember(context) { SystemBiometrics.availability(context) }
     val biometricReady = uiState.biometricUnlockEnabled && availability == SystemBiometrics.Availability.READY
@@ -186,15 +190,20 @@ fun AppLockScreen(
             error = "请 $remainingSeconds 秒后重试"
         } else if (pin.isEmpty()) {
             error = "请输入 PIN 码"
-        } else {
+        } else if (!checkingPin) {
+            checkingPin = true
             viewModel.beginUnlockAttempt()
-            if (viewModel.unlockWithPin(pin)) {
-                error = null
-            } else {
-                viewModel.cancelUnlockAttempt()
-                error = if (viewModel.pinLockRemainingSeconds() > 0) "尝试次数过多，请稍后重试" else "PIN 码不正确"
-                shakeToken++
-                pin = ""
+            scope.launch {
+                try {
+                    if (viewModel.unlockWithPin(pin)) {
+                        error = null
+                    } else {
+                        viewModel.cancelUnlockAttempt()
+                        error = if (viewModel.pinLockRemainingSeconds() > 0) "尝试次数过多，请稍后重试" else "PIN 码不正确"
+                        shakeToken++
+                        pin = ""
+                    }
+                } finally { checkingPin = false }
             }
         }
     }
@@ -282,7 +291,7 @@ fun AppLockScreen(
             Spacer(Modifier.height(14.dp))
 
             PinKeypad(
-                enabled = remainingSeconds == 0L,
+                enabled = remainingSeconds == 0L && !checkingPin,
                 keySize = 66.dp,
                 onDigit = { digit ->
                     if (pin.length < 8) pin += digit
@@ -303,7 +312,7 @@ fun AppLockScreen(
             Spacer(Modifier.height(20.dp))
             Button(
                 onClick = submitPin,
-                enabled = remainingSeconds == 0L,
+                enabled = remainingSeconds == 0L && !checkingPin,
                 shape = CircleShape,
                 modifier = Modifier
                     .widthIn(max = 300.dp)
@@ -318,14 +327,6 @@ fun AppLockScreen(
                 )
             }
 
-            Spacer(Modifier.height(14.dp))
-            Text(
-                text = if (biometricReady) "也可以点左下角的指纹键使用系统验证" else "PIN 码只保存在本机",
-                style = MaterialTheme.typography.labelSmall,
-                color = colorScheme.outline,
-                textAlign = TextAlign.Center,
-                maxLines = 1
-            )
         }
     }
 }
@@ -345,6 +346,15 @@ fun SystemSecurityAuthPromptSheet(
     var shakeToken by remember { mutableIntStateOf(0) }
     val reduceMotion = LocalAsterReduceMotion.current
     val sheetState by viewModel.uiState.collectAsStateWithLifecycle()
+    var checkingPin by remember { mutableStateOf(false) }
+    var remainingSeconds by remember { mutableLongStateOf(viewModel.pinLockRemainingSeconds()) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(sheetState.pinLockedUntilMs) {
+        do {
+            remainingSeconds = viewModel.pinLockRemainingSeconds()
+            if (remainingSeconds > 0) delay(1000)
+        } while (remainingSeconds > 0)
+    }
 
     val availability = remember(context) { SystemBiometrics.availability(context) }
     val biometricReady = sheetState.biometricUnlockEnabled &&
@@ -383,7 +393,6 @@ fun SystemSecurityAuthPromptSheet(
             Text(
                 text = "验证身份",
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontFamily = LoraFontFamily,
                     fontWeight = FontWeight.SemiBold
                 ),
                 color = colorScheme.onSurface
@@ -400,7 +409,7 @@ fun SystemSecurityAuthPromptSheet(
             PinErrorShake(shakeToken, reduceMotion) { PinDots(pin.length) }
             Box(Modifier.height(20.dp).padding(top = 2.dp), contentAlignment = Alignment.Center) {
                 Text(
-                    text = error ?: "",
+                    text = if (remainingSeconds > 0) "请 $remainingSeconds 秒后重试" else error ?: "",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (error != null) colorScheme.error else colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -410,7 +419,7 @@ fun SystemSecurityAuthPromptSheet(
             Spacer(Modifier.height(10.dp))
 
             PinKeypad(
-                enabled = true,
+                enabled = remainingSeconds == 0L && !checkingPin,
                 keySize = 52.dp,
                 onDigit = { digit -> if (pin.length < 8) pin += digit; error = null },
                 onDelete = { if (pin.isNotEmpty()) pin = pin.dropLast(1); error = null },
@@ -424,14 +433,20 @@ fun SystemSecurityAuthPromptSheet(
                 TextButton(onClick = onDismiss) { Text("取消") }
                 FilledTonalButton(
                     onClick = {
+                        checkingPin = true
                         viewModel.beginUnlockAttempt()
-                        if (!viewModel.unlockWithPin(pin)) {
-                            viewModel.cancelUnlockAttempt()
-                            error = "PIN 码不正确"
-                            shakeToken++
-                            pin = ""
+                        scope.launch {
+                            try {
+                                if (!viewModel.unlockWithPin(pin)) {
+                                    viewModel.cancelUnlockAttempt()
+                                    error = "PIN 码不正确"
+                                    shakeToken++
+                                    pin = ""
+                                }
+                            } finally { checkingPin = false }
                         }
                     },
+                    enabled = pin.isNotEmpty() && remainingSeconds == 0L && !checkingPin,
                     shape = CircleShape
                 ) { Text("解锁") }
             }

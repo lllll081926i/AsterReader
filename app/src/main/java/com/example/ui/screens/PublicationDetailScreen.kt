@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.layout.heightIn
+
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -105,8 +107,13 @@ fun PublicationDetailScreen(
     isExpandedTablet: Boolean,
     viewModel: AsterViewModel,
     onBack: () -> Unit,
-    onStartReading: (Int?) -> Unit
+    onStartReading: (Int?) -> Unit,
+    section: String? = null
 ) {
+    if (section != null) {
+        PublicationPropertiesScreen(book, section, viewModel, onBack)
+        return
+    }
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
 
@@ -122,29 +129,21 @@ fun PublicationDetailScreen(
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showFullTocSheet by remember { mutableStateOf(false) }
     var showAnnotationsSheet by remember { mutableStateOf(false) }
-    var showQuickReaderSettingsSheet by remember { mutableStateOf(false) }
-    var showMetadataEditorDialog by remember { mutableStateOf(false) }
-    var showFileInfoDialog by remember { mutableStateOf(false) }
-    var showCoverPicker by remember { mutableStateOf(false) }
-    var showSeriesDialog by remember { mutableStateOf(false) }
-    var coverPageInput by remember(book.id) { mutableStateOf(book.coverPage.toString()) }
-    var seriesInput by remember(book.id) { mutableStateOf(book.series) }
-    var seriesOrderInput by remember(book.id) { mutableStateOf(book.seriesOrder.toString()) }
+    val openSection: (String) -> Unit = { viewModel.pushSubScreen(com.example.ui.SubScreen.PublicationDetail(book.id, it)) }
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(colorScheme.surface)
             .statusBarsPadding()
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Top App Bar - 压缩高度至 44dp，返回按钮靠最左侧
+        Column(modifier = Modifier.weight(1f)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 920.dp)
                     .align(Alignment.CenterHorizontally)
-                    .height(44.dp)
+                    .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight)
                     .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -163,11 +162,11 @@ fun PublicationDetailScreen(
 
                 Text(
                     text = book.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
+                    modifier = Modifier.weight(1f)
                 )
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -202,7 +201,7 @@ fun PublicationDetailScreen(
                                 text = { Text("编辑信息", maxLines = 1, softWrap = false) },
                                 onClick = {
                                     showOverflowMenu = false
-                                    showMetadataEditorDialog = true
+                                    openSection("metadata")
                                 }
                             )
                             DropdownMenuItem(
@@ -210,7 +209,7 @@ fun PublicationDetailScreen(
                                 text = { Text("文件属性", maxLines = 1, softWrap = false) },
                                 onClick = {
                                     showOverflowMenu = false
-                                    showFileInfoDialog = true
+                                    openSection("file")
                                 }
                             )
                             DropdownMenuItem(
@@ -218,7 +217,7 @@ fun PublicationDetailScreen(
                                 text = { Text("选择封面页", maxLines = 1, softWrap = false) },
                                 onClick = {
                                     showOverflowMenu = false
-                                    showCoverPicker = true
+                                    openSection("cover")
                                 }
                             )
                             DropdownMenuItem(
@@ -226,7 +225,7 @@ fun PublicationDetailScreen(
                                 text = { Text("系列与卷序", maxLines = 1, softWrap = false) },
                                 onClick = {
                                     showOverflowMenu = false
-                                    showSeriesDialog = true
+                                    openSection("series")
                                 }
                             )
                             if (book.sourceStatus == "MISSING") {
@@ -266,17 +265,18 @@ fun PublicationDetailScreen(
             // Main Scrollable Canvas
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = if (isExpandedTablet) 32.dp else 16.dp)
-                    .padding(bottom = 160.dp),
+                    .padding(bottom = com.asterreader.core.designsystem.AsterLayout.BottomSpacing),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .widthIn(max = 880.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // 来源失联提示：保留阅读记录，可重新定位
                     if (book.sourceStatus == "MISSING") {
@@ -327,7 +327,7 @@ fun PublicationDetailScreen(
                         ) {
                             DetailCoverCard(
                                 book = book,
-                                modifier = Modifier.width(160.dp)
+                                modifier = Modifier.width(144.dp)
                             )
                             DetailMetadataColumn(
                                 book = book,
@@ -454,6 +454,7 @@ fun PublicationDetailScreen(
                                         modifier = Modifier
                                             .clip(CircleShape)
                                             .clickable { showFullTocSheet = true }
+                                            .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                             .padding(horizontal = 8.dp, vertical = 4.dp)
                                             .testTag("open_full_toc_btn"),
                                         verticalAlignment = Alignment.CenterVertically
@@ -501,6 +502,7 @@ fun PublicationDetailScreen(
                                             Text(
                                                 text = book.title,
                                                 style = MaterialTheme.typography.bodyMedium,
+                                                modifier = Modifier.weight(1f),
                                                 fontWeight = FontWeight.Medium,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
@@ -612,10 +614,9 @@ fun PublicationDetailScreen(
         // ====================================================================
         Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(bottom = 16.dp, start = 16.dp, end = 16.dp),
+                .padding(bottom = 8.dp, top = 4.dp, start = 16.dp, end = 16.dp),
             contentAlignment = Alignment.Center
         ) {
             Surface(
@@ -635,10 +636,10 @@ fun PublicationDetailScreen(
                 ) {
                     // Top Row inside Dock: Merged Reading Progress Info & LinearProgressIndicator
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(
+                        FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -692,13 +693,13 @@ fun PublicationDetailScreen(
                             shadowElevation = 4.dp,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp)
+                                .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                 .clip(CircleShape)
                                 .clickable { onStartReading(book.currentPage) }
                                 .testTag("detail_start_reading_cta")
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
@@ -912,254 +913,6 @@ fun PublicationDetailScreen(
         }
     }
 
-    // Quick Reader Preferences Sheet from Island [设置] (Separated by Comic vs E-Book)
-    if (showQuickReaderSettingsSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showQuickReaderSettingsSheet = false },
-            containerColor = asterColors.surfaceBright
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Text(
-                    text = "漫画阅读设置",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    maxLines = 1,
-                    softWrap = false
-                )
-
-
-                    Text("翻页方向", style = MaterialTheme.typography.labelLarge, color = colorScheme.primary)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ReaderLayoutMode.entries.forEach { mode ->
-                            val selected = uiState.readerLayoutMode == mode
-                            Surface(
-                                shape = MaterialTheme.shapes.medium,
-                                color = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainer,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(MaterialTheme.shapes.medium)
-                                    .clickable { viewModel.setReaderLayoutMode(mode) }
-                            ) {
-                                Text(
-                                    text = mode.shortBadge,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (selected) colorScheme.onSecondaryContainer else colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(vertical = 10.dp),
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            }
-                        }
-                    }
-
-                    Text("画面缩放", style = MaterialTheme.typography.labelLarge, color = colorScheme.primary)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("适合屏幕", "原始比例").forEach { fit ->
-                            val selected = uiState.fitModeLabel == fit
-                            Surface(
-                                shape = MaterialTheme.shapes.medium,
-                                color = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainer,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(MaterialTheme.shapes.medium)
-                                    .clickable { viewModel.setFitModeLabel(fit) }
-                            ) {
-                                Text(
-                                    text = fit,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (selected) colorScheme.onSecondaryContainer else colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(vertical = 10.dp),
-                                    textAlign = TextAlign.Center,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                            }
-                        }
-                    }
-
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-        }
-    }
-
-    // Metadata Editor Dialog
-    if (showMetadataEditorDialog) {
-        var titleInput by remember { mutableStateOf(book.title) }
-        var authorInput by remember { mutableStateOf(book.author) }
-        var seriesInput by remember { mutableStateOf(book.series) }
-        var synopsisInput by remember { mutableStateOf(book.synopsis) }
-        var tagsInput by remember { mutableStateOf(book.tagsCsv) }
-
-        AlertDialog(
-            onDismissRequest = { showMetadataEditorDialog = false },
-            title = { Text("编辑作品信息", maxLines = 1) },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = titleInput,
-                        onValueChange = { titleInput = it },
-                        label = { Text("标题") },
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = authorInput,
-                        onValueChange = { authorInput = it },
-                        label = { Text("作者") },
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = seriesInput,
-                        onValueChange = { seriesInput = it },
-                        label = { Text("系列") },
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = tagsInput,
-                        onValueChange = { tagsInput = it },
-                        label = { Text("标签") },
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = synopsisInput,
-                        onValueChange = { synopsisInput = it },
-                        label = { Text("简介") },
-                        maxLines = 4
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.updateBookMetadata(
-                            bookId = book.id,
-                            newTitle = titleInput,
-                            newAuthor = authorInput,
-                            newSeries = seriesInput,
-                            newSynopsis = synopsisInput,
-                            newTagsCsv = tagsInput
-                        )
-                        showMetadataEditorDialog = false
-                    }
-                ) {
-                    Text("保存", maxLines = 1, softWrap = false)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showMetadataEditorDialog = false }) {
-                    Text("取消", maxLines = 1, softWrap = false)
-                }
-            }
-        )
-    }
-
-    // File Attributes Dialog
-    if (showFileInfoDialog) {
-        AlertDialog(
-            onDismissRequest = { showFileInfoDialog = false },
-            title = { Text("文件属性", maxLines = 1) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("名称：${book.title}", style = MaterialTheme.typography.bodyMedium)
-                    Text("大小：${book.fileSizeText} (${book.totalPages} 页)", style = MaterialTheme.typography.bodyMedium)
-                    Text("目录：${book.repositoryName}", style = MaterialTheme.typography.bodyMedium)
-                    Text("路径：${book.filePath}", style = MaterialTheme.typography.bodySmall, color = colorScheme.onSurfaceVariant)
-                    Text(
-                        text = when (book.sourceStatus) {
-                            "MISSING" -> "状态：来源已失联"
-                            else -> "状态：来源可读"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.primary
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showFileInfoDialog = false }) {
-                    Text("关闭", maxLines = 1, softWrap = false)
-                }
-            }
-        )
-    }
-
-    // 选择封面页
-    if (showCoverPicker) {
-        AlertDialog(
-            onDismissRequest = { showCoverPicker = false },
-            title = { Text("封面页", maxLines = 1) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("输入页码（1 - ${book.totalPages}），将从该页重新生成缩略图。", style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(
-                        value = coverPageInput,
-                        onValueChange = { coverPageInput = it.filter(Char::isDigit).take(6) },
-                        label = { Text("页码") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    val page = coverPageInput.toIntOrNull()
-                    if (page != null) viewModel.setCoverPage(book.id, page)
-                    showCoverPicker = false
-                }) { Text("生成封面", maxLines = 1, softWrap = false) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showCoverPicker = false }) { Text("取消", maxLines = 1, softWrap = false) }
-            }
-        )
-    }
-
-    // 系列与卷序
-    if (showSeriesDialog) {
-        AlertDialog(
-            onDismissRequest = { showSeriesDialog = false },
-            title = { Text("系列与卷序", maxLines = 1) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = seriesInput,
-                        onValueChange = { seriesInput = it },
-                        label = { Text("系列名称") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = seriesOrderInput,
-                        onValueChange = { seriesOrderInput = it.filter(Char::isDigit).take(4) },
-                        label = { Text("卷序") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    viewModel.moveSeriesOrder(book.id, seriesInput, seriesOrderInput.toIntOrNull() ?: 0)
-                    showSeriesDialog = false
-                }) { Text("保存", maxLines = 1, softWrap = false) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSeriesDialog = false }) { Text("取消", maxLines = 1, softWrap = false) }
-            }
-        )
-    }
 }
 
 @Composable
@@ -1230,16 +983,18 @@ private fun DetailMetadataColumn(
 
             Text(
                 text = book.title,
-                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = colorScheme.onSurface
             )
-            Text(
-                text = book.author,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (book.author.isNotBlank()) {
+                Text(
+                    text = book.author,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
         FlowRow(
@@ -1411,7 +1166,7 @@ private fun DetailIslandSecondaryButton(
     val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
-            .height(40.dp)
+            .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
             .clip(CircleShape)
             .clickable { onClick() }
             .padding(horizontal = 10.dp),

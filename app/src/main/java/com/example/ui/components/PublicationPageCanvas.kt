@@ -52,6 +52,11 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.onClick
+import com.asterreader.core.designsystem.LocalAsterReduceMotion
+import com.asterreader.core.designsystem.AsterMotion
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -80,6 +85,7 @@ fun PublicationPageCanvas(
     mode: ReaderLayoutMode,
     expanded: Boolean,
     coverSingle: Boolean = true,
+    rightToLeft: Boolean = mode == ReaderLayoutMode.RTL_PAGER,
     fitMode: String = "适合屏幕",
     initialScale: Float = 1f,
     initialPanX: Float = 0f,
@@ -94,7 +100,10 @@ fun PublicationPageCanvas(
     onPrevPage: () -> Unit = {},
     onToggleChrome: () -> Unit
 ) {
-    var zoomScale by remember(publicationId) { mutableFloatStateOf(initialScale.coerceIn(1f, 4.5f)) }
+    val reduceMotion = LocalAsterReduceMotion.current
+    var zoomScale by remember(publicationId, page) { mutableFloatStateOf(initialScale.coerceIn(1f, 4f)) }
+    var panX by remember(publicationId, page) { mutableFloatStateOf(initialPanX) }
+    var panY by remember(publicationId, page) { mutableFloatStateOf(initialPanY) }
 
     // 相邻页预热：翻页之前就把下一/上一页读进缓存，消除翻页转圈
     LaunchedEffect(publicationId, page, totalPages) {
@@ -126,14 +135,15 @@ fun PublicationPageCanvas(
             if (page != lastReported) {
                 programmaticScroll = true
                 try {
-                    list.animateScrollToItem((page - 1).coerceIn(0, totalPages - 1))
+                    if (reduceMotion) list.scrollToItem((page - 1).coerceIn(0, totalPages - 1))
+                    else list.animateScrollToItem((page - 1).coerceIn(0, totalPages - 1))
                 } finally {
                     lastReported = page
                     programmaticScroll = false
                 }
             }
         }
-        LaunchedEffect(list, zoomScale) {
+        LaunchedEffect(list, zoomScale, panX, panY) {
             snapshotFlow {
                 val visible = list.layoutInfo.visibleItemsInfo.firstOrNull()
                 Triple(list.firstVisibleItemIndex, list.firstVisibleItemScrollOffset, visible?.size ?: 0)
@@ -145,7 +155,7 @@ fun PublicationPageCanvas(
                     lastReported = actualPage
                     val fraction = if (size > 0) (offset.toFloat() / size).coerceIn(0f, 0.999f) else 0f
                     onPageChanged(actualPage)
-                    onViewportChanged(actualPage, fraction, zoomScale, 0f, 0f)
+                    onViewportChanged(actualPage, fraction, zoomScale, panX, panY)
                 }
         }
         LazyColumn(
@@ -172,13 +182,13 @@ fun PublicationPageCanvas(
                     startScale = if (index == page - 1) initialScale else 1f,
                     startPanX = if (index == page - 1) initialPanX else 0f,
                     startPanY = if (index == page - 1) initialPanY else 0f,
-                    onZoomChanged = { scale -> if (scale != zoomScale) zoomScale = scale }
+                    onZoomChanged = { scale, x, y -> if (index + 1 == page) { zoomScale = scale; panX = x; panY = y } }
                 )
             }
         }
     } else {
         val spreads = remember(totalPages, mode, expanded, coverSingle) {
-            ComicSpreads(totalPages, mode == ReaderLayoutMode.DUAL_PAGE && expanded, coverSingle)
+            ComicSpreads(totalPages, mode == ReaderLayoutMode.DUAL_PAGE, coverSingle)
         }
         val pager = androidx.compose.runtime.key(spreads) {
             rememberPagerState(initialPage = spreads.indexOf(page), pageCount = { spreads.count })
@@ -188,23 +198,23 @@ fun PublicationPageCanvas(
         LaunchedEffect(page, spreads) {
             if (page != lastReported) pager.scrollToPage(spreads.indexOf(page))
         }
-        LaunchedEffect(pager, spreads, zoomScale) {
+        LaunchedEffect(pager, spreads, zoomScale, panX, panY) {
             snapshotFlow { pager.settledPage }.distinctUntilChanged().collect {
                 val actualPage = spreads.firstPage(it)
                 lastReported = actualPage
                 onPageChanged(actualPage)
-                onViewportChanged(actualPage, 0f, zoomScale, 0f, 0f)
+                onViewportChanged(actualPage, 0f, zoomScale, panX, panY)
             }
         }
         HorizontalPager(
             state = pager,
             userScrollEnabled = zoomScale <= 1.01f,
-            reverseLayout = mode == ReaderLayoutMode.RTL_PAGER,
+            reverseLayout = rightToLeft,
             beyondViewportPageCount = 1,
             modifier = Modifier.fillMaxSize()
         ) { index ->
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                for (number in spreads.pages(index)) {
+                for (number in spreads.pages(index).let { if (rightToLeft) it.reversed() else it }) {
                     if (number <= totalPages) {
                         DocumentPage(
                             publicationId = publicationId,
@@ -215,7 +225,8 @@ fun PublicationPageCanvas(
                             onNext = {
                                 scope.launch {
                                     if (pager.currentPage < pager.pageCount - 1) {
-                                        pager.animateScrollToPage(pager.currentPage + 1)
+                                        if (reduceMotion) pager.scrollToPage(pager.currentPage + 1)
+                                        else pager.animateScrollToPage(pager.currentPage + 1)
                                     } else {
                                         onNextPage()
                                     }
@@ -224,7 +235,8 @@ fun PublicationPageCanvas(
                             onPrev = {
                                 scope.launch {
                                     if (pager.currentPage > 0) {
-                                        pager.animateScrollToPage(pager.currentPage - 1)
+                                        if (reduceMotion) pager.scrollToPage(pager.currentPage - 1)
+                                        else pager.animateScrollToPage(pager.currentPage - 1)
                                     } else {
                                         onPrevPage()
                                     }
@@ -239,7 +251,7 @@ fun PublicationPageCanvas(
                             startScale = if (number == page) initialScale else 1f,
                             startPanX = if (number == page) initialPanX else 0f,
                             startPanY = if (number == page) initialPanY else 0f,
-                            onZoomChanged = { scale -> zoomScale = scale }
+                            onZoomChanged = { scale, x, y -> if (number == page) { zoomScale = scale; panX = x; panY = y } }
                         )
                     }
                 }
@@ -266,11 +278,17 @@ private fun DocumentPage(
     startScale: Float,
     startPanX: Float,
     startPanY: Float,
-    onZoomChanged: (Float) -> Unit
+    onZoomChanged: (Float, Float, Float) -> Unit
 ) {
-    var scale by remember(publicationId, page, resetToken) { mutableFloatStateOf(startScale.coerceIn(1f, 4.5f)) }
+    var scale by remember(publicationId, page, resetToken) { mutableFloatStateOf(startScale.coerceIn(1f, 4f)) }
     var translation by remember(publicationId, page, resetToken) { mutableStateOf(Offset.Zero) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
+    LaunchedEffect(scale, translation, viewport) {
+        val limitX = viewport.width * (scale - 1f) / 2f
+        val limitY = viewport.height * (scale - 1f) / 2f
+        onZoomChanged(scale, if (limitX > 0f) translation.x / limitX else 0f,
+            if (limitY > 0f) translation.y / limitY else 0f)
+    }
 
     // 缩放后的像素预算：放大越多，请求越高分辨率，避免位图被拉伸糊化
     val maxPixels = remember(scale, page) {
@@ -296,7 +314,7 @@ private fun DocumentPage(
                 val shouldHandle = pressedCount > 1 || scale > 1.01f
                 if (shouldHandle && (zoomChange != 1f || panChange != Offset.Zero)) {
                     if (viewport.width == 0 || viewport.height == 0) break
-                    val newScale = (scale * zoomChange).coerceIn(1f, 4.5f)
+                    val newScale = (scale * zoomChange).coerceIn(1f, 4f)
                     val factor = newScale / scale
                     val centroid = event.calculateCentroid(useCurrent = true)
                     val center = Offset(viewport.width / 2f, viewport.height / 2f)
@@ -308,7 +326,6 @@ private fun DocumentPage(
                     if (newScale != scale || next != translation) {
                         scale = newScale
                         translation = if (newScale <= 1.01f) Offset.Zero else next
-                        onZoomChanged(scale)
                     }
                     event.changes.forEach { if (it.positionChanged()) it.consume() }
                 }
@@ -346,7 +363,7 @@ private fun DocumentPage(
 
     // 换页时保留上一张位图作占位：预取命中缓存后几乎立刻替换，不再闪全屏转圈。
     // 只有超过 220ms 还没加载出来，才在角落补一个轻量指示器。
-    var shown by remember(publicationId) { mutableStateOf<Bitmap?>(null) }
+    var shown by remember(publicationId, page) { mutableStateOf<Bitmap?>(null) }
     var slowLoad by remember(publicationId, page) { mutableStateOf(false) }
     LaunchedEffect(publicationId, page) {
         slowLoad = false
@@ -354,12 +371,12 @@ private fun DocumentPage(
         slowLoad = true
     }
     val ready = result?.getOrNull()
-    LaunchedEffect(ready) { if (ready != null) shown = ready }
+    LaunchedEffect(ready) { shown = ready }
     val displayed = ready ?: shown
 
     val fade by animateFloatAsState(
         targetValue = if (displayed != null) 1f else 0f,
-        animationSpec = tween(if (displayed == null) 120 else 180),
+        animationSpec = AsterMotion.effectsSpec(LocalAsterReduceMotion.current),
         label = "page-fade"
     )
 
@@ -392,7 +409,6 @@ private fun DocumentPage(
                             val limitY = viewport.height * (scale - 1) / 2
                             translation = Offset(offsetX.coerceIn(-limitX, limitX), offsetY.coerceIn(-limitY, limitY))
                         }
-                        onZoomChanged(scale)
                     },
                     onTap = { tapOffset ->
                         val width = viewport.width.toFloat()
@@ -457,6 +473,13 @@ private fun DocumentPage(
                 Canvas(
                     modifier = layer.semantics {
                         contentDescription = "第 $page 页"
+                        onClick("显示或隐藏阅读工具") { onToggleChrome(); true }
+                        customActions = listOf(
+                            CustomAccessibilityAction("上一页") { onPrev(); true },
+                            CustomAccessibilityAction("下一页") { onNext(); true },
+                            CustomAccessibilityAction("放大") { scale = (scale + 0.5f).coerceAtMost(4f); true },
+                            CustomAccessibilityAction("缩小") { scale = (scale - 0.5f).coerceAtLeast(1f); translation = Offset.Zero; true }
+                        )
                     }
                 ) {
                     drawImage(
@@ -516,23 +539,30 @@ private fun rememberRegion(
     val rawTop = ((topPx - fitted.top) / fitted.height)
     val rawBottom = ((bottomPx - fitted.top) / fitted.height)
     val margin = (rawBottom - rawTop) * 0.5f
-    val bandTop = (rawTop - margin).coerceIn(0f, 0.999f)
+    val bandTop = (rawTop - margin).coerceIn(0f, 0.99f)
     val bandBottom = (rawBottom + margin).coerceIn(bandTop + 0.01f, 1f)
     if (bandBottom - bandTop > 0.92f) return null
 
     // 与 DocumentRenderSession 的 1/40 量化保持一致，避免同一视口反复解码
     val topKey = (bandTop * 40).roundToInt()
     val bottomKey = (bandBottom * 40).roundToInt()
-    val quantizedTop = (topKey / 40f).coerceIn(0f, 0.999f)
+    val quantizedTop = (topKey / 40f).coerceIn(0f, 0.975f)
     val quantizedBottom = (bottomKey / 40f).coerceIn(quantizedTop + 0.025f, 1f)
-    val state = produceState<DetailBand?>(null, page, zoom, topKey, bottomKey, box.width, box.height) {
+    val owner = LocalLifecycleOwner.current
+    val state = produceState<DetailBand?>(null, page, zoom, topKey, bottomKey, box.width, box.height, owner) {
+        owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+        try {
         delay(180)
         val height = ((quantizedBottom - quantizedTop) * fitted.height * zoom).roundToInt().coerceAtLeast(1)
         val pixels = (box.width * height * 1.6f).roundToInt().coerceIn(1_500_000, 12_000_000)
-        value = runCatching {
+        value = try {
             loadRegion(page, quantizedTop, quantizedBottom, pixels)
                 ?.let { DetailBand(it, quantizedTop, quantizedBottom) }
-        }.getOrNull()
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { null }
+        awaitCancellation()
+        } finally { value = null }
+        }
     }
     return state.value
 }

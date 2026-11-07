@@ -41,6 +41,7 @@ class AsterViewModelFeatureTest {
     fun setup() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         app.getSharedPreferences("reader_settings", 0).edit().clear().commit()
+        app.getSharedPreferences("pin_attempts", 0).edit().clear().commit()
         Dispatchers.setMain(UnconfinedTestDispatcher())
         viewModel = AsterViewModel(app)
         store.put("被测模型", viewModel)
@@ -58,6 +59,28 @@ class AsterViewModelFeatureTest {
         assertTrue(uiState.useDynamicColor) // 确保默认开启原生 Monet 动态取色
         assertTrue(uiState.subScreenStack.isEmpty())
         assertNull(uiState.activeSubScreen)
+    }
+
+    @Test fun pinCooldownSurvivesViewModelRecreation() = runBlocking {
+        viewModel.setCustomPin("4321")
+        withTimeout(5000) { viewModel.uiState.first { it.hasCustomPin } }
+        repeat(5) {
+            viewModel.beginUnlockAttempt()
+            assertFalse(viewModel.unlockWithPin("0000"))
+        }
+        assertTrue(viewModel.pinLockRemainingSeconds() > 0)
+        val recreated = AsterViewModel(ApplicationProvider.getApplicationContext<Application>())
+        store.put("重建模型", recreated)
+        withTimeout(5000) { recreated.uiState.first { it.settingsLoaded } }
+        assertTrue(recreated.pinLockRemainingSeconds() > 0)
+        recreated.beginUnlockAttempt()
+        assertFalse(recreated.unlockWithPin("4321"))
+    }
+
+    @Test fun pinCannotUnlockWithoutAnAuthenticationAttempt() = runBlocking {
+        viewModel.setCustomPin("4321")
+        withTimeout(5000) { viewModel.uiState.first { it.hasCustomPin } }
+        assertFalse(viewModel.unlockWithPin("4321"))
     }
 
     @Test
@@ -206,9 +229,10 @@ class AsterViewModelFeatureTest {
         assertEquals(count, dao.getBookCount())
 
         assertEquals("", viewModel.uiState.value.pinHash)
-        assertTrue(viewModel.verifyPin("1234"))
+        assertFalse(viewModel.verifyPin("1234"))
 
         viewModel.setCustomPin("4321")
+        withTimeout(5000) { viewModel.uiState.first { it.hasCustomPin } }
         assertTrue(viewModel.uiState.value.hasCustomPin)
         assertTrue(viewModel.verifyPin("4321"))
         assertFalse(viewModel.verifyPin("1234"))

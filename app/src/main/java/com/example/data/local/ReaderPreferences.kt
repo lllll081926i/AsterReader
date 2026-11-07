@@ -50,11 +50,6 @@ object PinCredentials {
         return try {
             SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
                 .generateSecret(spec).encoded
-        } catch (_: Throwable) {
-            // 极少数环境缺少 PBKDF2 实现时，仍保持「加盐 + 多次迭代」，绝不退回明文
-            var digest = sha256(salt + pin.trim().toByteArray())
-            repeat(6_000) { digest = sha256(digest + salt) }
-            digest
         } finally {
             spec.clearPassword()
         }

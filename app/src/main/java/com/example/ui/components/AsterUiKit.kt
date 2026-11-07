@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,6 +40,7 @@ import com.example.ui.theme.LocalAsterColors
  * 统一空状态：插画 + 标题 + 说明 + 主/次操作。
  * 书库、搜索、系列、统计等页面共用，避免各处「一行灰字」的敷衍感。
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AsterEmptyState(
     title: String,
@@ -56,17 +59,17 @@ fun AsterEmptyState(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = if (compact) 20.dp else 36.dp),
+            .padding(horizontal = 16.dp, vertical = if (compact) 12.dp else 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Surface(
             shape = CircleShape,
             color = asterColors.surfaceContainerLow,
-            modifier = Modifier.size(if (compact) 116.dp else 168.dp)
+            modifier = Modifier.size(if (compact) 88.dp else 120.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                TranquilDeskEmptyIllustration(size = if (compact) 92.dp else 138.dp)
+                TranquilDeskEmptyIllustration(size = if (compact) 72.dp else 100.dp)
             }
         }
         Spacer(Modifier.height(if (compact) 12.dp else 20.dp))
@@ -75,7 +78,7 @@ fun AsterEmptyState(
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
             color = colorScheme.onSurface,
             textAlign = TextAlign.Center,
-            maxLines = 1
+            maxLines = 2
         )
         Spacer(Modifier.height(6.dp))
         Text(
@@ -87,17 +90,18 @@ fun AsterEmptyState(
         )
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Button(onClick = onAction, shape = CircleShape) {
                     if (showActionIcon) {
                         Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.size(6.dp))
                     }
-                    Text(actionLabel, maxLines = 1, softWrap = false)
+                    Text(actionLabel)
                 }
                 if (secondaryLabel != null && onSecondaryAction != null) {
                     OutlinedButton(onClick = onSecondaryAction, shape = CircleShape) {
-                        Text(secondaryLabel, maxLines = 1, softWrap = false)
+                        Text(secondaryLabel)
                     }
                 }
             }
@@ -149,21 +153,20 @@ fun AsterSubScreenHeader(
     title: String,
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
-    subtitle: String? = null,
     trailing: (@Composable () -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 56.dp)
+            .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight)
             .padding(start = 4.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (onBack != null) {
             IconButton(
                 onClick = onBack,
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
@@ -191,16 +194,6 @@ fun AsterSubScreenHeader(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            if (!subtitle.isNullOrBlank()) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 1.dp)
-                )
-            }
         }
         trailing?.invoke()
     }

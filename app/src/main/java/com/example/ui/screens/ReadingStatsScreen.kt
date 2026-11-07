@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.example.ui.components.AsterSubScreenHeader
+
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -11,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -66,36 +69,16 @@ fun ReadingStatsScreen(
             .fillMaxSize()
             .statusBarsPadding()
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
-            }
-            Column(modifier = Modifier.padding(start = 4.dp)) {
-                Text(
-                    text = "阅读统计",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                    maxLines = 1
-                )
-                Text(
-                    text = "只记录在本机，不上传任何数据",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
-        }
+        AsterSubScreenHeader("阅读统计", onBack)
 
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // 今日焦点卡
             Surface(
@@ -214,7 +197,7 @@ fun ReadingStatsScreen(
                     )
                 }
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
@@ -260,7 +243,7 @@ private fun WeekBars(days: List<ReadingStatsStore.DailyMinutes>) {
         days.forEachIndexed { index, day ->
             val ratio by animateFloatAsState(
                 targetValue = (day.minutes.toFloat() / peak).coerceIn(0f, 1f),
-                animationSpec = tween(durationMillis = 420, delayMillis = index * 35),
+                animationSpec = com.asterreader.core.designsystem.AsterMotion.effectsSpec(com.asterreader.core.designsystem.LocalAsterReduceMotion.current),
                 label = "stats_bar_$index"
             )
             val barBrush = Brush.verticalGradient(
