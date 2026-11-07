@@ -32,7 +32,9 @@ core/vault          认证密文容器、口令派生与防猜测
 app                 系统集成、页面、ViewModel、仓库与渲染实现
 ```
 
-旧契约文件保存在 `starter-contracts/`，不属于当前运行模块。
+文档统一从 [文档索引](docs/README.md) 进入。实施路线位于 [planning/ROADMAP.md](planning/ROADMAP.md)，历史交付文档归入 `docs/history/` 和 `docs/archive/`。
+
+正式 LOGO 的原图、圆角版本、尺寸清单与生成脚本见 [品牌资源](assets/branding/README.md)。本机 Debug 密钥及旧上传密钥位于 `.local/signing/`，不纳入 Git；已有密钥必须保留，避免覆盖安装时证书变化。
 
 ## 构建
 
@@ -62,4 +64,4 @@ Release 构建读取 `KEYSTORE_PATH`、`STORE_PASSWORD` 和 `KEY_PASSWORD`，别
 - 修复与当前验证：`docs/41_FIX_PROGRESS_2026-11-07.md`
 - 页面实施矩阵：`planning/UI_SCREEN_TASK_MATRIX.csv`
 
-本项目使用 [MIT License](LICENSE)。
+第三方依赖许可在应用“关于 → 致谢”中查看。项目自身的许可授权以实际提供的许可文件为准。

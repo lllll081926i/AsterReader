@@ -1,0 +1,203 @@
+{
+  "source": "assets/branding/source/logo-original.png",
+  "source_sha256": "7750795ed1a233a7181b70d5f40d2fea641c80cc12eb1422feface4e61ae4086",
+  "source_size": [
+    1254,
+    1254
+  ],
+  "corner_radius_ratio": 0.22,
+  "files": [
+    {
+      "path": "assets/branding/exports/logo-transparent-1024.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "sha256": "948638495f9fa315bd1dd244ac3ab7a1c9e634aed13cfc5ef2130418204f5247"
+    },
+    {
+      "path": "assets/branding/exports/logo-rounded-48.png",
+      "size": [
+        48,
+        48
+      ],
+      "sha256": "ec15589fc9d2d96ac5c1edc61ceb83883c7b91fb7d65a8e5b23e6f060b286556"
+    },
+    {
+      "path": "assets/branding/exports/logo-rounded-64.png",
+      "size": [
+        64,
+        64
+      ],
+      "sha256": "b55dbc020c06bdc0b9f70ce6b1ecb9d8e5fe2f3d564f18975e7dd781c10225bb"
+    },
+    {
+      "path": "assets/branding/exports/logo-rounded-96.png",
+      "size": [
+        96,
+        96
+      ],
+      "sha256": "45034c80baae0b138b031166253ec8b8bc8f8d4e4cea2755cd83c2b732d810b8"
+    },
+    {
+      "path": "assets/branding/exports/logo-rounded-128.png",
+      "size": [
+        128,
+        128
+      ],
+      "sha256": "106ef0dae25d75485b23ee66ad2a9f63ca7fa4180d9a2d1a49d5f1bb7e8ee325"
+    },
+    {
+      "path": "assets/branding/exports/logo-rounded-192.png",
+      "size": [
+        192,
+        192
+      ],
+      "sha256": "134a560c961933559cf40832af3ad30a39a13aae803d0d03bf0c8ab5451cefb5"
+    },
+    {
+      "path": "assets/branding/exports/logo-rounded-256.png",
+      "size": [
+        256,
+        256
+      ],
+      "sha256": "98cd3ec821f120f56ed3913b478b52679993dbda88d6c19f85c91ad8c360d167"
+    },
+    {
+      "path": "assets/branding/exports/logo-rounded-512.png",
+      "size": [
+        512,
+        512
+      ],
+      "sha256": "0f94b2838cfa42d63ad88704238424aad6945dcfaf679dc190c658ce063f165f"
+    },
+    {
+      "path": "assets/branding/exports/logo-rounded-1024.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "sha256": "a338e196d0705805e95626f200d16020dc68caba70aa84e14b59fbd81a49ae2b"
+    },
+    {
+      "path": "assets/branding/exports/logo-square-512.png",
+      "size": [
+        512,
+        512
+      ],
+      "sha256": "7b135c63284ca4a9aaf03b625ec522039e7afe965698b614b5cdfc9e27cbb36a"
+    },
+    {
+      "path": "app/src/main/res/drawable-xxxhdpi/aster_launcher_foreground.png",
+      "size": [
+        432,
+        432
+      ],
+      "sha256": "f40d157122ead3c6edb5f05667e632b3279b70da07a8a879b61106ad1210a7fa"
+    },
+    {
+      "path": "app/src/main/res/drawable-xxxhdpi/aster_launcher_monochrome.png",
+      "size": [
+        432,
+        432
+      ],
+      "sha256": "74765cd4bf7ebeb6a5e654b6936b2afff739a224ead152f45bf37880c9975375"
+    },
+    {
+      "path": "app/src/main/res/drawable-nodpi/aster_logo.png",
+      "size": [
+        192,
+        192
+      ],
+      "sha256": "134a560c961933559cf40832af3ad30a39a13aae803d0d03bf0c8ab5451cefb5"
+    },
+    {
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "size": [
+        48,
+        48
+      ],
+      "sha256": "ec15589fc9d2d96ac5c1edc61ceb83883c7b91fb7d65a8e5b23e6f060b286556"
+    },
+    {
+      "path": "app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+      "size": [
+        48,
+        48
+      ],
+      "sha256": "8e8682794c041fa82170f95591edb5f3bad087e174ee89748a77747eabee6166"
+    },
+    {
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "size": [
+        72,
+        72
+      ],
+      "sha256": "81e876c8c38c4fd8d1956548017d3919be40f899cc6f419044c9ce9be13b9001"
+    },
+    {
+      "path": "app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+      "size": [
+        72,
+        72
+      ],
+      "sha256": "7925c6870afd317e2c90f6a5048900088e20bfca24389d34e9713c40f5c31e33"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "size": [
+        96,
+        96
+      ],
+      "sha256": "45034c80baae0b138b031166253ec8b8bc8f8d4e4cea2755cd83c2b732d810b8"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+      "size": [
+        96,
+        96
+      ],
+      "sha256": "4307c4d42e68f2ae35a9a6cd8418981058967c71e47a57f877ae3b13efcd07f7"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "size": [
+        144,
+        144
+      ],
+      "sha256": "d3d65155abcd3e614f2a1d43b5267d5be46e6f7bdf212d5ba25e804e56fc4249"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "size": [
+        144,
+        144
+      ],
+      "sha256": "daed82755eca53b0eea4ca1a3421191498244191dcbdf37419479aab4f911263"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "size": [
+        192,
+        192
+      ],
+      "sha256": "134a560c961933559cf40832af3ad30a39a13aae803d0d03bf0c8ab5451cefb5"
+    },
+    {
+      "path": "app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "size": [
+        192,
+        192
+      ],
+      "sha256": "e0e7e33b2cce764b43e4ed4e2ee75d8de4b4d7c56554dd97608f5236a03c23e2"
+    },
+    {
+      "path": "assets/branding/previews/overview.png",
+      "size": [
+        1000,
+        320
+      ],
+      "sha256": "ba4ab63c61d4ee930192bc01d4f14c8a187d990edd44a418ecd13d53c4474fca"
+    }
+  ]
+}

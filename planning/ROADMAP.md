@@ -10,9 +10,9 @@
 | M6 1.0 RC | Feature Freeze，只修质量 | Phase 8 |
 | M7 1.0 | 正式稳定版 | Release Gate |
 
-详细任务与 Exit Gate：`docs/28_FINAL_DEVELOPMENT_PLAN.md`。
+详细任务与 Exit Gate：[开发计划](../docs/28_FINAL_DEVELOPMENT_PLAN.md)。
 
 
 ## UI 实施路线增补（2026-11-04）
 
-UI-W0 DesignSystem/Monet/导航/预览 → UI-W1 首启/资料库/书架/导入/详情 → UI-W2 应用锁与真加密/保险库 → UI-W3 漫画 Reader → UI-W5 PDF → UI-W6 全局设置/自适应/无障碍/RC 质量。UI-W7 WebDAV 进入 1.x。完整规格见 `docs/36_COMPLETE_UI_UX_SPEC.md`，每一波出口均以真正可运行和验收为准，而非静态截图。
+UI-W0 DesignSystem/Monet/导航/预览 → UI-W1 首启/资料库/书架/导入/详情 → UI-W2 应用锁与真加密/保险库 → UI-W3 漫画 Reader → UI-W5 PDF → UI-W6 全局设置/自适应/无障碍/RC 质量。UI-W7 WebDAV 进入 1.x。完整规格见 [页面规范](../docs/36_COMPLETE_UI_UX_SPEC.md)，每一波出口均以真正可运行和验收为准，而非静态截图。

@@ -4,7 +4,7 @@
 
 ## 密钥与本地构建
 
-- 密钥位于 `%LOCALAPPDATA%/AsterReader/Signing/aster-reader-release.p12`，在仓库之外；原来的 `my-upload-key.jks` 保留，未覆盖或删除。
+- 密钥位于 `%LOCALAPPDATA%/AsterReader/Signing/aster-reader-release.p12`，在仓库之外；原来的 `my-upload-key.jks` 已归入 `.local/signing/`，完整保留，未覆盖或删除。原 Debug 密钥也归入该目录，Gradle 路径同步更新，证书不变。`.local/` 不纳入版本管理。
 - RSA 4096、SHA256withRSA、自签名证书有效期 10000 天、别名 `upload`。随机口令不写入源码、文档或日志。
 - 同目录 `release-signing.json` 的口令由 Windows 当前账户 DPAPI 加密。目录 ACL 仅当前账户和 SYSTEM。`release-certificate.cer` 是可公开证书，不含私钥。
 - 证书 SHA-256：`EB1F0D147AD3CA031A8E0E63245865D4AD4377C16061F3693A4FB45CA02B9B2A`。

@@ -35,4 +35,4 @@ Phase 8  1.0 Hardening / RC
 - M6 1.0 RC
 - M7 1.0
 
-详见根目录 `ROADMAP.md`。
+详见 [实施路线](../planning/ROADMAP.md)。

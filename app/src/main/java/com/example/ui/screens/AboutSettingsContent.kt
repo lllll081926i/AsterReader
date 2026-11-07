@@ -32,10 +32,7 @@ fun AboutSettingsContent(model: AsterViewModel, onOpenLicenses: () -> Unit) {
     AsterSettingsGroup {
         Row(Modifier.fillMaxWidth().padding(AsterLayout.PagePadding),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
-            Box(Modifier.size(AsterLayout.TouchTarget)) {
-                Image(painterResource(R.drawable.ic_launcher_background), null, Modifier.fillMaxSize())
-                Image(painterResource(R.drawable.ic_launcher_foreground), null, Modifier.fillMaxSize())
-            }
+            Image(painterResource(R.drawable.aster_logo), null, Modifier.size(AsterLayout.TouchTarget))
             Column(Modifier.weight(1f)) {
                 Text("Aster Reader", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface)
