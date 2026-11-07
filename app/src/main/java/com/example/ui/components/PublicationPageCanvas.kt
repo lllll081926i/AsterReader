@@ -70,6 +70,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+data class ReaderZoomCommand(val sequence: Int = 0, val delta: Float = 0f)
+
 /**
  * 漫画渲染画布：
  * 1. 条漫页内进度按「当前页 + 页内比例」上报，旋转/重建后可恢复；
@@ -91,7 +93,9 @@ fun PublicationPageCanvas(
     initialPanX: Float = 0f,
     initialPanY: Float = 0f,
     initialOffsetFraction: Float = 0f,
+    zoomCommand: ReaderZoomCommand = ReaderZoomCommand(),
     loadPage: suspend (Int, Int) -> Bitmap,
+    nativeSize: (Bitmap) -> Pair<Int, Int>? = { null },
     loadRegion: suspend (Int, Float, Float, Int) -> Bitmap? = { _, _, _, _ -> null },
     onPrefetch: (List<Int>) -> Unit = {},
     onPageChanged: (Int) -> Unit,
@@ -169,6 +173,7 @@ fun PublicationPageCanvas(
                     publicationId = publicationId,
                     page = index + 1,
                     load = loadPage,
+                    nativeSize = nativeSize,
                     loadRegion = loadRegion,
                     onToggleChrome = onToggleChrome,
                     onNext = onNextPage,
@@ -177,6 +182,8 @@ fun PublicationPageCanvas(
                         .fillMaxWidth()
                         .heightIn(min = 320.dp),
                     resetToken = page,
+                    zoomCommand = zoomCommand,
+                    active = index + 1 == page,
                     fitMode = fitMode,
                     vertical = true,
                     startScale = if (index == page - 1) initialScale else 1f,
@@ -220,6 +227,7 @@ fun PublicationPageCanvas(
                             publicationId = publicationId,
                             page = number,
                             load = loadPage,
+                            nativeSize = nativeSize,
                             loadRegion = loadRegion,
                             onToggleChrome = onToggleChrome,
                             onNext = {
@@ -246,6 +254,8 @@ fun PublicationPageCanvas(
                                 .weight(1f)
                                 .fillMaxSize(),
                             resetToken = page,
+                            zoomCommand = zoomCommand,
+                            active = number == page,
                             fitMode = fitMode,
                             vertical = false,
                             startScale = if (number == page) initialScale else 1f,
@@ -267,12 +277,15 @@ private fun DocumentPage(
     publicationId: String,
     page: Int,
     load: suspend (Int, Int) -> Bitmap,
+    nativeSize: (Bitmap) -> Pair<Int, Int>?,
     loadRegion: suspend (Int, Float, Float, Int) -> Bitmap?,
     onToggleChrome: () -> Unit,
     onNext: () -> Unit,
     onPrev: () -> Unit,
     modifier: Modifier,
     resetToken: Int,
+    zoomCommand: ReaderZoomCommand,
+    active: Boolean,
     fitMode: String,
     vertical: Boolean,
     startScale: Float,
@@ -283,6 +296,18 @@ private fun DocumentPage(
     var scale by remember(publicationId, page, resetToken) { mutableFloatStateOf(startScale.coerceIn(1f, 4f)) }
     var translation by remember(publicationId, page, resetToken) { mutableStateOf(Offset.Zero) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
+    var consumedZoom by remember(publicationId, page) { mutableIntStateOf(zoomCommand.sequence) }
+    LaunchedEffect(zoomCommand.sequence, active) {
+        if (consumedZoom != zoomCommand.sequence) {
+            consumedZoom = zoomCommand.sequence
+            if (active) {
+                scale = if (zoomCommand.delta == 0f) 1f else (scale + zoomCommand.delta).coerceIn(1f, 4f)
+                val limitX = viewport.width * (scale - 1f) / 2f
+                val limitY = viewport.height * (scale - 1f) / 2f
+                translation = Offset(translation.x.coerceIn(-limitX, limitX), translation.y.coerceIn(-limitY, limitY))
+            }
+        }
+    }
     LaunchedEffect(scale, translation, viewport) {
         val limitX = viewport.width * (scale - 1f) / 2f
         val limitY = viewport.height * (scale - 1f) / 2f
@@ -384,7 +409,9 @@ private fun DocumentPage(
     // 这样长图才会连续滚动，短图也不会被拉伸变形。
     val pageRatio = remember(ready) {
         val b = ready
-        if (b != null && b.width > 0 && b.height > 0) b.width.toFloat() / b.height else 0f
+        val original = b?.let(nativeSize)
+        if (original != null) original.first.toFloat() / original.second
+        else if (b != null && b.width > 0 && b.height > 0) b.width.toFloat() / b.height else 0f
     }
 
     Box(
@@ -437,7 +464,8 @@ private fun DocumentPage(
                 val bitmap = displayed!!
                 val box = viewport
                 val fitted = remember(box, bitmap.width, bitmap.height, vertical, fitMode) {
-                    fitRect(box, bitmap.width, bitmap.height, vertical, fitMode == "原始比例")
+                    val original = nativeSize(bitmap)
+                    fitRect(box, original?.first ?: bitmap.width, original?.second ?: bitmap.height, vertical, fitMode == "原始比例")
                 }
                 // 垂直滚动的 item 有 heightIn(min = 320.dp)：短图会被外层 Box 居中，
                 // 这里把绘制矩形同步下移，保证高清条带与整页位图严丝合缝。

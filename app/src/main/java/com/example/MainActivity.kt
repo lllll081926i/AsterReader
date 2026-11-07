@@ -203,6 +203,57 @@ fun AsterReaderAppRoot(
     val reduceMotion = LocalAsterReduceMotion.current
     val snackbar by viewModel.snackbar.collectAsStateWithLifecycle()
     val snackbarHost = remember { androidx.compose.material3.SnackbarHostState() }
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importLocalFileUri(uri)
+        }
+    }
+
+    val relocateLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        viewModel.relocateBookSource(uri)
+    }
+
+    val relocateFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        viewModel.relocateBookSource(uri)
+    }
+
+    LaunchedEffect(uiState.pendingRelocateBookId, uiState.pendingRelocateIsFolder) {
+        if (uiState.pendingRelocateBookId != null) {
+            try {
+                if (uiState.pendingRelocateIsFolder) relocateFolderLauncher.launch(null)
+                else relocateLauncher.launch(arrayOf("*/*"))
+            } catch (_: Exception) {
+                viewModel.relocateBookSource(null)
+                viewModel.showSnackbar("无法打开选择器")
+            }
+        }
+    }
+
+    val directoryPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
+        viewModel.onDirectorySelected(it)
+    }
+    LaunchedEffect(uiState.requestDirectoryPicker) {
+        if (uiState.requestDirectoryPicker) {
+            try { directoryPickerLauncher.launch(null) }
+            catch (_: Exception) { viewModel.onDirectorySelected(null); viewModel.showSnackbar("无法打开目录选择器") }
+        }
+    }
+
+    val triggerSystemFilePicker = {
+        try {
+            // 不限制 MIME：CBZ/ZIP/CBR/RAR/CB7/7Z/CBT/TAR/PDF/EPUB/单图 都可选
+            filePickerLauncher.launch(arrayOf("*/*"))
+        } catch (_: Exception) {
+            viewModel.showSnackbar("无法打开系统文件选择器，请重试")
+        }
+    }
+
     if (!uiState.settingsLoaded || uiState.isAppLockedNow || uiState.showQuickAuthSheet) {
         val colorScheme = MaterialTheme.colorScheme
         Surface(modifier = Modifier.fillMaxSize(), color = colorScheme.surface) {
@@ -265,57 +316,6 @@ fun AsterReaderAppRoot(
         confirmButton = { androidx.compose.material3.TextButton(onClick = viewModel::confirmBookRemoval) { Text("移除") } },
         dismissButton = { androidx.compose.material3.TextButton(onClick = viewModel::cancelBookRemoval) { Text("取消") } }
     )
-
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            viewModel.importLocalFileUri(uri)
-        }
-    }
-
-    val relocateLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        viewModel.relocateBookSource(uri)
-    }
-
-    val relocateFolderLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocumentTree()
-    ) { uri ->
-        viewModel.relocateBookSource(uri)
-    }
-
-    LaunchedEffect(uiState.pendingRelocateBookId, uiState.pendingRelocateIsFolder) {
-        if (uiState.pendingRelocateBookId != null) {
-            try {
-                if (uiState.pendingRelocateIsFolder) relocateFolderLauncher.launch(null)
-                else relocateLauncher.launch(arrayOf("*/*"))
-            } catch (_: Exception) {
-                viewModel.relocateBookSource(null)
-                viewModel.showSnackbar("无法打开选择器")
-            }
-        }
-    }
-
-    val directoryPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
-        viewModel.onDirectorySelected(it)
-    }
-    LaunchedEffect(uiState.requestDirectoryPicker) {
-        if (uiState.requestDirectoryPicker) {
-            try { directoryPickerLauncher.launch(null) }
-            catch (_: Exception) { viewModel.onDirectorySelected(null); viewModel.showSnackbar("无法打开目录选择器") }
-        }
-    }
-
-    val triggerSystemFilePicker = {
-        try {
-            // 不限制 MIME：CBZ/ZIP/CBR/RAR/CB7/7Z/CBT/TAR/PDF/EPUB/单图 都可选
-            filePickerLauncher.launch(arrayOf("*/*"))
-        } catch (_: Exception) {
-            viewModel.showSnackbar("无法打开系统文件选择器，请重试")
-        }
-    }
 
     BackHandler(
         enabled = uiState.isBatchSelectionMode ||

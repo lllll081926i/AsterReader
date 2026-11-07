@@ -170,6 +170,20 @@ interface AsterDao {
     @Query("UPDATE shelves SET name = :name WHERE id = :id")
     suspend fun renameShelf(id: String, name: String)
 
+    @Transaction
+    suspend fun createUniqueShelf(shelf: ShelfEntity) {
+        require(shelf.name.isNotBlank() && shelf.name.length <= 80 && ',' !in shelf.id) { "书架名称无效" }
+        require(getAllShelves().none { it.name == shelf.name }) { "书架名称已存在" }
+        insertShelf(shelf)
+    }
+
+    @Transaction
+    suspend fun renameUniqueShelf(id: String, name: String) {
+        require(name.isNotBlank() && name.length <= 80) { "书架名称无效" }
+        require(getAllShelves().none { it.id != id && it.name == name }) { "书架名称已存在" }
+        renameShelf(id, name)
+    }
+
     @Query("UPDATE books SET tagsCsv = :tags WHERE id = :id")
     suspend fun updateTags(id: String, tags: String)
 
@@ -187,6 +201,14 @@ interface AsterDao {
         getAllBooks().filter { !it.isVaultProtected && !it.isVaultEncrypted }.forEach { book ->
             val tags = book.tagsCsv.split(',').map(String::trim).filter(String::isNotBlank)
             if (old in tags) updateTags(book.id, tags.map { if (it == old) new else it }.distinct().joinToString(","))
+        }
+    }
+
+    @Transaction
+    suspend fun removePublicTag(tag: String) {
+        getAllBooks().filter { !it.isVaultProtected && !it.isVaultEncrypted }.forEach { book ->
+            val tags = book.tagsCsv.split(',').map(String::trim).filter(String::isNotBlank)
+            if (tag in tags) updateTags(book.id, tags.filter { it != tag }.joinToString(","))
         }
     }
 
@@ -233,6 +255,18 @@ interface AsterDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveReaderState(state: ReaderStateEntity)
+
+    @Transaction
+    suspend fun saveReadingPosition(id: String, page: Int, chapter: String?, viewport: com.asterreader.core.model.ReaderViewport?, timestamp: Long) {
+        val book = getBookById(id) ?: return
+        if (book.isVaultEncrypted) return
+        val position = (viewport ?: com.asterreader.core.model.ReaderViewport(page)).copy(page = page).sanitized(book.totalPages)
+        val percent = (position.page.toLong() * 100 / book.totalPages.coerceAtLeast(1)).toInt().coerceIn(0, 100)
+        updateProgress(id, position.page, percent, if (percent == 100) "已读完" else "在读", chapter, timestamp)
+        val previous = getReaderState(id) ?: ReaderStateEntity(id)
+        saveReaderState(previous.copy(page = position.page, offsetFraction = position.offsetFraction,
+            scale = position.scale, panX = position.panX, panY = position.panY))
+    }
 
     @Transaction
     suspend fun saveViewport(id: String, position: com.asterreader.core.model.ReaderViewport) {

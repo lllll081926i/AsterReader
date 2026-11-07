@@ -16,6 +16,74 @@ import java.util.zip.ZipOutputStream
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class ComicArchiveSecurityTest {
+    private fun tar(name: String = "1.jpg", bytes: ByteArray = byteArrayOf(1, 2, 3, 4)): File {
+        val file = File.createTempFile("aster-tar-", ".tar")
+        org.apache.commons.compress.archivers.tar.TarArchiveOutputStream(file.outputStream()).use { output ->
+            output.setLongFileMode(org.apache.commons.compress.archivers.tar.TarArchiveOutputStream.LONGFILE_POSIX)
+            val entry = org.apache.commons.compress.archivers.tar.TarArchiveEntry(name).apply { size = bytes.size.toLong() }
+            output.putArchiveEntry(entry)
+            output.write(bytes)
+            output.closeArchiveEntry()
+        }
+        return file
+    }
+
+    @Test fun tarPaxLongNameKeepsTheCorrectDataOffset() {
+        val name = "folder/".repeat(30) + "1.jpg"
+        val file = tar(name)
+        try {
+            ComicArchives.open(file, "TAR").use { archive ->
+                assertEquals(listOf(name), archive.pageNames)
+                org.junit.Assert.assertArrayEquals(byteArrayOf(1, 2, 3, 4), archive.openPage(1).use { it.readBytes() })
+            }
+        } finally { file.delete() }
+    }
+
+    @Test(expected = IOException::class) fun tarBadChecksumIsRejected() {
+        val file = tar()
+        try {
+            java.io.RandomAccessFile(file, "rw").use { it.writeByte(99) }
+            ComicArchives.open(file, "TAR").close()
+        } finally { file.delete() }
+    }
+
+    @Test(expected = IOException::class) fun tarTruncatedPayloadIsRejected() {
+        val file = tar()
+        try {
+            java.io.RandomAccessFile(file, "rw").use { it.setLength(514) }
+            ComicArchives.open(file, "TAR").close()
+        } finally { file.delete() }
+    }
+
+    @Test(expected = IOException::class) fun tarOversizedMetadataIsRejectedBeforeParsing() {
+        val file = File.createTempFile("aster-tar-metadata-", ".tar")
+        try {
+            org.apache.commons.compress.archivers.tar.TarArchiveOutputStream(file.outputStream()).use { output ->
+                val entry = org.apache.commons.compress.archivers.tar.TarArchiveEntry("././@LongLink", 'L'.code.toByte())
+                    .apply { size = 65_537 }
+                output.putArchiveEntry(entry)
+                output.write(ByteArray(65_537))
+                output.closeArchiveEntry()
+            }
+            ComicArchives.open(file, "TAR").close()
+        } finally { file.delete() }
+    }
+
+    @Test(expected = IOException::class) fun tarDeepMetadataChainIsRejectedBeforeRecursion() {
+        val file = File.createTempFile("aster-tar-chain-", ".tar")
+        try {
+            org.apache.commons.compress.archivers.tar.TarArchiveOutputStream(file.outputStream()).use { output ->
+                repeat(17) {
+                    val entry = org.apache.commons.compress.archivers.tar.TarArchiveEntry("././@LongLink", 'L'.code.toByte())
+                        .apply { size = 2 }
+                    output.putArchiveEntry(entry)
+                    output.write(byteArrayOf(97, 0))
+                    output.closeArchiveEntry()
+                }
+            }
+            ComicArchives.open(file, "TAR").close()
+        } finally { file.delete() }
+    }
 
     private fun epub(entries: Map<String, String>): File {
         val file = File.createTempFile("aster-epub-", ".epub")

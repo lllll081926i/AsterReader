@@ -905,33 +905,35 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         schedulePersist()
     }
 
+    fun nativePageSize(bitmap: android.graphics.Bitmap): Pair<Int, Int>? = repository.nativePageSize(bitmap)
+
     private fun schedulePersist() {
         if (persistJob?.isActive == true) return
         persistJob = viewModelScope.launch(operationErrors) {
+            var failures = 0
             while (pendingProgress.isNotEmpty() || pendingViewports.isNotEmpty()) {
-                kotlinx.coroutines.delay(900)
-                flushReadingState()
+                kotlinx.coroutines.delay(if (failures == 0) 900L else (1000L shl failures.coerceAtMost(5)).coerceAtMost(30_000L))
+                try {
+                    flushReadingState()
+                    failures = 0
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) {
+                    if (failures == 0) showSnackbar("阅读进度暂未保存，将自动重试，请检查可用空间", SnackbarTone.ERROR)
+                    failures++
+                }
             }
         }
     }
 
     private suspend fun flushReadingState() = progressMutex.withLock {
-        val progressSnapshot = pendingProgress.entries.map { it.key to it.value }
-        for ((id, requested) in progressSnapshot) {
-            val book = repository.getBookById(id) ?: continue
-            val page = requested.first.coerceIn(1, book.totalPages.coerceAtLeast(1))
-            val percent = (page.toLong() * 100 / book.totalPages.coerceAtLeast(1)).toInt().coerceIn(0, 100)
-            if (book.currentPage != page || book.lastReadTimestamp == 0L ||
-                (requested.second != null && book.currentChapterTitle != requested.second)) {
-                repository.updateProgress(id, page, percent, if (percent >= 100) "已读完" else "在读",
-                    requested.second, System.currentTimeMillis())
-            }
-            pendingProgress.remove(id, requested)
-        }
-        val viewportSnapshot = pendingViewports.entries.map { it.key to it.value }
-        for ((id, viewport) in viewportSnapshot) {
-            repository.saveViewport(id, viewport)
-            pendingViewports.remove(id, viewport)
+        val ids = (pendingProgress.keys + pendingViewports.keys).toSet()
+        for (id in ids) {
+            val requested = pendingProgress[id]
+            val viewport = pendingViewports[id]
+            val page = requested?.first ?: viewport?.page ?: continue
+            repository.saveReadingPosition(id, page, requested?.second, viewport?.takeIf { it.page == page })
+            if (requested != null) pendingProgress.remove(id, requested)
+            if (viewport != null) pendingViewports.remove(id, viewport)
         }
     }
 
@@ -1171,6 +1173,13 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun renameTag(old: String, new: String) {
         if (new.isBlank() || ',' in new) return
         viewModelScope.launch(operationErrors) { repository.renameTag(old, new.trim()) }
+    }
+
+    fun deleteTag(tag: String) {
+        viewModelScope.launch(operationErrors) {
+            repository.deleteTag(tag)
+            showSnackbar("已从公开作品中移除标签")
+        }
     }
 
     fun deleteRepository(repoId: String) {

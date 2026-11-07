@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import com.asterreader.core.designsystem.AsterLayout
+
 import androidx.compose.foundation.layout.heightIn
 
 import androidx.compose.foundation.BorderStroke
@@ -947,9 +949,9 @@ private fun ContinueReadingCompactCard(
                 Surface(
                     shape = CircleShape,
                     color = colorScheme.primaryContainer,
-                    contentColor = colorScheme.onPrimary,
+                    contentColor = colorScheme.onPrimaryContainer,
                     modifier = Modifier
-                        .height(34.dp)
+                        .heightIn(min = AsterLayout.TouchTarget)
                         .clip(CircleShape)
                         .clickable { onContinueClick() }
                         .testTag("continue_reading_cta_btn")
@@ -1330,9 +1332,9 @@ private fun PublicationGalleryCard(
                     Surface(
                         shape = CircleShape,
                         color = colorScheme.primaryContainer,
-                        contentColor = colorScheme.onPrimary,
+                        contentColor = colorScheme.onPrimaryContainer,
                         modifier = Modifier
-                            .height(32.dp)
+                            .heightIn(min = AsterLayout.TouchTarget)
                             .clip(CircleShape)
                             .clickable { onReadClick() }
                     ) {
@@ -1476,7 +1478,7 @@ private fun TabletSupportingDetailPane(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, bottom = 112.dp),
+                    .padding(start = 16.dp, end = 16.dp, bottom = AsterLayout.BottomSpacing),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
                 Row(
@@ -1509,7 +1511,7 @@ private fun TabletSupportingDetailPane(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text(
+                        if (book.author.isNotBlank()) Text(
                             text = book.author,
                             style = MaterialTheme.typography.bodyMedium,
                             color = colorScheme.onSurfaceVariant,
@@ -1527,7 +1529,7 @@ private fun TabletSupportingDetailPane(
                 }
 
                 // Publication Synopsis
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (book.synopsis.isNotBlank()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = "简介",
                         style = MaterialTheme.typography.titleSmall,
@@ -1541,7 +1543,7 @@ private fun TabletSupportingDetailPane(
                 }
 
                 // Quick Chapter List
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (chapters.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -1618,93 +1620,92 @@ private fun TabletSupportingDetailPane(
                     }
                 }
             }
-        }
-
-        // Merged Progress Bar + Action Island inside Tablet Supporting Pane
-        Surface(
-            shape = MaterialTheme.shapes.large,
-            color = asterColors.surfaceContainerHigh,
-            tonalElevation = 6.dp,
-            border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            // 阅读操作参与列布局，随大字体增高，不覆盖末尾章节。
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = asterColors.surfaceContainerHigh,
+                tonalElevation = 6.dp,
+                border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                modifier = Modifier
+                    .testTag("tablet_detail_actions")
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = AsterLayout.BottomSpacing)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "第 ${book.currentPage} / ${book.totalPages} 页",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    Text(
-                        text = "${book.progressPercent}%",
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = colorScheme.primary,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-                LinearProgressIndicator(
-                    progress = { (book.progressPercent / 100f).coerceIn(0f, 1f) },
-                    color = colorScheme.primary,
-                    trackColor = colorScheme.surfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(5.dp)
-                        .clip(CircleShape)
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = colorScheme.primaryContainer,
-                        contentColor = colorScheme.onPrimary,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .clip(CircleShape)
-                            .clickable { onStartReading(book.currentPage) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxSize()
+                        Text(
+                            text = "第 ${book.currentPage} / ${book.totalPages} 页",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Text(
+                            text = "${book.progressPercent}%",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = colorScheme.primary,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                    }
+                    LinearProgressIndicator(
+                        progress = { (book.progressPercent / 100f).coerceIn(0f, 1f) },
+                        color = colorScheme.primary,
+                        trackColor = colorScheme.surfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp)
+                            .clip(CircleShape)
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = colorScheme.primaryContainer,
+                            contentColor = colorScheme.onPrimaryContainer,
+                            modifier = Modifier
+                                .testTag("tablet_start_reading")
+                                .weight(1f)
+                                .heightIn(min = AsterLayout.TouchTarget)
+                                .clip(CircleShape)
+                                .clickable { onStartReading(book.currentPage) }
                         ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = AsterLayout.TouchTarget).padding(vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (book.progressPercent > 0) "继续阅读" else "开始阅读",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+
+                        IconButton(onClick = onOpenFullDetail) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.MenuBook,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (book.progressPercent > 0) "继续阅读" else "开始阅读",
-                                style = MaterialTheme.typography.labelLarge,
-                                maxLines = 1,
-                                softWrap = false
+                                imageVector = Icons.Outlined.DisplaySettings,
+                                contentDescription = "详情",
+                                tint = colorScheme.onSurface
                             )
                         }
-                    }
-
-                    IconButton(onClick = onOpenFullDetail) {
-                        Icon(
-                            imageVector = Icons.Outlined.DisplaySettings,
-                            contentDescription = "详情",
-                            tint = colorScheme.onSurface
-                        )
                     }
                 }
             }

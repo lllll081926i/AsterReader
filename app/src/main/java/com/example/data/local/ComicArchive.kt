@@ -239,8 +239,7 @@ private class RarComicArchive(file: File) : ComicArchive {
 }
 
 /**
- * 自实现 USTAR/GNU tar 索引：只读 512 字节头计算偏移，读取时按偏移打开独立流，
- * 因此不依赖顺序解压，也支持超大条目。
+ * 校验物理文件头后解析 USTAR/GNU/PAX；读取时按已验证偏移打开独立流。
  */
 private class TarComicArchive(file: File) : ComicArchive {
     private val source = file
@@ -256,7 +255,7 @@ private class TarComicArchive(file: File) : ComicArchive {
             var skipped = 0L
             while (skipped < record.offset) {
                 val step = stream.skip(record.offset - skipped)
-                if (step <= 0) break
+                if (step <= 0) throw IOException("TAR 条目数据不完整")
                 skipped += step
             }
         } catch (failure: Throwable) {
@@ -270,62 +269,52 @@ private class TarComicArchive(file: File) : ComicArchive {
 
     private data class TarRecord(val name: String, val offset: Long, val size: Long)
 
-    private fun index(file: File): List<TarRecord> = RandomAccessFile(file, "r").use { raf ->
-        val length = raf.length()
-        val header = ByteArray(512)
+    private fun index(file: File): List<TarRecord> {
+        validateHeaders(file)
         val found = ArrayList<TarRecord>()
-        var position = 0L
-        var pendingLongName: String? = null
-        while (position + 512 <= length) {
-            raf.seek(position)
-            raf.readFully(header)
-            if (header.all { it == 0.toByte() }) break
-            val type = header[156].toInt().toChar()
-            val rawName = readString(header, 0, 100)
-            val prefix = readString(header, 345, 155)
-            val size = readSize(header)
-            val dataStart = position + 512
-            val next = dataStart + ((size + 511) / 512) * 512
-            when (type) {
-                'L' -> pendingLongName = readBytes(raf, dataStart, size.toInt())
-                    .toString(Charsets.UTF_8).trimEnd('\u0000').trim()
-                'x', 'g' -> Unit
-                else -> {
-                    val name = pendingLongName ?: if (prefix.isNotEmpty()) "$prefix/$rawName" else rawName
-                    pendingLongName = null
-                    if (type == '0' || type == '\u0000' || type == '7') {
-                        found.add(TarRecord(name, dataStart, size))
-                    }
+        org.apache.commons.compress.archivers.tar.TarArchiveInputStream(file.inputStream()).use { tar ->
+            var count = 0
+            while (true) {
+                val entry = tar.nextEntry ?: break
+                if (++count > 20_000) throw IOException("归档条目过多")
+                if (!entry.isCheckSumOK || entry.isSparse) throw IOException("TAR 校验失败或使用了不支持的稀疏条目")
+                val offset = tar.bytesRead
+                if (entry.size < 0 || entry.size > file.length() - offset) throw IOException("TAR 条目不完整")
+                if (entry.isFile && ComicArchives.isImageEntry(entry.name)) {
+                    found.add(TarRecord(entry.name, offset, entry.size))
                 }
             }
-            position = next
         }
-        found.map { it.name to it }.filter { ComicArchives.isImageEntry(it.first) }
-            .sortedWith { a, b -> LibraryRepository.naturalCompare(a.first, b.first) }
-            .map { it.second }
+        return found.sortedWith { a, b -> LibraryRepository.naturalCompare(a.name, b.name) }
     }
 
-    private fun readString(bytes: ByteArray, offset: Int, length: Int): String {
-        if (length <= 0) return ""
-        val end = (offset until offset + length).firstOrNull { bytes[it] == 0.toByte() } ?: (offset + length)
-        return String(bytes, offset, end - offset, Charsets.UTF_8).trim()
-    }
-
-    private fun readSize(header: ByteArray): Long {
-        if (header[124].toInt() and 0x80 != 0) {
-            var value = 0L
-            for (index in 125 until 136) value = (value shl 8) or (header[index].toInt() and 0xFF).toLong()
-            return value
+    /** 先验证物理头，限制 GNU/PAX 元数据，避免解析器为恶意长度分配大块内存。 */
+    private fun validateHeaders(file: File) = RandomAccessFile(file, "r").use { raf ->
+        val length = raf.length()
+        val header = ByteArray(512)
+        var position = 0L
+        var count = 0
+        var metadataChain = 0
+        while (position < length) {
+            if (length - position < 512) throw IOException("TAR 文件头不完整")
+            raf.seek(position)
+            raf.readFully(header)
+            if (header.all { it == 0.toByte() }) return@use
+            if (++count > 20_000) throw IOException("归档条目过多")
+            val entry = try { org.apache.commons.compress.archivers.tar.TarArchiveEntry(header) }
+                catch (failure: IllegalArgumentException) { throw IOException("TAR 文件头无效", failure) }
+            if (!entry.isCheckSumOK || entry.isSparse) throw IOException("TAR 文件头校验失败")
+            val size = entry.size
+            val available = length - position - 512
+            if (size < 0 || size > available) throw IOException("TAR 条目长度无效")
+            val type = header[156].toInt().toChar()
+            if (type in listOf('L', 'K', 'x', 'g')) {
+                if (size > 65_536 || ++metadataChain > 16) throw IOException("TAR 扩展元数据过大或嵌套过深")
+            } else metadataChain = 0
+            val padding = (512 - size % 512) % 512
+            if (padding > available - size) throw IOException("TAR 条目填充不完整")
+            position += 512 + size + padding
         }
-        val text = String(header, 124, 12, Charsets.US_ASCII).trim().trim('\u0000')
-        return text.toLongOrNull(8) ?: 0L
-    }
-
-    private fun readBytes(raf: RandomAccessFile, offset: Long, size: Int): ByteArray {
-        val buffer = ByteArray(size)
-        raf.seek(offset)
-        raf.readFully(buffer)
-        return buffer
     }
 }
 

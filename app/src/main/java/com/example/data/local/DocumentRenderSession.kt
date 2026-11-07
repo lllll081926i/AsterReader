@@ -47,6 +47,8 @@ internal class DocumentRenderSession(context: Context) {
         override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
     }
     private var source: OpenSource? = null
+    private val dimensions = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Bitmap, Pair<Int, Int>>())
+    fun nativeSize(bitmap: Bitmap): Pair<Int, Int>? = dimensions[bitmap]
     private val inFlight = AtomicInteger(0)
 
     suspend fun render(
@@ -217,6 +219,7 @@ internal class DocumentRenderSession(context: Context) {
             val width = (page.width * scale).toInt().coerceIn(1, page.width * 3)
             val height = (page.height * scale).toInt().coerceIn(1, page.height * 3)
             Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { bitmap ->
+                dimensions[bitmap] = page.width to page.height
                 bitmap.eraseColor(android.graphics.Color.WHITE)
                 try {
                     page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
@@ -231,11 +234,11 @@ internal class DocumentRenderSession(context: Context) {
         openStream(open, number).use { BitmapFactory.decodeStream(LimitedStream(it), null, bounds) }
         require(bounds.outWidth > 0 && bounds.outHeight > 0) { "图像已损坏" }
         val sample = sampleFor(bounds.outWidth, bounds.outHeight, maxPixels)
-        return openStream(open, number).use {
+        return (openStream(open, number).use {
             BitmapFactory.decodeStream(
                 LimitedStream(it), null, BitmapFactory.Options().apply { inSampleSize = sample }
             )
-        } ?: error("图像无法解码")
+        } ?: error("图像无法解码")).also { dimensions[it] = bounds.outWidth to bounds.outHeight }
     }
 
     private fun renderRegionBitmap(
@@ -295,9 +298,9 @@ internal class DocumentRenderSession(context: Context) {
      */
     private fun sampleFor(width: Int, height: Int, maxPixels: Int): Int {
         var sample = 1
-        while (sample < 64) {
+        while (sample < (1 shl 30)) {
             val pixels = (width / sample).toLong() * (height / sample)
-            if (pixels <= maxPixels) break
+            if (pixels <= maxPixels.coerceAtLeast(1)) break
             sample *= 2
         }
         return sample.coerceAtLeast(1)

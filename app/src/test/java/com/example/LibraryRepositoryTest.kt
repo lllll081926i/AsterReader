@@ -30,6 +30,13 @@ import java.util.zip.ZipOutputStream
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [31, 35])
 class LibraryRepositoryTest {
+    @org.robolectric.annotation.Implements(android.content.ContentResolver::class)
+    class TemporaryPermissionResolver : ShadowContentResolver() {
+        @org.robolectric.annotation.Implementation
+        override fun takePersistableUriPermission(uri: Uri, flags: Int) {
+            throw SecurityException("测试提供者仅授予临时读取")
+        }
+    }
     private lateinit var app: Application
     private lateinit var db: AsterDatabase
     private lateinit var repository: LibraryRepository
@@ -73,6 +80,31 @@ class LibraryRepositoryTest {
 
     @After
     fun tearDown() = runBlocking { repository.closeReadSession(); db.close() }
+
+    @Test
+    @Config(shadows = [TemporaryPermissionResolver::class])
+    fun temporaryPermissionCreatesDurableSource() = runBlocking {
+        val uri = document("临时漫画.cbz", comicBytes())
+        val book = repository.importDocument(uri)
+        assertEquals("file", Uri.parse(book.filePath).scheme)
+        val managed = File(Uri.parse(book.filePath).path!!).canonicalFile
+        assertTrue("副本 $managed 应位于 ${app.filesDir.canonicalFile}", managed.toPath().startsWith(app.filesDir.canonicalFile.toPath()))
+        files.clear()
+        repository.closeReadSession()
+        val rendered = repository.renderPage(book.id, 1, 1000)
+        assertTrue(rendered.width > 0)
+        assertEquals(2, book.totalPages)
+    }
+
+    @Test
+    @Config(shadows = [TemporaryPermissionResolver::class])
+    fun failedTemporaryImportLeavesNoManagedFile() = runBlocking {
+        val imports = File(app.filesDir, "imports")
+        val before = imports.listFiles()?.map { it.name }?.toSet().orEmpty()
+        val uri = document("损坏.cbz", byteArrayOf(1, 2, 3))
+        assertTrue(runCatching { repository.importDocument(uri) }.isFailure)
+        assertEquals(before, imports.listFiles()?.map { it.name }?.toSet().orEmpty())
+    }
 
     private fun document(name: String, bytes: ByteArray): Uri {
         val folder = File(app.cacheDir, "fixture-${java.util.UUID.randomUUID()}").apply { mkdirs() }

@@ -99,6 +99,26 @@ open class SettingsConsistencyTest {
         compose.onNodeWithTag("nav_dock_library").assertIsDisplayed()
     }
 
+    @Test @Config(qualifiers = "w1100dp-h800dp-xhdpi")
+    fun tabletDetailActionsRemainVisibleAtDoubleFontScale() {
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            val density = LocalDensity.current.density
+            CompositionLocalProvider(LocalDensity provides Density(density, 2f)) {
+                AsterReaderTheme {
+                    com.example.ui.screens.LibraryHomeScreen(
+                        AsterUiState(settingsLoaded = true), listOf(comicFixture("平板布局")),
+                        emptyList(), true, model, {}
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("tablet_start_reading").assertIsDisplayed()
+        val action = compose.onNodeWithTag("tablet_start_reading").getUnclippedBoundsInRoot()
+        org.junit.Assert.assertTrue((action.bottom - action.top).value >= 48f)
+        capture("tablet-detail-font-200")
+    }
+
     @Test fun detailActionsReserveTheirOwnSpaceAtDoubleFontScale() {
         compose.setContent {
             rootView = androidx.compose.ui.platform.LocalView.current.rootView

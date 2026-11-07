@@ -71,10 +71,11 @@ class LibraryRepository(
     suspend fun toggleFavorite(id: String) = dao.toggleFavorite(id)
     suspend fun updateProgress(id: String, page: Int, percent: Int, badge: String, chapter: String?, time: Long) =
         dao.updateProgress(id, page, percent, badge, chapter, time)
-    suspend fun insertShelf(shelf: ShelfEntity) = dao.insertShelf(shelf)
+    suspend fun insertShelf(shelf: ShelfEntity) = dao.createUniqueShelf(shelf)
     suspend fun deleteShelfById(id: String) = dao.removeShelfAndMembership(id)
-    suspend fun renameShelf(id: String, name: String) = dao.renameShelf(id, name)
+    suspend fun renameShelf(id: String, name: String) = dao.renameUniqueShelf(id, name)
     suspend fun renameTag(old: String, new: String) = dao.renamePublicTag(old, new)
+    suspend fun deleteTag(tag: String) = dao.removePublicTag(tag)
     suspend fun updateShelf(shelf: ShelfEntity) = dao.updateShelf(shelf)
     suspend fun insertAnnotation(annotation: AnnotationEntity) = dao.insertAnnotation(annotation)
     suspend fun deleteAnnotationById(id: Int) = dao.deleteAnnotationById(id)
@@ -87,6 +88,8 @@ class LibraryRepository(
     // ------------------------------------------------------------------
 
     suspend fun saveViewport(id: String, viewport: ReaderViewport) = dao.saveViewport(id, viewport)
+    suspend fun saveReadingPosition(id: String, page: Int, chapter: String?, viewport: ReaderViewport?) =
+        dao.saveReadingPosition(id, page, chapter, viewport, System.currentTimeMillis())
 
     suspend fun saveReaderOptions(id: String, mode: String?, fit: String?, cover: Boolean?, rtl: Boolean? = null) =
         dao.saveReaderOptions(id, mode, fit, cover, rtl)
@@ -106,6 +109,7 @@ class LibraryRepository(
     suspend fun setBookHidden(bookId: String, hidden: Boolean) = dao.setBookHidden(bookId, hidden)
 
     fun observeHiddenCount() = dao.observeHiddenCount()
+    fun nativePageSize(bitmap: Bitmap): Pair<Int, Int>? = renderSession.nativeSize(bitmap)
 
     /**
      * 智能识别系列名称与卷序
@@ -138,10 +142,12 @@ class LibraryRepository(
         replaceId: String? = null
     ): BookEntity = withContext(Dispatchers.IO) {
         require(uri.scheme == "content" || uri.scheme == "file") { "请选择系统文件提供者中的文档" }
-        if (persist) {
+        if (persist && uri.scheme == "content") {
             try {
                 resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            } catch (_: SecurityException) {}
+            } catch (_: SecurityException) {
+                return@withContext importManagedDocument(uri, repositoryName, repositoryId, coverPage, replaceId)
+            }
         }
         val linked = dao.getBookByUri(uri.toString())
         require(replaceId == null || linked == null || linked.id == replaceId) { "此来源已关联另一部漫画" }
@@ -217,6 +223,26 @@ class LibraryRepository(
         )
         currentCoroutineContext().ensureActive()
         dao.commitParsedSource(book, buildChapters(book.id, chapterSpans), emptyList(), replaceId)
+    }
+
+    /** 临时授权来源转为应用持有的副本，成功后不依赖外部提供者继续授权。 */
+    private suspend fun importManagedDocument(uri: Uri, name: String, repositoryId: String, coverPage: Int, replaceId: String?): BookEntity {
+        val info = queryDocument(uri)
+        require(info.size <= MAX_FILE_BYTES) { "当前版本单文件上限为 512 MB" }
+        val directory = File(context.filesDir, "imports/${UUID.randomUUID()}").apply { check(mkdirs()) }
+        val filename = info.name.substringAfterLast('/').substringAfterLast('\\').take(180)
+            .takeUnless { it.isBlank() || it == "." || it == ".." } ?: "document"
+        val target = File(directory, filename)
+        try {
+            require(target.canonicalFile.parentFile == directory.canonicalFile) { "文件名称无效" }
+            copyInto(uri, target)
+            return importDocument(Uri.parse(target.toURI().toString()), name, repositoryId, persist = false,
+                refreshExisting = true, coverPage = coverPage, replaceId = replaceId)
+        } catch (failure: Throwable) {
+            target.delete()
+            directory.delete()
+            throw failure
+        }
     }
 
     /** 以「一个文件夹 = 一部作品」的方式导入散图目录。 */
@@ -296,7 +322,7 @@ class LibraryRepository(
         require(DocumentsContract.isTreeUri(uri)) { "请选择仓库目录" }
         try {
             resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        } catch (_: SecurityException) {}
+        } catch (_: SecurityException) { error("此目录不支持长期授权，请选择其他本地目录") }
         val repoId = UUID.nameUUIDFromBytes(uri.toString().toByteArray()).toString()
         val repoName = name.ifBlank { "本地目录" }
         dao.insertRepository(RepositoryEntity(repoId, repoName, uri.toString(), "SMARTPHONE", 0, "", "扫描中", rule, false))
@@ -528,14 +554,14 @@ class LibraryRepository(
 
     suspend fun relocateBookSource(bookId: String, newUri: Uri): Boolean = withContext(Dispatchers.IO) {
         val book = dao.getBookById(bookId) ?: return@withContext false
-        try {
-            resolver.takePersistableUriPermission(newUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        } catch (_: SecurityException) {}
         if (book.format == "IMAGE_DIR" && DocumentsContract.isTreeUri(newUri)) {
+            try {
+                resolver.takePersistableUriPermission(newUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: SecurityException) { return@withContext false }
             return@withContext relocateFolderSource(book, newUri)
         }
         try {
-            importDocument(newUri, book.repositoryName, book.repositoryId, persist = false,
+            importDocument(newUri, book.repositoryName, book.repositoryId, persist = true,
                 refreshExisting = true, replaceId = book.id)
             closeReadSession()
             true
@@ -621,48 +647,55 @@ class LibraryRepository(
             if (cursor.moveToFirst()) cursor.getString(0) else null
         }
 
-    private suspend fun queryChildren(treeUri: Uri, parentId: String, limit: Int = MAX_SCAN_ITEMS): List<ChildEntry> {
-        val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId)
-        val result = ArrayList<ChildEntry>()
-        resolver.query(
-            children,
-            arrayOf(
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_SIZE,
-                DocumentsContract.Document.COLUMN_LAST_MODIFIED
-            ),
-            null, null, null
-        )?.use { cursor ->
-            val idIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-            val mimeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
-            val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-            val sizeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
-            val modifiedIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
-            while (cursor.moveToNext()) {
-                currentCoroutineContext().ensureActive()
-                check(result.size < limit) { "单次扫描最多处理 $MAX_SCAN_ITEMS 项，请缩小授权范围" }
-                val documentId = if (idIndex >= 0) cursor.getString(idIndex) else null
-                if (documentId == null) continue
-                val mime = if (mimeIndex >= 0) cursor.getString(mimeIndex).orEmpty() else ""
-                val name = if (nameIndex >= 0) cursor.getString(nameIndex).orEmpty() else ""
-                val size = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else 0L
-                val modified = if (modifiedIndex >= 0 && !cursor.isNull(modifiedIndex)) cursor.getLong(modifiedIndex) else 0L
-                result.add(
-                    ChildEntry(
-                        documentId = documentId,
-                        name = name,
-                        mimeType = mime,
-                        size = size,
-                        modifiedAt = modified,
-                        uriString = DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId).toString()
-                    )
-                )
+    private suspend fun queryChildren(treeUri: Uri, parentId: String, limit: Int = MAX_SCAN_ITEMS): List<ChildEntry> =
+        kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+            val signal = android.os.CancellationSignal()
+            continuation.invokeOnCancellation { signal.cancel() }
+            try {
+                val children = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentId)
+                val result = ArrayList<ChildEntry>()
+                resolver.query(
+                    children,
+                    arrayOf(
+                        DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                        DocumentsContract.Document.COLUMN_MIME_TYPE,
+                        DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                        DocumentsContract.Document.COLUMN_SIZE,
+                        DocumentsContract.Document.COLUMN_LAST_MODIFIED
+                    ),
+                    null, null, null, signal
+                )?.use { cursor ->
+                    val idIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                    val mimeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                    val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                    val sizeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+                    val modifiedIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+                    while (cursor.moveToNext()) {
+                        continuation.context.ensureActive()
+                        check(result.size < limit) { "单次扫描最多处理 $MAX_SCAN_ITEMS 项，请缩小授权范围" }
+                        val documentId = if (idIndex >= 0) cursor.getString(idIndex) else null
+                        if (documentId == null) continue
+                        val mime = if (mimeIndex >= 0) cursor.getString(mimeIndex).orEmpty() else ""
+                        val name = if (nameIndex >= 0) cursor.getString(nameIndex).orEmpty() else ""
+                        val size = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else 0L
+                        val modified = if (modifiedIndex >= 0 && !cursor.isNull(modifiedIndex)) cursor.getLong(modifiedIndex) else 0L
+                        result.add(
+                            ChildEntry(
+                                documentId = documentId,
+                                name = name,
+                                mimeType = mime,
+                                size = size,
+                                modifiedAt = modified,
+                                uriString = DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId).toString()
+                            )
+                        )
+                    }
+                } ?: error("目录不可访问，请重新授权")
+                continuation.resumeWith(Result.success(result))
+            } catch (failure: Exception) {
+                if (continuation.isActive) continuation.resumeWith(Result.failure(failure))
             }
-        } ?: error("目录不可访问，请重新授权")
-        return result
-    }
+        }
 
     private suspend fun listImages(treeUri: Uri, folderUri: Uri): List<ImagePage> {
         val folderId = DocumentsContract.getDocumentId(folderUri)

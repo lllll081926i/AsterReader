@@ -24,6 +24,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.focusable
 import com.asterreader.core.designsystem.LocalAsterReduceMotion
 import com.example.ui.components.PublicationPageCanvas
+import com.example.ui.components.ReaderZoomCommand
+import androidx.compose.material.icons.outlined.ZoomIn
+import androidx.compose.material.icons.outlined.ZoomOut
+import androidx.compose.material.icons.outlined.CenterFocusStrong
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -187,6 +191,9 @@ fun ReaderScreen(
     var currentPage by remember(book.id, initialPage) {
         mutableIntStateOf((initialPage ?: book.currentPage).coerceIn(1, totalPages))
     }
+    LaunchedEffect(currentPage, stateLoaded) {
+        if (stateLoaded && currentPage != restored?.page) restored = null
+    }
     LaunchedEffect(book.id) {
         restored = viewModel.loadReaderState(book.id)
         val saved = restored
@@ -211,6 +218,7 @@ fun ReaderScreen(
     val bookmarkedPages = annotations.filter { it.type == "BOOKMARK" }.map { it.pageNumber }.toSet()
 
     var sliderPreview by remember(book.id) { mutableStateOf<Float?>(null) }
+    var zoomCommand by remember(book.id) { mutableStateOf(ReaderZoomCommand()) }
     val activeChapterTitle = remember(chapters, currentPage) {
         chapters.firstOrNull { currentPage in it.startPage..it.endPage }?.title ?: "第 $currentPage 页"
     }
@@ -261,7 +269,9 @@ fun ReaderScreen(
                     initialScale = if (restored?.page == currentPage && initialPage == null) restored?.scale ?: 1f else 1f,
                     initialPanX = if (restored?.page == currentPage && initialPage == null) restored?.panX ?: 0f else 0f,
                     initialPanY = if (restored?.page == currentPage && initialPage == null) restored?.panY ?: 0f else 0f,
-                    initialOffsetFraction = if (restored?.page == currentPage) restored?.offsetFraction ?: 0f else 0f,
+                    initialOffsetFraction = if (restored?.page == currentPage && initialPage == null) restored?.offsetFraction ?: 0f else 0f,
+                    nativeSize = viewModel::nativePageSize,
+                    zoomCommand = zoomCommand,
                     loadPage = { targetPage, maxPixels -> viewModel.renderPage(book.id, targetPage, maxPixels) },
                     loadRegion = { targetPage, top, bottom, pixels ->
                         viewModel.renderPageRegion(book.id, targetPage, top, bottom, pixels)
@@ -296,6 +306,26 @@ fun ReaderScreen(
             }
 
             // High-Contrast Transient Top Bar Chrome (全屏模式不叠加系统栏边距，紧凑高度)
+            if (showChrome && stateLoaded) {
+                Surface(
+                    modifier = Modifier.align(Alignment.CenterEnd).displayCutoutPadding().padding(end = 8.dp),
+                    shape = MaterialTheme.shapes.large,
+                    color = ChromeSurfaceColor,
+                    contentColor = ChromeTextPrimary
+                ) {
+                    Column {
+                        IconButton(onClick = { zoomCommand = ReaderZoomCommand(zoomCommand.sequence + 1, 0.5f) }) {
+                            Icon(Icons.Outlined.ZoomIn, contentDescription = "放大页面")
+                        }
+                        IconButton(onClick = { zoomCommand = ReaderZoomCommand(zoomCommand.sequence + 1, -0.5f) }) {
+                            Icon(Icons.Outlined.ZoomOut, contentDescription = "缩小页面")
+                        }
+                        IconButton(onClick = { zoomCommand = ReaderZoomCommand(zoomCommand.sequence + 1, 0f) }) {
+                            Icon(Icons.Outlined.CenterFocusStrong, contentDescription = "重置页面缩放")
+                        }
+                    }
+                }
+            }
             androidx.compose.animation.AnimatedVisibility(
                 visible = showChrome,
                 enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically { -it } + fadeIn(),

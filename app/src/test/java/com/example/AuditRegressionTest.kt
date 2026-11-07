@@ -29,6 +29,62 @@ import java.io.File
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class AuditRegressionTest {
+    @Test fun duplicateShelfNameIsRejectedAndTagsOnlyChangePublicBooks() = runBlocking {
+        val database = db()
+        try {
+            val dao = database.asterDao()
+            val shelf = com.asterreader.core.database.ShelfEntity("a", "书架", "", 0, "", "")
+            dao.createUniqueShelf(shelf)
+            assertTrue(runCatching { dao.createUniqueShelf(shelf.copy(id = "b")) }.isFailure)
+            assertEquals(1, dao.getAllShelves().size)
+            dao.insertBook(comicFixture("公开").copy(tagsCsv = "短篇,长篇,短篇集"))
+            dao.insertBook(comicFixture("隐藏").copy(tagsCsv = "短篇", isVaultProtected = true))
+            dao.removePublicTag("短篇")
+            assertEquals("长篇,短篇集", dao.getBookById("公开")!!.tagsCsv)
+            assertEquals("短篇", dao.getBookById("隐藏")!!.tagsCsv)
+        } finally { database.close() }
+    }
+
+    @Test fun readingPositionRollsBackWhenViewportWriteFails() = runBlocking {
+        val database = db()
+        try {
+            val dao = database.asterDao()
+            val book = comicFixture("事务进度")
+            dao.insertBook(book)
+            database.openHelper.writableDatabase.execSQL("CREATE TRIGGER reject_viewport BEFORE INSERT ON reader_states BEGIN SELECT RAISE(ABORT, '测试失败'); END")
+            assertTrue(runCatching { dao.saveReadingPosition(book.id, 20, "新章节", com.asterreader.core.model.ReaderViewport(20, scale = 2f), 100L) }.isFailure)
+            assertEquals(book.currentPage, dao.getBookById(book.id)!!.currentPage)
+            assertNull(dao.getReaderState(book.id))
+        } finally { database.close() }
+    }
+
+    @Test fun readingPositionCommitsProgressAndViewportTogether() = runBlocking {
+        val database = db()
+        try {
+            val dao = database.asterDao()
+            dao.insertBook(comicFixture("事务进度"))
+            dao.saveReaderOptions("事务进度", "DUAL_PAGE", "原始比例", true, true)
+            dao.saveReadingPosition("事务进度", 20, "章节", com.asterreader.core.model.ReaderViewport(20, scale = 2f, panX = 0.5f), 100L)
+            assertEquals(20, dao.getBookById("事务进度")!!.currentPage)
+            assertEquals(20, dao.getReaderState("事务进度")!!.page)
+            assertEquals("DUAL_PAGE", dao.getReaderState("事务进度")!!.layoutMode)
+            assertEquals(0.5f, dao.getReaderState("事务进度")!!.panX, 0f)
+        } finally { database.close() }
+    }
+
+    @Test fun nativeDimensionsRemainStableAcrossResolutionChanges() = runBlocking {
+        val database = db()
+        try {
+            val repository = LibraryRepository(app(), database.asterDao())
+            val book = repository.importDocument(Uri.fromFile(image()), persist = false)
+            val low = repository.renderPage(book.id, 1, 100)
+            val high = repository.renderPage(book.id, 1, 1000)
+            assertTrue(low.width < high.width)
+            assertEquals(20 to 30, repository.nativePageSize(low))
+            assertEquals(repository.nativePageSize(low), repository.nativePageSize(high))
+            repository.closeReadSession()
+        } finally { database.close() }
+    }
     @Test fun looseFilesDoNotBecomeSingleVolumeSeries() {
         val database = db()
         try {

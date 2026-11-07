@@ -213,7 +213,8 @@ fun SettingsScreen(
             "cache" -> "清理封面与阅读副本。原文件和阅读记录将保留。"
             "export" -> "导出公开作品的进度、书架和批注。不包含隐藏作品、漫画文件和安全凭据。"
             "restore" -> "恢复前会验证文件。保留本机来源；按阅读时间合并进度；重复批注只保留一份。"
-            else -> "移除分类或仓库关联，保留原文件和作品阅读记录。"
+            else -> if (confirmation?.startsWith("tag:") == true) "从所有公开作品中移除标签「${confirmation?.removePrefix("tag:")}」。作品和阅读记录将保留。"
+                else "移除分类或仓库关联，保留原文件和作品阅读记录。"
         }) },
         confirmButton = { TextButton(onClick = {
             val action = confirmation; confirmation = null
@@ -223,6 +224,7 @@ fun SettingsScreen(
                 action == "restore" -> restore.launch(arrayOf("application/json"))
                 action?.startsWith("repo:") == true -> viewModel.deleteRepository(action.removePrefix("repo:"))
                 action?.startsWith("shelf:") == true -> viewModel.deleteCustomShelf(action.removePrefix("shelf:"))
+                action?.startsWith("tag:") == true -> viewModel.deleteTag(action.removePrefix("tag:"))
             }
         }) { Text("继续") } },
         dismissButton = { TextButton(onClick = { confirmation = null }) { Text("取消") } }
@@ -238,7 +240,14 @@ fun SettingsScreen(
         text = { OutlinedTextField(tagName, { tagName = it.take(80).replace(",", "") }, singleLine = true, label = { Text("名称") }) },
         confirmButton = { TextButton(enabled = tagName.isNotBlank(), onClick = {
             viewModel.renameTag(editTag!!, tagName.trim()); editTag = null
-        }) { Text("保存") } }, dismissButton = { TextButton(onClick = { editTag = null }) { Text("取消") } })
+        }) { Text("保存") } }, dismissButton = {
+            Row {
+                TextButton(onClick = { confirmation = "tag:$editTag"; editTag = null }) {
+                    Text("删除标签", color = MaterialTheme.colorScheme.error)
+                }
+                TextButton(onClick = { editTag = null }) { Text("取消") }
+            }
+        })
 }
 
 @Composable
