@@ -32,5 +32,8 @@ API35 模拟器 Debug 冷启动基线见 `build/startup-before*.txt`：1202 / 27
 - API35 模拟器覆盖安装成功，保留用户书籍/PIN/保险库。真实 Keystore 与云端协议设备测试 1 项通过（`build/webdav-device-final.log`）。最终首屏 UI 树已确认包含原有书籍与四个导航入口，未停留在加载页。
 - 优化后较早一次采样为 1259 / 1088 / 1094 ms；最终首帧等待版本在并行正式构建时为 3037 ms（`build/startup-final-first-frame.txt`）。因此不以本轮数字宣称稳定提速，需在固定负载与硬件上进一步测量。首帧等待包含设置与首批数据准备时间。
 - 不做 Room schema 或 Vault 容器迁移，不新增后台定时器；真实服务、API31/API37 设备与耗电测量尚未完成。
+- 正式构建结束后的两次 Debug 冷启动为 1534 / 1194 ms（`build/startup-final-idle-*.txt`）；仍不足以替代固定条件性能测试。
+- 正式签名 APK/AAB 构建成功，R8 开启（`build/webdav-release-signing.log`）。APK 签名校验通过，证书 SHA-256 为 `EB1F0D147AD3CA031A8E0E63245865D4AD4377C16061F3693A4FB45CA02B9B2A`，与既有发布密钥一致。
+- APK SHA-256：`8AAB98A499DF492CDB45BDE96C1922D3A8FF872824531C015CF2195C74BEA401`；AAB SHA-256：`1B172906DDC2474C28872883C45960B8802F63D11B5D08F60514E2C588B0E44C`。未安装 Release 替换用户的 Debug 数据。
 
 仍需 API31/API37 真机、真实服务账号、万本书库、低内存和电池专项验证。既有上线审查的其他阻断不因本轮检查通过而关闭。
