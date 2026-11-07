@@ -82,6 +82,11 @@ fun PrivacySecuritySettingsScreen(
                         labels.indexOf(uiState.autoLockPolicyLabel), { viewModel.setAutoLockPolicyLabel(labels[it]) })
                 }
                 else -> {
+                    AsterSettingsGroup("文件加密") {
+                        AsterSettingsRow("文件保险库", leadingIcon = Icons.Outlined.EnhancedEncryption,
+                            badgeText = if (uiState.fileVaultOpen) "已解锁" else if (uiState.fileVaultConfigured) "已锁定" else "未建立",
+                            onClick = { viewModel.pushSubScreen(SubScreen.SettingsSection("fileVault")) })
+                    }
                     AsterSettingsGroup("身份验证") {
                         AsterSwitchRow("应用锁", checked = uiState.isAppLockEnabled, onCheckedChange = viewModel::setAppLockEnabled)
                         AsterGroupDivider()

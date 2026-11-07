@@ -32,19 +32,19 @@ I-06,本地仓库管理,P0,正常、权限丢失、目录离线,UI-W1,未开始,
 I-07,远程仓库(WebDAV),P1,凭据、测试连接、同步,UI-W7,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-01,应用认证门禁,P0,系统认证、应用密码、取消,UI-W2,已实现紧凑完整弹出验证面板；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-02,安全设置 / 应用锁,P0,开关、超时、策略,UI-W2,已实现分层安全设置与截图；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-V-03,保险库首次建立,P0,风险告知、密钥/恢复配置,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-V-04,加密并上锁向导,P0,选择范围、源文件策略,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-V-05,加密/迁移任务,P0,进行、校验、失败、完成,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-V-06,保险库总览,P0,锁定、已认证、健康异常,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-V-07,加密内容占位 / 认证,P0,未认证、认证失败、恢复,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+V-03,保险库首次建立,P0,风险告知、密钥/恢复配置,UI-W2,已实现独立口令与设备槽；API31及35界面回归；无独立恢复槽,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md
+V-04,加密并上锁向导,P0,选择范围、源文件策略,UI-W2,逐作品加密已接通；外部源文件保留；待人工验收,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md
+V-05,加密/迁移任务,P0,进行、校验、失败、完成,UI-W2,已实现密文校验提交与取消；无批量任务,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md
+V-06,保险库总览,P0,锁定、已认证、健康异常,UI-W2,已实现锁定与完整性验证；待人工验收,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md
+V-07,加密内容占位 / 认证,P0,未认证、认证失败、恢复,UI-W2,已实现锁定占位及口令限速；待人工验收,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md
 V-08,文件夹/仓库/书架保护策略,P0,继承、覆盖、批量迁移,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-V-09,恢复密码与应急恢复,P0,设置、验证、密钥不可用,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+V-09,恢复密码与应急恢复,P0,设置、验证、密钥不可用,UI-W2,已实现修改口令及独立导出恢复；无独立应急密钥槽,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md
 V-10,解密导出 / 解除保护,P0,目标目录选择、校验、删除源密文,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-01,设置首页,P0,各分组,UI-W6,已实现紧凑分类页与截图测试；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-02,外观主题与 Monet,P0,默认、亮/暗、预览,UI-W6,已统一莫奈分段与整行勾选；深浅色和大字体待设备验收；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-03,默认阅读配置与手势,P0,合入R-04,UI-W6,按用户要求移除独立页面,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-04,缓存与空间管理,P0,统计、清理、失败,UI-W6,已修复缓存清理；空间统计未完整,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-T-05,备份与恢复,P0,加密备份、验证、恢复,UI-W6,公开清单与口令加密清单已实现；完整内容备份与恢复预览未完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+T-05,备份与恢复,P0,加密备份、验证、恢复,UI-W6,清单备份及逐作品完整密文导出恢复已实现；整库快照与恢复预览未完成,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md
 T-06,诊断与帮助,P0,移除入口与页面,UI-W6,按用户要求移除,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-07,关于、开源许可,P0,版本格式隐私与生成许可,UI-W6,已实现；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 E-01,通用错误/离线/权限失效,P0,重试、修复、回退,UI-W6,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md

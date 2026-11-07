@@ -55,6 +55,8 @@ fun AboutSettingsContent(onOpenLicenses: () -> Unit) {
         AsterGroupDivider()
         AboutValue("隐藏", "应用内访问锁，不加密原文件")
         AsterGroupDivider()
+        AboutValue("加密", "保险库保存密文，外部原文件保留")
+        AsterGroupDivider()
         AboutValue("备份", "仅公开清单，不含漫画与隐藏作品")
     }
     AsterSettingsGroup("致谢") {

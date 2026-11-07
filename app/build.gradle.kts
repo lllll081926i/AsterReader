@@ -105,6 +105,7 @@ dependencies {
   implementation(project(":core:model"))
   implementation(project(":core:database"))
   implementation(project(":core:designsystem"))
+  implementation(project(":core:vault"))
 
   implementation(platform(libs.androidx.compose.bom))
   // implementation(platform(libs.firebase.bom))

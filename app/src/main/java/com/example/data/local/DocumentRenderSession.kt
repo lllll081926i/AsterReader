@@ -25,11 +25,13 @@ import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
-/** 归档或目录页的打开方式。受保护文件在进入此处前必须被拒绝。 */
+/** 归档或目录页的打开方式；安全来源由 Repository 完成授权。 */
 internal sealed interface PageSource {
     /** [owned] 为 true 时会话关闭时删除该文件；复用的本地副本必须传 false。 */
     class Document(val file: File, val format: String, val owned: Boolean = true) : PageSource
     class Directory(val pageCount: Int, val openPage: (Int) -> InputStream?) : PageSource
+    class SecurePdf(val descriptor: ParcelFileDescriptor, val release: () -> Unit) : PageSource
+    class SecureArchive(val archive: ComicArchive) : PageSource
 }
 
 /**
@@ -152,6 +154,14 @@ internal class DocumentRenderSession(context: Context) {
         var temporaryFile: File? = null
         try {
             return when (prepared) {
+                is PageSource.SecureArchive -> OpenSource(key, "secure:$key", prepared.archive.pageCount,
+                    prepared.archive, null, null, null, concurrent = false)
+                is PageSource.SecurePdf -> {
+                    val renderer = try { PdfRenderer(prepared.descriptor) }
+                    catch (failure: Throwable) { prepared.descriptor.close(); prepared.release(); throw failure }
+                    OpenSource(key, "secure:$key", renderer.pageCount, null, renderer, null, null,
+                        concurrent = false, secureRelease = prepared.release)
+                }
                 is PageSource.Document -> {
                     if (prepared.owned) temporaryFile = prepared.file
                     val fingerprint = fingerprintOf(prepared.file)
@@ -337,7 +347,7 @@ internal class DocumentRenderSession(context: Context) {
             try {
                 open.archive?.close()
             } finally {
-                open.temporaryFile?.delete()
+                try { open.temporaryFile?.delete() } finally { open.secureRelease?.invoke() }
             }
         }
     }
@@ -376,7 +386,8 @@ internal class DocumentRenderSession(context: Context) {
         val renderer: PdfRenderer?,
         val directory: PageSource.Directory?,
         val temporaryFile: File?,
-        val concurrent: Boolean
+        val concurrent: Boolean,
+        val secureRelease: (() -> Unit)? = null
     ) {
         val gate = Mutex()
     }

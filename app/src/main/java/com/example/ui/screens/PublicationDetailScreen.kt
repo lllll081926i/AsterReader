@@ -244,6 +244,15 @@ fun PublicationDetailScreen(
                                 )
                             }
                             DropdownMenuItem(
+                                leadingIcon = { Icon(Icons.Outlined.EnhancedEncryption, null) },
+                                text = { Text(if (book.isVaultEncrypted) "加密导出" else "加密文件") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    if (book.isVaultEncrypted) viewModel.pushSubScreen(com.example.ui.SubScreen.SettingsSection("fileExport:${book.id}"))
+                                    else viewModel.beginEncryptBook(book.id)
+                                }
+                            )
+                            if (!book.isVaultEncrypted) DropdownMenuItem(
                                 leadingIcon = {
                                     Icon(
                                         imageVector = if (book.isVaultProtected) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
@@ -978,7 +987,7 @@ private fun DetailMetadataColumn(
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (book.isVaultProtected) {
                 Text(
-                    text = "已隐藏 · 需验证身份",
+                    text = if (book.isVaultEncrypted) "文件已加密" else "已隐藏 · 需验证身份",
                     style = MaterialTheme.typography.labelSmall,
                     color = colorScheme.primary,
                     maxLines = 1,

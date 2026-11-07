@@ -135,13 +135,7 @@ fun ReaderScreen(
     onBack: () -> Unit
 ) {
     BackHandler(onBack = onBack)
-    // 「隐藏」只是书库可见性，验证身份后照常阅读；只有真正的加密容器才拦截。
-    if (book.isVaultEncrypted) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("该文件为加密容器，当前版本暂不支持")
-        }
-        return
-    }
+    // 安全来源由 Repository 授权并提供随机读取，阅读 UI 不直接接触密钥。
 
     val context = LocalContext.current
     // 阅读时长：进入开始计时，离开时结算一次

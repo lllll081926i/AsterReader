@@ -1,6 +1,7 @@
 package com.example.data.local
 
 import android.content.Context
+import coil.imageLoader
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -23,6 +24,11 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import com.example.data.local.vault.FileVaultStore
+import com.example.data.local.vault.VaultRecord
+import com.asterreader.core.database.ReaderStateEntity
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -63,63 +69,134 @@ class LibraryRepository(
 ) {
     private val resolver = context.contentResolver
     private val localCopyMutex = kotlinx.coroutines.sync.Mutex()
+    internal var fileVault = FileVaultStore.get(context)
 
-    fun observeAllBooks() = dao.observeAllBooks()
-    fun observePublicBooks() = dao.observePublicBooks()
-    fun observeAccessibleBookById(id: String, unlocked: Boolean) = dao.observeAccessibleBookById(id, unlocked)
+    fun observeAllBooks() = combine(dao.observeAllBooks(), fileVault.records) { books, records ->
+        val committed = fileVault.committedIds()
+        (books.map { records[it.id]?.book ?: if (it.id in committed) vaultShell(it) else it } + records.values.filter { r -> books.none { it.id == r.book.id } }.map { it.book })
+            .sortedByDescending { it.lastReadTimestamp }
+    }
+    fun observePublicBooks() = combine(dao.observePublicBooks(), fileVault.records) { books, _ ->
+        val committed = fileVault.committedIds()
+        books.filterNot { it.id in committed }
+    }
+    fun observeAccessibleBookById(id: String, unlocked: Boolean) =
+        combine(dao.observeAccessibleBookById(id, unlocked), fileVault.records) { book, records ->
+            if (unlocked) records[id]?.book ?: if (id in fileVault.committedIds()) book?.let { vaultShell(it) } else book
+            else if (id in fileVault.committedIds()) null else book
+        }
     fun observeAllShelves() = dao.observeAllShelves()
-    fun observeAllAnnotations() = dao.observeAllAnnotations()
-    fun observeVisibleAnnotations(unlocked: Boolean) = dao.observeVisibleAnnotations(unlocked)
+    fun observeAllAnnotations() = combine(dao.observeAllAnnotations(), fileVault.records) { notes, records ->
+        notes.filterNot { it.bookId in fileVault.committedIds() } + records.values.flatMap { it.annotations }
+    }
+    fun observeVisibleAnnotations(unlocked: Boolean) = combine(dao.observeVisibleAnnotations(unlocked), fileVault.records) { notes, records ->
+        notes.filterNot { it.bookId in fileVault.committedIds() } + if (unlocked) records.values.flatMap { it.annotations } else emptyList()
+    }
     fun observeAllRepositories() = dao.observeAllRepositories()
-    fun observeChaptersForBook(id: String) = dao.observeChapterSummaries(id)
-    fun observeAnnotationsForBook(id: String) = dao.observeAnnotationsForBook(id)
-    fun observeReaderState(id: String) = dao.observeReaderState(id)
-    suspend fun getBookById(id: String) = dao.getBookById(id)
-    suspend fun updateBook(book: BookEntity) = dao.updateBook(book)
-    suspend fun updateMetadata(id: String, title: String, author: String, series: String, synopsis: String, tags: String) =
-        dao.updateMetadata(id, title, author, series, synopsis, tags)
-    suspend fun addBooksToShelf(ids: List<String>, shelfId: String) = dao.addBooksToShelf(ids, shelfId)
+    fun observeChaptersForBook(id: String) = combine(dao.observeChapterSummaries(id), fileVault.records) { chapters, records ->
+        records[id]?.chapters ?: if (id in fileVault.committedIds()) emptyList() else chapters
+    }
+    fun observeAnnotationsForBook(id: String) = combine(dao.observeAnnotationsForBook(id), fileVault.records) { notes, records ->
+        records[id]?.annotations ?: if (id in fileVault.committedIds()) emptyList() else notes
+    }
+    fun observeReaderState(id: String) = combine(dao.observeReaderState(id), fileVault.records) { state, records ->
+        records[id]?.reader ?: if (id in fileVault.committedIds()) null else state
+    }
+    suspend fun getBookById(id: String) = fileVault.records.value[id]?.book ?: dao.getBookById(id)?.let {
+        if (id in fileVault.committedIds()) vaultShell(it) else it
+    }
+    private suspend fun changePrivate(id: String, transform: (VaultRecord) -> VaultRecord): Boolean = withContext(Dispatchers.IO) {
+        if (id !in fileVault.committedIds()) false else { fileVault.update(id, transform); true }
+    }
+    suspend fun updateBook(book: BookEntity) {
+        if (!changePrivate(book.id) { it.copy(book = book) }) dao.updateBook(book)
+    }
+    suspend fun updateMetadata(id: String, title: String, author: String, series: String, synopsis: String, tags: String) {
+        if (!changePrivate(id) { it.copy(book = it.book.copy(title = title.ifBlank { it.book.title }, author = author,
+                series = series, synopsis = synopsis, tagsCsv = tags)) }) dao.updateMetadata(id, title, author, series, synopsis, tags)
+    }
+    suspend fun addBooksToShelf(ids: List<String>, shelfId: String) {
+        require(dao.getAllShelves().any { it.id == shelfId })
+        for (id in ids) if (!changePrivate(id) { it.copy(book = it.book.copy(shelfIdsCsv =
+                (it.book.shelfIdsCsv.split(',').filter(String::isNotBlank) + shelfId).distinct().joinToString(","))) })
+            dao.addBooksToShelf(listOf(id), shelfId)
+    }
     suspend fun moveShelf(id: String, offset: Int) = dao.moveShelf(id, offset)
-    suspend fun toggleFavorite(id: String) = dao.toggleFavorite(id)
-    suspend fun updateProgress(id: String, page: Int, percent: Int, badge: String, chapter: String?, time: Long) =
-        dao.updateProgress(id, page, percent, badge, chapter, time)
+    suspend fun toggleFavorite(id: String) { if (!changePrivate(id) { it.copy(book = it.book.copy(isFavorite = !it.book.isFavorite)) }) dao.toggleFavorite(id) }
+    suspend fun updateProgress(id: String, page: Int, percent: Int, badge: String, chapter: String?, time: Long) {
+        if (!changePrivate(id) { it.copy(book = it.book.copy(currentPage = page, progressPercent = percent, statusBadge = badge,
+                currentChapterTitle = chapter ?: it.book.currentChapterTitle, lastReadTimestamp = time)) }) dao.updateProgress(id, page, percent, badge, chapter, time)
+    }
     suspend fun insertShelf(shelf: ShelfEntity) = dao.createUniqueShelf(shelf)
     suspend fun deleteShelfById(id: String) = dao.removeShelfAndMembership(id)
     suspend fun renameShelf(id: String, name: String) = dao.renameUniqueShelf(id, name)
     suspend fun renameTag(old: String, new: String) = dao.renamePublicTag(old, new)
     suspend fun deleteTag(tag: String) = dao.removePublicTag(tag)
     suspend fun updateShelf(shelf: ShelfEntity) = dao.updateShelf(shelf)
-    suspend fun insertAnnotation(annotation: AnnotationEntity) = dao.insertAnnotation(annotation)
-    suspend fun deleteAnnotationById(id: Int) = dao.deleteAnnotationById(id)
-    suspend fun removeBookmark(id: String, page: Int) = dao.removeBookmark(id, page)
-    suspend fun removeBooks(ids: List<String>) = dao.removeBooks(ids)
+    suspend fun insertAnnotation(annotation: AnnotationEntity) {
+        if (!changePrivate(annotation.bookId) { it.copy(annotations = it.annotations + annotation.copy(id = fileVault.nextAnnotationId())) }) dao.insertAnnotation(annotation)
+    }
+    suspend fun deleteAnnotationById(id: Int) {
+        if (id < 0) {
+            val record = fileVault.records.value.values.firstOrNull { r -> r.annotations.any { it.id == id } } ?: error("请先解锁文件保险库")
+            changePrivate(record.book.id) { it.copy(annotations = it.annotations.filterNot { a -> a.id == id }) }
+        } else dao.deleteAnnotationById(id)
+    }
+    suspend fun removeBookmark(id: String, page: Int) {
+        if (!changePrivate(id) { it.copy(annotations = it.annotations.filterNot { a -> a.pageNumber == page && a.type == "BOOKMARK" }) }) dao.removeBookmark(id, page)
+    }
+    suspend fun removeBooks(ids: List<String>) {
+        require(ids.none { it in fileVault.committedIds() }) { "请先导出加密作品；保险库密文不会通过移除书库记录删除" }
+        dao.removeBooks(ids)
+    }
     suspend fun deleteRepository(id: String) = dao.deleteRepositoryById(id)
 
     // ------------------------------------------------------------------
     // 阅读状态：页码 + 页内偏移 + 缩放，按书持久化
     // ------------------------------------------------------------------
 
-    suspend fun saveViewport(id: String, viewport: ReaderViewport) = dao.saveViewport(id, viewport)
-    suspend fun saveReadingPosition(id: String, page: Int, chapter: String?, viewport: ReaderViewport?) =
-        dao.saveReadingPosition(id, page, chapter, viewport, System.currentTimeMillis())
+    suspend fun saveViewport(id: String, viewport: ReaderViewport) {
+        if (!changePrivate(id) { r -> val v = viewport.sanitized(r.book.totalPages)
+                r.copy(reader = r.reader.copy(page = v.page, offsetFraction = v.offsetFraction, scale = v.scale, panX = v.panX, panY = v.panY)) }) dao.saveViewport(id, viewport)
+    }
+    suspend fun saveReadingPosition(id: String, page: Int, chapter: String?, viewport: ReaderViewport?) {
+        if (!changePrivate(id) { r ->
+            val next = page.coerceIn(1, r.book.totalPages)
+            val done = next == r.book.totalPages
+            val v = viewport?.sanitized(r.book.totalPages)
+            r.copy(book = r.book.copy(currentPage = next, progressPercent = if (done) 100 else (next * 100 / r.book.totalPages).coerceAtMost(99),
+                statusBadge = if (done) "已读完" else "在读", currentChapterTitle = chapter ?: r.book.currentChapterTitle,
+                lastReadTimestamp = System.currentTimeMillis()), reader = r.reader.copy(page = next,
+                offsetFraction = v?.offsetFraction ?: r.reader.offsetFraction, scale = v?.scale ?: r.reader.scale,
+                panX = v?.panX ?: r.reader.panX, panY = v?.panY ?: r.reader.panY))
+        }) dao.saveReadingPosition(id, page, chapter, viewport, System.currentTimeMillis())
+    }
 
-    suspend fun saveReaderOptions(id: String, mode: String?, fit: String?, cover: Boolean?, rtl: Boolean? = null) =
-        dao.saveReaderOptions(id, mode, fit, cover, rtl)
+    suspend fun saveReaderOptions(id: String, mode: String?, fit: String?, cover: Boolean?, rtl: Boolean? = null) {
+        if (!changePrivate(id) { it.copy(reader = it.reader.copy(layoutMode = mode, fitMode = fit, coverSingle = cover, rightToLeft = rtl)) }) dao.saveReaderOptions(id, mode, fit, cover, rtl)
+    }
 
-    suspend fun readerState(id: String) = dao.getReaderState(id)
+    suspend fun readerState(id: String) = fileVault.records.value[id]?.reader ?: dao.getReaderState(id)
 
     // ------------------------------------------------------------------
     // 系列
     // ------------------------------------------------------------------
 
     suspend fun seriesBooks(series: String): List<BookEntity> =
-        if (series.isBlank()) emptyList() else dao.getSeriesBooks(series)
+        if (series.isBlank()) emptyList() else observeAllBooks().first().filter { it.series == series }.sortedBy { it.seriesOrder }
 
-    suspend fun updateSeries(bookId: String, series: String, order: Int) = dao.updateSeries(bookId, series, order)
+    suspend fun updateSeries(bookId: String, series: String, order: Int) {
+        if (!changePrivate(bookId) { it.copy(book = it.book.copy(series = series, seriesOrder = order)) }) dao.updateSeries(bookId, series, order)
+    }
 
     /** 隐藏/取消隐藏：只改变书库中的可见性，文件字节保持原样。 */
-    suspend fun setBookHidden(bookId: String, hidden: Boolean) = dao.setBookHidden(bookId, hidden)
-    suspend fun markReadingCompleted(bookId: String) = dao.markReadingCompleted(bookId)
+    suspend fun setBookHidden(bookId: String, hidden: Boolean) {
+        require(bookId !in fileVault.committedIds()) { "加密作品仅在保险库解锁后显示" }
+        dao.setBookHidden(bookId, hidden)
+    }
+    suspend fun markReadingCompleted(bookId: String) {
+        if (!changePrivate(bookId) { it.copy(book = it.book.copy(progressPercent = 100, statusBadge = "已读完")) }) dao.markReadingCompleted(bookId)
+    }
 
     fun observeHiddenCount() = dao.observeHiddenCount()
     fun nativePageSize(bitmap: Bitmap): Pair<Int, Int>? = renderSession.nativeSize(bitmap)
@@ -155,6 +232,12 @@ class LibraryRepository(
         replaceId: String? = null
     ): BookEntity = withContext(Dispatchers.IO) {
         require(uri.scheme == "content" || uri.scheme == "file") { "请选择系统文件提供者中的文档" }
+        if (fileVault.configured) {
+            val tag = fileVault.sourceTag(uri.toString())
+            dao.getBookByUri("vault-source://$tag")?.let { shell ->
+                return@withContext fileVault.records.value[shell.id]?.book ?: shell
+            }
+        }
         val linked = findDocumentSource(uri)
         if (persist && uri.scheme == "content") {
             try {
@@ -272,6 +355,12 @@ class LibraryRepository(
         refreshExisting: Boolean = false,
         replaceId: String? = null
     ): BookEntity = withContext(Dispatchers.IO) {
+        if (fileVault.configured) {
+            val tag = fileVault.sourceTag(folderUri.toString())
+            dao.getBookByUri("vault-source://$tag")?.let { shell ->
+                return@withContext fileVault.records.value[shell.id]?.book ?: shell
+            }
+        }
         val images = listImages(treeUri, folderUri)
         require(images.isNotEmpty()) { "目录内没有图片" }
         val linked = dao.getBookByUri(folderUri.toString())
@@ -452,14 +541,31 @@ class LibraryRepository(
 
     private val renderSession = DocumentRenderSession(context)
 
-    private fun sourceKey(book: BookEntity): String = if (book.format == "IMAGE_DIR") {
+    private fun sourceKey(book: BookEntity): String = if (book.isVaultEncrypted) {
+        "secure:${book.id}:${fileVault.sessionToken()}"
+    } else if (book.format == "IMAGE_DIR") {
         "${book.id}:${book.filePath}:${book.contentFingerprint}"
     } else {
         "${book.id}:${book.filePath}:${book.sizeBytes}:${book.sourceModifiedAt}"
     }
 
     /** 归档必须落到本地文件才能随机读；这里复用缓存副本，避免每次打开都整本复制。 */
-    private suspend fun prepareSource(book: BookEntity): PageSource = if (book.format == "IMAGE_DIR") {
+    private suspend fun prepareSource(book: BookEntity): PageSource = if (book.isVaultEncrypted) {
+        val record = fileVault.records.value[book.id] ?: error("请先解锁文件保险库")
+        if (record.pageSizes.isNotEmpty()) {
+            val offsets = record.pageSizes.runningFold(0L, Long::plus)
+            PageSource.Directory(record.pageSizes.size) { number ->
+                require(number in 1..record.pageSizes.size)
+                val reader = fileVault.openReader(book.id)
+                object : java.io.FilterInputStream(reader.stream(offsets[number - 1], record.pageSizes[number - 1])) {
+                    override fun close() { try { super.close() } finally { fileVault.release(reader) } }
+                }
+            }
+        } else if (book.format == "PDF") {
+            val proxy = com.example.data.local.vault.VaultProxySource(context, fileVault, book.id)
+            PageSource.SecurePdf(ParcelFileDescriptor.dup(proxy.descriptor.fileDescriptor), proxy::close)
+        } else PageSource.SecureArchive(com.example.data.local.vault.VaultComicArchive(fileVault, record))
+    } else if (book.format == "IMAGE_DIR") {
         val pages = dao.getComicPages(book.id).associateBy { it.number }
         PageSource.Directory(pages.size) { number ->
             pages[number]?.let { page ->
@@ -472,17 +578,19 @@ class LibraryRepository(
 
     suspend fun renderPage(id: String, page: Int, maxPixels: Int = DEFAULT_PAGE_PIXELS): Bitmap =
         withContext(Dispatchers.IO) {
-            val book = dao.getBookById(id) ?: error("作品已被移除")
-            require(!book.isVaultEncrypted) { "该文件为加密容器，当前版本暂不支持" }
+            val token = fileVault.sessionToken()
+            val book = getBookById(id) ?: error("作品已被移除")
             require(page in 1..book.totalPages) { "页码超出范围" }
-            renderSession.render(sourceKey(book), page, maxPixels) { prepareSource(book) }
+            renderSession.render(sourceKey(book), page, maxPixels) { prepareSource(book) }.also {
+                if (book.isVaultEncrypted) check(fileVault.isSessionValid(token)) { "保险库已锁定" }
+            }
         }
 
     /** 预热相邻页。失败不影响阅读，只让翻页少一次等待。 */
     suspend fun prefetchPages(id: String, pages: List<Int>, maxPixels: Int = DEFAULT_PAGE_PIXELS) =
         withContext(Dispatchers.IO) {
-            val book = dao.getBookById(id) ?: return@withContext
-            if (book.isVaultEncrypted) return@withContext
+            val book = getBookById(id) ?: return@withContext
+            if (book.isVaultEncrypted && !fileVault.unlocked) return@withContext
             renderSession.prefetch(sourceKey(book), pages, maxPixels) { prepareSource(book) }
         }
 
@@ -494,16 +602,185 @@ class LibraryRepository(
         bottomFraction: Float,
         maxPixels: Int = ZOOMED_PAGE_PIXELS
     ): Bitmap? = withContext(Dispatchers.IO) {
-        val book = dao.getBookById(id) ?: return@withContext null
-        if (book.isVaultEncrypted) return@withContext null
+        val token = fileVault.sessionToken()
+        val book = getBookById(id) ?: return@withContext null
+        if (book.isVaultEncrypted && !fileVault.unlocked) return@withContext null
         renderSession.renderRegion(sourceKey(book), page, topFraction, bottomFraction, maxPixels) {
             prepareSource(book)
-        }
+        }.also { if (book.isVaultEncrypted) check(fileVault.isSessionValid(token)) { "保险库已锁定" } }
     }
 
     fun trimPageMemory() = renderSession.trimMemory()
 
     suspend fun closeReadSession() = renderSession.close()
+
+    suspend fun initializeOrUnlockFileVault(password: CharArray, create: Boolean) = withContext(Dispatchers.IO) {
+        val coroutine = currentCoroutineContext()
+        fileVault.open(password, create) { coroutine.ensureActive() }
+        // 元数据提交后、数据库去敏前崩溃时，解锁后重放去敏操作。
+        fileVault.records.value.values.forEach { record ->
+            val existing = dao.getBookById(record.book.id)
+            if (existing != null && !existing.isVaultEncrypted) dao.commitVaultShell(vaultShell(record.book,
+                "vault-source://${fileVault.sourceTag(existing.filePath)}"))
+        }
+        if (fileVault.records.value.isNotEmpty()) {
+            purgeDeletedMetadata()
+            File(context.cacheDir, "read").listFiles()?.forEach { it.delete() }
+            fileVault.committedIds().forEach { File(context.cacheDir, "covers/$it.jpg").delete() }
+            fileVault.records.value.values.forEach { cleanupManagedVaultOriginal(it) }
+        }
+    }
+
+    private fun vaultShell(book: BookEntity, sourceRef: String = "vault://${book.id}") = book.copy(
+        title = "加密作品", author = "", series = "", format = "VAULT", coverUrl = "", altCoverUrl = "",
+        currentPage = 1, totalPages = 1, progressPercent = 0, currentChapterTitle = "", statusBadge = "已加密",
+        seriesBadge = "", fileSizeText = "", filePath = sourceRef, repositoryName = "保险库", updatedTimeText = "",
+        synopsis = "", tagsCsv = "", shelfIdsCsv = "", isFavorite = false, isVaultProtected = true,
+        isVaultEncrypted = true, lastReadTimestamp = 0, sizeBytes = 0, addedAt = 0, sourceModifiedAt = 0,
+        repositoryId = "", sourceStatus = "AVAILABLE", contentFingerprint = "", coverPage = 1, seriesOrder = 0)
+
+    @OptIn(coil.annotation.ExperimentalCoilApi::class)
+    suspend fun encryptBookFile(id: String) = withContext(Dispatchers.IO) {
+        closeReadSession()
+        localCopyMutex.withLock {
+            val book = dao.getBookById(id) ?: error("作品已被移除")
+            require(!book.isVaultEncrypted) { "作品已经加密" }
+            val coroutine = currentCoroutineContext()
+            val active = { coroutine.ensureActive() }
+            val pages = if (book.format == "IMAGE_DIR") dao.getComicPages(id) else emptyList()
+            val pageSizes = pages.map { page ->
+                require(page.sizeBytes > 0) { "图片大小未知，请重新扫描后加密" }; page.sizeBytes
+            }
+            val pageNames = if (pages.isEmpty() && book.format !in setOf("PDF", "IMAGE"))
+                ComicArchives.open(localCopyLocked(book), book.format).use { it.pageNames } else emptyList()
+            val length = if (pages.isNotEmpty()) pageSizes.sum() else queryDocument(Uri.parse(book.filePath)).size
+            require(length > 0) { "文件大小未知或为空，请重新选择来源" }
+            val cover = File(book.coverUrl.removePrefix("file://")).takeIf { it.isFile && it.length() <= 1024 * 1024 }
+                ?.readBytes()?.let { bytes -> try { android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP) }
+                    finally { bytes.fill(0) } }.orEmpty()
+            val record = VaultRecord(book, "", dao.getChapters(id), dao.getAnnotationsForBook(id)
+                .map { it.copy(id = fileVault.nextAnnotationId()) }, dao.getReaderState(id) ?: ReaderStateEntity(id, page = book.currentPage), pageSizes, cover, pageNames, book.filePath)
+            val input = {
+                if (pages.isEmpty()) openSourceStream(book.filePath) else object : InputStream() {
+                    var index = 0
+                    var current: InputStream? = null
+                    var remaining = 0L
+                    override fun read(): Int { val one = ByteArray(1); return if (read(one) < 0) -1 else one[0].toInt() and 255 }
+                    override fun read(bytes: ByteArray, offset: Int, count: Int): Int {
+                        if (count == 0) return 0
+                        while (true) {
+                            active()
+                            if (current == null) {
+                                if (index >= pages.size) return -1
+                                current = openSourceStream(pages[index].uri)
+                                remaining = pageSizes[index++]
+                            }
+                            if (remaining == 0L) {
+                                require(current!!.read() == -1) { "图片在加密时发生变化" }
+                                current!!.close(); current = null; continue
+                            }
+                            val read = current!!.read(bytes, offset, minOf(count.toLong(), remaining).toInt())
+                            require(read > 0) { "图片在加密时发生变化" }
+                            remaining -= read
+                            return read
+                        }
+                    }
+                    override fun close() { current?.close() }
+                }
+            }
+            val saved = fileVault.create(record, length, input, active)
+            // 密文及元数据均已提交后，普通库仅保留随机标识与来源 HMAC。
+            dao.commitVaultShell(vaultShell(saved.book, "vault-source://${fileVault.sourceTag(book.filePath)}"))
+            purgeDeletedMetadata()
+            cleanupManagedVaultOriginal(saved)
+            File(context.cacheDir, "covers/$id.jpg").delete()
+            // 阅读副本均为可再生缓存，清理防止原明文副本继续留在应用缓存。
+            File(context.cacheDir, "read").listFiles()?.forEach { it.delete() }
+            context.imageLoader.memoryCache?.clear()
+            context.imageLoader.diskCache?.clear()
+        }
+    }
+
+    private fun openSourceStream(uri: String): InputStream = resolver.openInputStream(Uri.parse(uri)) ?: error("来源无法读取，请重新授权")
+    private suspend fun cleanupManagedVaultOriginal(record: VaultRecord) {
+        val uri = Uri.parse(record.originalUri)
+        if (uri.scheme != "file") return
+        val source = File(uri.path.orEmpty()).canonicalFile
+        val ownedRoot = File(context.filesDir, "imports").canonicalFile
+        if (!source.toPath().startsWith(ownedRoot.toPath()) || !source.isFile) return
+        val coroutine = currentCoroutineContext()
+        val active = { coroutine.ensureActive(); check(fileVault.unlocked) }
+        val verified = fileVault.openReader(record.book.id).let { reader ->
+            try { reader.stream().use { digestStream(it, active) } } finally { fileVault.release(reader) }
+        }
+        val sourceDigest = source.inputStream().use { digestStream(it, active) }
+        require(java.security.MessageDigest.isEqual(verified, sourceDigest)) { "应用持有副本已变化，保留源文件" }
+        active()
+        require(source.delete()) { "应用持有明文副本清理失败" }
+    }
+    private fun purgeDeletedMetadata() {
+        val database = AsterDatabase.getDatabase(context).openHelper.writableDatabase
+        database.query("PRAGMA wal_checkpoint(TRUNCATE)").use { cursor ->
+            require(cursor.moveToFirst() && cursor.getInt(0) == 0) { "数据库整理未完成，请保持原文件并重试" }
+        }
+        database.execSQL("VACUUM")
+        database.query("PRAGMA wal_checkpoint(TRUNCATE)").use { it.moveToFirst() }
+    }
+
+    suspend fun changeFileVaultPassword(current: CharArray, password: CharArray) = withContext(Dispatchers.IO) { fileVault.changePassword(current, password) }
+    fun lockFileVault() { fileVault.lock(); trimPageMemory() }
+    suspend fun verifyFileVault() = withContext(Dispatchers.IO) {
+        val coroutine = currentCoroutineContext()
+        for (record in fileVault.records.value.values) {
+            val reader = fileVault.openReader(record.book.id)
+            try {
+                var offset = 0L
+                while (offset < reader.length) {
+                    coroutine.ensureActive()
+                    val bytes = reader.read(offset, minOf(com.asterreader.core.vault.VaultCryptography.CHUNK_SIZE.toLong(), reader.length - offset).toInt())
+                    offset += bytes.size; bytes.fill(0)
+                }
+            } finally { fileVault.release(reader) }
+        }
+    }
+
+    suspend fun exportEncryptedBook(id: String, target: Uri, password: CharArray) = withContext(Dispatchers.IO) {
+        val coroutine = currentCoroutineContext()
+        val active = { coroutine.ensureActive(); check(fileVault.unlocked) { "保险库已锁定" } }
+        val staging = File(context.noBackupFilesDir, "${UUID.randomUUID()}.astervault-part")
+        try {
+            java.io.FileOutputStream(staging).use { output -> fileVault.export(id, password, output, active); output.fd.sync() }
+            val expected = staging.inputStream().use { input -> digestStream(input, active) }
+            resolver.openOutputStream(target, "wt")?.use { output ->
+                staging.inputStream().use { input -> copyStreamChecked(input, output, active) }
+            } ?: error("目标不可写")
+            val actual = resolver.openInputStream(target)?.use { digestStream(it, active) } ?: error("目标不能重读验证")
+            require(java.security.MessageDigest.isEqual(expected, actual)) { "导出校验失败，请重新导出" }
+        } finally { staging.delete() }
+    }
+
+    suspend fun restoreEncryptedBook(source: Uri, password: CharArray): BookEntity = withContext(Dispatchers.IO) {
+        val coroutine = currentCoroutineContext()
+        val saved = openSourceStream(source.toString()).use { fileVault.restore(it, password) { coroutine.ensureActive() } }
+        dao.insertBook(vaultShell(saved.book))
+        saved.book
+    }
+
+    private fun digestStream(input: InputStream, active: () -> Unit): ByteArray {
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val sink = object : OutputStream() {
+            override fun write(value: Int) { digest.update(value.toByte()) }
+            override fun write(bytes: ByteArray, off: Int, len: Int) { digest.update(bytes, off, len) }
+        }
+        copyStreamChecked(input, sink, active)
+        return digest.digest()
+    }
+    private fun copyStreamChecked(input: InputStream, output: OutputStream, active: () -> Unit) {
+        val buffer = ByteArray(65536)
+        try {
+            while (true) { active(); val count = input.read(buffer); if (count < 0) break; require(count > 0); output.write(buffer, 0, count) }
+        } finally { buffer.fill(0) }
+    }
 
     // ------------------------------------------------------------------
     // 封面
@@ -550,6 +827,20 @@ class LibraryRepository(
     }
 
     suspend fun setCoverPage(bookId: String, page: Int): Boolean = withContext(Dispatchers.IO) {
+        if (bookId in fileVault.committedIds()) {
+            val book = getBookById(bookId) ?: return@withContext false
+            if (page !in 1..book.totalPages) return@withContext false
+            val bitmap = renderPage(bookId, page, 300 * 450)
+            val memory = java.io.ByteArrayOutputStream()
+            try {
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 86, memory)
+                val bytes = memory.toByteArray()
+                try { fileVault.update(bookId) { it.copy(book = it.book.copy(coverPage = page),
+                    cover = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)) } }
+                finally { bytes.fill(0) }
+            } finally { memory.reset() }
+            return@withContext true
+        }
         val book = dao.getBookById(bookId) ?: return@withContext false
         if (page !in 1..book.totalPages) return@withContext false
         val target = File(context.cacheDir, "covers/${book.id}.jpg")
@@ -969,7 +1260,10 @@ class LibraryRepository(
      * 阅读用的本地副本：按「作品 id + 大小 + 修改时间」命名并长期保留，
      * 同一本书再次打开时直接命中，不再整本复制；总量超限时按最后使用时间淘汰。
      */
-    private suspend fun localCopy(book: BookEntity): File = localCopyMutex.withLock {
+    private suspend fun localCopy(book: BookEntity): File = localCopyMutex.withLock { localCopyLocked(book) }
+
+    /** 调用者必须持有 localCopyMutex，防止加密提交与明文缓存重建并发。 */
+    private suspend fun localCopyLocked(book: BookEntity): File {
         val dir = File(context.cacheDir, "read").apply { mkdirs() }
         val identity = "${book.id}:${book.filePath}:${book.sizeBytes}:${book.sourceModifiedAt}:${book.contentFingerprint}"
         val name = java.security.MessageDigest.getInstance("SHA-256").digest(identity.toByteArray())
@@ -981,7 +1275,7 @@ class LibraryRepository(
             dir.listFiles()?.filter {
                 it.name.endsWith(".part") && System.currentTimeMillis() - it.lastModified() > 3_600_000L
             }?.forEach { it.delete() }
-            return@withLock target
+            return target
         }
         val temp = File(dir, "$name.part")
         try {
@@ -992,7 +1286,7 @@ class LibraryRepository(
             throw failure
         }
         pruneLocalCopies(dir, keep = target)
-        target
+        return target
     }
 
     private fun pruneLocalCopies(dir: File, keep: File) {

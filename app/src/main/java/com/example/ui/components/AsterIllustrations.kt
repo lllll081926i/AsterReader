@@ -372,7 +372,9 @@ fun AsterBookCover(
         SubcomposeAsyncImage(
             model = ImageRequest.Builder(context)
                 .data(model)
-                .crossfade(true)
+                .crossfade(!coverUrl.startsWith("vault-cover://"))
+                .diskCachePolicy(if (coverUrl.startsWith("vault-cover://")) coil.request.CachePolicy.DISABLED else coil.request.CachePolicy.ENABLED)
+                .memoryCachePolicy(if (coverUrl.startsWith("vault-cover://")) coil.request.CachePolicy.DISABLED else coil.request.CachePolicy.ENABLED)
                 .build(),
             contentDescription = title,
             contentScale = ContentScale.Crop,

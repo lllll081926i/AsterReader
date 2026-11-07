@@ -58,6 +58,23 @@ open class SettingsConsistencyTest {
         capture("settings-home-light")
     }
 
+    @Test fun fileVaultCreationRequiresConfirmationAndRecoveryAcknowledgement() {
+        content(section = "fileVault")
+        compose.onNode(hasSetTextAction() and hasText("口令")).performTextInput("rT8-Vp3_Zm7_Qe4-nK9")
+        compose.onNode(hasSetTextAction() and hasText("确认口令")).performTextInput("rT8-Vp3_Zm7_Qe4-nK9")
+        compose.onAllNodesWithText("建立保险库").filter(hasClickAction()).onFirst().performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithText("我已保存口令并了解恢复条件").performScrollTo().performClick()
+        compose.onAllNodesWithText("建立保险库").filter(hasClickAction()).onFirst().performScrollTo().assertIsEnabled()
+        capture("file-vault-create")
+    }
+
+    @Test fun lockedFileVaultControlsRemainReachableInDarkLargeFont() {
+        content(section = "fileVault", dark = true, fontScale = 2f)
+        compose.onNodeWithText("生成随机口令").performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText("建立保险库").filter(hasClickAction()).onFirst().performScrollTo().assertIsDisplayed()
+        capture("file-vault-dark-font-200")
+    }
+
     @Test fun readingOptionsRemainReachableAtDoubleFontScale() {
         readerContent(fontScale = 2f)
         compose.onNodeWithText("音量键翻页").performScrollTo().assertIsDisplayed().performClick()

@@ -111,11 +111,12 @@ class MainActivity : ComponentActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-            LaunchedEffect(uiState.flagSecureEnabled, uiState.hideRecentsPreview, uiState.isAppLockedNow) {
-                if (uiState.flagSecureEnabled || uiState.hideRecentsPreview || uiState.isAppLockedNow)
+            val fileVaultPage = (uiState.activeSubScreen as? SubScreen.SettingsSection)?.section?.startsWith("file") == true
+            LaunchedEffect(uiState.flagSecureEnabled, uiState.hideRecentsPreview, uiState.isAppLockedNow, uiState.fileVaultOpen, fileVaultPage) {
+                if (uiState.flagSecureEnabled || uiState.hideRecentsPreview || uiState.isAppLockedNow || uiState.fileVaultOpen || fileVaultPage)
                     window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(!uiState.hideRecentsPreview)
+                if (Build.VERSION.SDK_INT >= 33) setRecentsScreenshotEnabled(!uiState.hideRecentsPreview && !uiState.fileVaultOpen && !fileVaultPage)
             }
 
             val darkTheme = when (uiState.themeMode) {
@@ -419,6 +420,7 @@ fun AsterReaderAppRoot(
 
                         is SubScreen.PublicationDetail -> {
                             val targetBook = allBooks.find { it.id == subScreen.bookId }
+                                ?.takeIf { !it.isVaultEncrypted || uiState.fileVaultOpen }
 
                             if (targetBook != null) {
                                 PublicationDetailScreen(
@@ -447,6 +449,7 @@ fun AsterReaderAppRoot(
 
                         is SubScreen.Reader -> {
                             val targetBook = allBooks.find { it.id == subScreen.bookId }
+                                ?.takeIf { !it.isVaultEncrypted || uiState.fileVaultOpen }
 
                             if (targetBook != null) {
                                 ReaderScreen(

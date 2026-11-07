@@ -161,6 +161,10 @@ data class AsterUiState(
     val encryptedBackupBusy: Boolean = false,
     val encryptedBackupError: String? = null,
     val encryptedBackupHasTarget: Boolean = false,
+    val fileVaultConfigured: Boolean = false,
+    val fileVaultOpen: Boolean = false,
+    val fileVaultBusy: Boolean = false,
+    val fileVaultError: String? = null,
     val pendingRepositoryName: String = "本地目录",
     val pendingRelocateBookId: String? = null,
     val pendingRelocateIsFolder: Boolean = false
@@ -236,9 +240,14 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private var pinSetupJob: kotlinx.coroutines.Job? = null
     private var authenticationExpiry: kotlinx.coroutines.Job? = null
     private var pinFailures = pinAttempts.getInt("failures", 0)
+    private val pinVerificationMutex = Mutex()
     private var pendingExternalUri: Uri? = null
     private var encryptedBackupTarget: Uri? = null
     private var encryptedBackupJob: kotlinx.coroutines.Job? = null
+    private var fileVaultJob: kotlinx.coroutines.Job? = null
+    private var pendingFileVaultBook: String? = null
+    private var fileVaultPickerDeadline = 0L
+    private var fileVaultPickerExpiry: kotlinx.coroutines.Job? = null
 
     val allBooks: StateFlow<List<BookEntity>> = uiState
         .distinctUntilChangedBy { Triple(it.settingsLoaded, it.isAppLockedNow, it.isVaultUnlocked) }
@@ -291,7 +300,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch(operationErrors) {
             try { _uiState.value = preferences.load().copy(
-                pinLockedUntilMs = withContext(Dispatchers.IO) { pinAttempts.getLong("lockedUntil", 0L) }
+                pinLockedUntilMs = withContext(Dispatchers.IO) { pinAttempts.getLong("lockedUntil", 0L) },
+                fileVaultConfigured = withContext(Dispatchers.IO) { repository.fileVault.configured }
             ) }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
@@ -358,8 +368,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             runCatching {
                 preferences.saveSession(
                     tab = state.currentTab.name,
-                    stackEncoding = encodeNavStack(state.subScreenStack),
-                    searchQuery = state.searchQuery
+                    stackEncoding = if (state.fileVaultOpen) "" else encodeNavStack(state.subScreenStack),
+                    searchQuery = if (state.fileVaultOpen) "" else state.searchQuery
                 )
             }
         }
@@ -510,6 +520,10 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openBookDetail(bookId: String) {
         val book = allBooks.value.find { it.id == bookId }
+        if (book?.isVaultEncrypted == true && !_uiState.value.fileVaultOpen) {
+            pendingFileVaultBook = bookId
+            pushSubScreen(SubScreen.SettingsSection("fileVault")); return
+        }
         if (book != null && book.isVaultProtected && !_uiState.value.isVaultUnlocked) {
             requestVaultUnlock {
                 _uiState.update { it.copy(tabletInspectedBookId = bookId) }
@@ -523,6 +537,10 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openBookReader(bookId: String, initialPage: Int? = null, preferDualPageOnTablet: Boolean = false) {
         val book = allBooks.value.find { it.id == bookId }
+        if (book?.isVaultEncrypted == true && !_uiState.value.fileVaultOpen) {
+            pendingFileVaultBook = bookId
+            pushSubScreen(SubScreen.SettingsSection("fileVault")); return
+        }
         val launchReader = {
             pushSubScreen(SubScreen.Reader(bookId, initialPage))
         }
@@ -586,14 +604,21 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         pinSetupJob?.cancel()
         authenticationExpiry?.cancel()
         encryptedBackupJob?.cancel()
+        fileVaultJob?.cancel()
+        pendingFileVaultBook = null
+        repository.lockFileVault()
+        fileVaultPickerDeadline = 0L
+        fileVaultPickerExpiry?.cancel()
         encryptedBackupTarget = null
         _pendingRemoval.value = emptyList()
         val hiddenIds = allBooks.value.filter { it.isVaultProtected || it.isVaultEncrypted }.map { it.id }.toSet()
+        hiddenIds.forEach { pendingProgress.remove(it); pendingViewports.remove(it) }
         releaseReaderResources()
         systemAuthenticationInProgress = false
         pendingPostAuthAction = null
         _uiState.update { state -> state.copy(isAppLockedNow = state.isAppLockEnabled, isVaultUnlocked = false,
             showQuickAuthSheet = false, encryptedBackupHasTarget = false, encryptedBackupError = null,
+            fileVaultOpen = false, fileVaultError = null,
             subScreenStack = if (state.isAppLockEnabled) emptyList() else state.subScreenStack.filterNot { screen ->
                 screen is SubScreen.HiddenBooks || screen is SubScreen.Reader && screen.bookId in hiddenIds ||
                     screen is SubScreen.PublicationDetail && screen.bookId in hiddenIds
@@ -683,7 +708,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         ((_uiState.value.pinLockedUntilMs - System.currentTimeMillis() + 999L) / 1000L).coerceAtLeast(0L)
 
     /** PIN 解锁：连续 5 次失败后冷却 30 秒，失败计数和截止时间跨进程保存。 */
-    suspend fun unlockWithPin(pin: String): Boolean {
+    suspend fun unlockWithPin(pin: String): Boolean = pinVerificationMutex.withLock { unlockWithPinSerial(pin) }
+
+    private suspend fun unlockWithPinSerial(pin: String): Boolean {
         if (!systemAuthenticationInProgress) return false
         if (pinLockRemainingSeconds() > 0) return false
         val hash = _uiState.value.pinHash
@@ -694,8 +721,11 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             pinFailures++
             if (pinFailures >= MAX_PIN_ATTEMPTS) {
                 pinFailures = 0
-                _uiState.update { it.copy(pinLockedUntilMs = System.currentTimeMillis() + PIN_LOCKOUT_MS) }
-                showSnackbar("尝试次数过多，请 30 秒后重试", SnackbarTone.ERROR)
+                val tier = pinAttempts.getInt("tier", 0).coerceIn(0, 7)
+                val delay = minOf(3_600_000L, PIN_LOCKOUT_MS shl tier)
+                withContext(Dispatchers.IO) { pinAttempts.edit().putInt("tier", tier + 1).commit() }
+                _uiState.update { it.copy(pinLockedUntilMs = System.currentTimeMillis() + delay) }
+                showSnackbar("尝试次数过多，请 ${delay / 1000} 秒后重试", SnackbarTone.ERROR)
             }
             withContext(Dispatchers.IO) { pinAttempts.edit().putInt("failures", pinFailures)
                 .putLong("lockedUntil", _uiState.value.pinLockedUntilMs).commit() }
@@ -769,6 +799,101 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     fun lockVaultSession() { lockAppImmediately() }
 
+    fun openFileVault(password: CharArray, create: Boolean) {
+        fileVaultOperation(password) {
+            try { repository.initializeOrUnlockFileVault(password, create) }
+            catch (failure: Throwable) { repository.lockFileVault(); throw failure }
+            _uiState.update { it.copy(fileVaultConfigured = true, fileVaultOpen = true, isVaultUnlocked = true) }
+            val pending = pendingFileVaultBook
+            if (pending != null && _uiState.value.activeSubScreen == SubScreen.SettingsSection("fileVault")) {
+                pendingFileVaultBook = null
+                popSubScreen(); openBookDetail(pending)
+            }
+        }
+    }
+
+    fun generateFileVaultPassword(consume: (String) -> Unit) {
+        val generated = com.asterreader.core.vault.VaultPassword.generate()
+        try { consume(generated.concatToString()) } finally { generated.fill('\u0000') }
+    }
+
+    fun beginEncryptBook(bookId: String) {
+        if (_uiState.value.fileVaultBusy) return
+        pendingFileVaultBook = bookId
+        pushSubScreen(SubScreen.SettingsSection("fileEncrypt"))
+    }
+
+    fun encryptPendingBook() {
+        val id = pendingFileVaultBook ?: return
+        fileVaultOperation {
+            repository.encryptBookFile(id)
+            _uiState.update { it.copy(recentSearches = emptyList(), searchQuery = "") }
+            preferences.save(_uiState.value)
+            pendingFileVaultBook = null
+            popSubScreen()
+            showSnackbar("已加密并验证。外部原文件仍保留，请导出加密副本备份。", SnackbarTone.SUCCESS)
+        }
+    }
+
+    fun exportFileVaultBook(bookId: String, uri: Uri, password: CharArray) {
+        fileVaultOperation(password) {
+            repository.exportEncryptedBook(bookId, uri, password)
+            showSnackbar("漫画文件已加密导出，并完成重读校验", SnackbarTone.SUCCESS)
+        }
+    }
+
+    fun restoreFileVaultBook(uri: Uri, password: CharArray) {
+        fileVaultOperation(password) {
+            repository.restoreEncryptedBook(uri, password)
+            showSnackbar("加密文件已验证并恢复至保险库", SnackbarTone.SUCCESS)
+        }
+    }
+
+    fun changeFileVaultPassword(current: CharArray, password: CharArray) {
+        if (_uiState.value.fileVaultBusy || _uiState.value.isAppLockedNow) { current.fill('\u0000'); password.fill('\u0000'); return }
+        fileVaultOperation(password) {
+            try { repository.changeFileVaultPassword(current, password) } finally { current.fill('\u0000') }
+            showSnackbar("本机保险库口令已修改。旧导出文件仍使用原导出口令。", SnackbarTone.SUCCESS)
+        }
+    }
+
+    fun verifyFileVault() = fileVaultOperation {
+        repository.verifyFileVault()
+        showSnackbar("全部保险库文件已通过完整性校验", SnackbarTone.SUCCESS)
+    }
+
+    fun closeFileVault() { repository.lockFileVault(); _uiState.update { it.copy(fileVaultOpen = false) }; lockAppImmediately() }
+    fun cancelFileVaultOperation() { fileVaultJob?.cancel() }
+    fun beginFileVaultPicker() {
+        fileVaultPickerDeadline = SystemClock.elapsedRealtime() + 120_000L
+        fileVaultPickerExpiry?.cancel()
+        fileVaultPickerExpiry = viewModelScope.launch { kotlinx.coroutines.delay(120_000L); lockAppImmediately() }
+    }
+    fun endFileVaultPicker(): Boolean {
+        val valid = SystemClock.elapsedRealtime() <= fileVaultPickerDeadline && _uiState.value.fileVaultOpen
+        fileVaultPickerDeadline = 0L; fileVaultPickerExpiry?.cancel(); backgroundLock?.cancel(); backgroundAt = null
+        return valid
+    }
+
+    private fun fileVaultOperation(password: CharArray? = null, action: suspend () -> Unit) {
+        if (_uiState.value.fileVaultBusy || _uiState.value.isAppLockedNow) { password?.fill('\u0000'); return }
+        val generation = authenticationGeneration
+        _uiState.update { it.copy(fileVaultBusy = true, fileVaultError = null) }
+        fileVaultJob = viewModelScope.launch {
+            try { action() }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) {
+                if (generation == authenticationGeneration) _uiState.update { it.copy(fileVaultError =
+                    if (failure is com.example.data.local.vault.VaultCooldownException) "尝试过多，请 ${failure.seconds} 秒后重试"
+                    else "操作失败：请检查口令、文件完整性、授权和剩余空间。连续失败会延长等待；未完成的导出文件不可恢复。") }
+            } finally {
+                password?.fill('\u0000')
+                val configured = withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) { repository.fileVault.configured }
+                _uiState.update { it.copy(fileVaultBusy = false, fileVaultConfigured = configured) }
+            }
+        }
+    }
+
     fun setAppLockEnabled(enabled: Boolean) {
         if (!enabled && _uiState.value.isAppLockEnabled) {
             requestFreshAuthentication { applyAppLockEnabled(false) }
@@ -821,6 +946,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         releaseReaderResources()
         backgroundAt = SystemClock.elapsedRealtime()
         backgroundLock?.cancel()
+        if (SystemClock.elapsedRealtime() < fileVaultPickerDeadline) return
         if (systemAuthenticationInProgress) return
         val timeout = lockTimeout()
         if (timeout == 0L) lockAppImmediately()
@@ -839,17 +965,18 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onForeground(deviceLocked: Boolean) {
+        if (SystemClock.elapsedRealtime() < fileVaultPickerDeadline && !deviceLocked) return
         if (systemAuthenticationInProgress) return
         backgroundLock?.cancel()
         val state = _uiState.value
         val timeout = lockTimeout()
         val expired = backgroundAt?.let { SystemClock.elapsedRealtime() - it >= timeout } ?: false
         backgroundAt = null
-        if ((state.lockOnScreenOff && deviceLocked) || expired) lockAppImmediately()
+        if (((state.lockOnScreenOff || state.fileVaultOpen) && deviceLocked) || expired) lockAppImmediately()
         if (!_uiState.value.isAppLockedNow && _uiState.value.subScreenStack.lastOrNull() is SubScreen.Reader) beginReadingSession()
     }
 
-    fun onScreenOff() { if (_uiState.value.lockOnScreenOff) lockAppImmediately() }
+    fun onScreenOff() { if (_uiState.value.lockOnScreenOff || _uiState.value.fileVaultOpen) lockAppImmediately() }
 
     fun setAutoLockPolicyLabel(label: String) {
         val labels = listOf("立即锁定", "30 秒后", "1 分钟后", "5 分钟后", "仅息屏锁定")
@@ -1055,6 +1182,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     override fun onCleared() {
+        repository.lockFileVault()
         cleanupScope.launch {
             try { flushReadingState() }
             catch (_: Exception) { /* 关闭时保留已有进度，不把失败写成成功。 */ }
@@ -1105,7 +1233,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(operationErrors) {
             val next = repository.seriesBooks(current.series)
                 .filter { it.id != current.id && it.seriesOrder > current.seriesOrder && it.sourceStatus == "AVAILABLE" &&
-                    (!it.isVaultProtected || _uiState.value.isVaultUnlocked) && !it.isVaultEncrypted }
+                    (!it.isVaultProtected || _uiState.value.isVaultUnlocked) && (!it.isVaultEncrypted || _uiState.value.fileVaultOpen) }
                 .minByOrNull { it.seriesOrder }
             if (next == null) {
                 showSnackbar(if (current.series.isBlank()) "这是单卷作品" else "已是《${current.series}》最后一卷")
@@ -1181,6 +1309,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun commitSearchHistory(query: String) {
+        if (_uiState.value.fileVaultOpen) return
         val trimmed = query.trim()
         if (trimmed.isBlank()) return
         _uiState.update { state ->

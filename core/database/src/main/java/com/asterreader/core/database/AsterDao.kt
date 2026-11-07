@@ -88,6 +88,13 @@ interface AsterDao {
     }
 
     @Transaction
+    suspend fun commitVaultShell(shell: BookEntity) {
+        require(shell.isVaultEncrypted && shell.isVaultProtected)
+        removeBooks(listOf(shell.id))
+        insertBook(shell)
+    }
+
+    @Transaction
     suspend fun importPublication(book: BookEntity, chapters: List<ChapterEntity>) {
         insertBook(book)
         deleteChaptersForBooks(listOf(book.id))
@@ -221,6 +228,9 @@ interface AsterDao {
     // Annotations
     @Query("SELECT * FROM annotations WHERE bookId = :bookId ORDER BY id DESC")
     fun observeAnnotationsForBook(bookId: String): Flow<List<AnnotationEntity>>
+
+    @Query("SELECT * FROM annotations WHERE bookId = :bookId ORDER BY id DESC")
+    suspend fun getAnnotationsForBook(bookId: String): List<AnnotationEntity>
 
     @Query("SELECT * FROM annotations ORDER BY id DESC")
     fun observeAllAnnotations(): Flow<List<AnnotationEntity>>

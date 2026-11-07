@@ -1,5 +1,7 @@
 # 32 Security Verification Plan
 
+2026-11-07：文件保险库 v2 已进入实现与回归验收；具体协议、通过的测试及未覆盖边界以 `46_FILE_VAULT_IMPLEMENTATION.md` 为准。本页列出的攻击场景是持续验收清单，不代表所有条目已经通过。
+
 ## 1. 安全目标
 
 Aster Reader 不承诺对已经 root 且完全控制运行时的攻击者提供 DRM 级保护。目标是可靠保护：

@@ -59,13 +59,15 @@ fun SettingsScreen(
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).statusBarsPadding()
         .testTag(if (section == null) "settings_screen" else "settings_$section")) {
-        AsterSubScreenHeader(if (section?.startsWith("license:") == true) "许可" else sectionTitles[section] ?: "设置", onBack)
+        AsterSubScreenHeader(if (section?.startsWith("fileExport:") == true) "加密导出" else if (section in setOf("fileVault", "fileEncrypt")) "文件保险库"
+            else if (section?.startsWith("license:") == true) "许可" else sectionTitles[section] ?: "设置", onBack)
         Column(Modifier.weight(1f).widthIn(max = 840.dp).fillMaxWidth()
             .align(androidx.compose.ui.Alignment.CenterHorizontally).verticalScroll(rememberScrollState())
             .navigationBarsPadding().padding(horizontal = AsterLayout.PagePadding)
             .padding(top = 4.dp, bottom = AsterLayout.BottomSpacing),
             verticalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
             when (section) {
+                "fileVault", "fileEncrypt" -> FileVaultContent(uiState, viewModel, section)
                 "encryptedExport", "encryptedRestore" -> EncryptedBackupForm(section == "encryptedExport", uiState, viewModel, { onBack?.invoke() })
                 null -> {
                     AsterSettingsGroup("常用") {
@@ -175,7 +177,8 @@ fun SettingsScreen(
                 }
                 "about" -> AboutSettingsContent { navigate("licenses") }
                 "licenses" -> OpenSourceSettingsContent(viewModel, onOpen = { navigate("license:${it.id}") })
-                else -> if (section.startsWith("license:")) OpenSourceSettingsContent(viewModel, section.removePrefix("license:"))
+                else -> if (section.startsWith("fileExport:")) FileVaultContent(uiState, viewModel, section)
+                    else if (section.startsWith("license:")) OpenSourceSettingsContent(viewModel, section.removePrefix("license:"))
                     else Text("设置页面不可用")
             }
         }
