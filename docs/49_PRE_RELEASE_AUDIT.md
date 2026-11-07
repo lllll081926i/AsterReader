@@ -23,7 +23,7 @@
 | B01 | P1 | `gradle/libs.versions.toml:45` 的 junrar 7.5.5 落入上游 RAR VM 无限循环漏洞影响范围；普通与保险库 RAR 都进入该库。小型恶意 RAR 可能持续占用 CPU。另两项公告涉及扩展时间头越界和流式提取吞掉完整性失败，实际使用 `Archive.getInputStream` | 单独维护升级至覆盖上述修复的稳定版并回归普通/加密 RAR、损坏头、错误 CRC、取消及 API31；不可用协程超时假装终止库内部 CPU 循环 |
 | B02 | P1 | `ComicArchive.kt:149–160` 直接将 EPUB XML 解压流交给 DOM；已关闭外部实体，但没有独立展开字节数、节点与深度预算。512 MB 原始文件限制不能限制解压后 XML | 添加有界读取与解析预算，补压缩膨胀、超深和大量节点样本；当前为源码确认的资源预算缺口，未在用户设备执行耗尽攻击 |
 | B03 | 发布门禁 | `app/build.gradle.kts:218` 生成运行库条目的 `notice` 为空，字体有全文，其余主要靠外链；不是完整离线许可证交付证据 | 核对实际打入包的依赖，收集上游要求保留的许可和 NOTICE 并验证最终包；目录里的未使用依赖不能算作打入包的风险 |
-| B04 | 发布门禁 | 审查时 APK/AAB 正式签名均失败；APK 明确缺少 storePassword，AAB 签名任务失败 | 本地和 CI 使用同一长期签名，验证 APK 证书、AAB 签名与后续覆盖升级；签名专项实施结果见 docs/50 |
+| B04 | 已关闭：签名构建门禁 | 审查时 APK/AAB 正式签名均失败；签名专项已配置本地与 GitHub 同一长期证书 | 本地与 GitHub 正式构建、固定证书、APK/AAB 签名和附件哈希均通过，详见 docs/50。未替换模拟器 Debug；正式安装升级演练仍属于设备验收 |
 | B05 | 发布门禁 | docs/29 要求的 API31/33/35/37 设备矩阵、7 天 soak、万本压力、真实设备耗电温升、密钥丢失/磁盘写满/Provider 中断演练没有完整证据；无 Macrobenchmark/Baseline Profile 模块 | 补设备验收与可复现测量，不能把单次启动耗时或合成读取测试外推为电池改善比例 |
 
 上游依据：[RAR VM 无限循环公告](https://github.com/junrar/junrar/security/advisories/GHSA-h9h9-2rmf-rvhp)、[扩展时间头公告](https://github.com/junrar/junrar/security/advisories/GHSA-h76x-7cgm-p442)、[流式完整性公告](https://github.com/junrar/junrar/security/advisories/GHSA-frq4-6xmx-hm4g)。上游分别标记修复版本 >=7.6.1、8.1.1、8.1.2；不能只升到第一个版本就宣称全部关闭。Commons Compress 1.27.1 高于其官方页面所列相关历史修复版本；不据此承诺不存在其他漏洞。
@@ -71,4 +71,4 @@
 - Debug APK SHA-256：`BABCF9F567AD2FD5AD9E2772C22A2382393D64F84004F05E96F92864382F260C`。后续重新构建产物应重新计算，不沿用该值。
 - 安全与迁移：无数据库版本、容器格式、KDF 或密钥更换；不删除用户原文件；草稿不落系统恢复状态。既有保险库不迁移。
 
-后续签名实施会解决 B04，不自动关闭 B01/B02/B03/B05，也不代表用户已批准正式公开发布。
+签名专项已关闭 B04，成功运行见 docs/50。不关闭 B01/B02/B03/B05，也不代表用户已批准正式公开发布。

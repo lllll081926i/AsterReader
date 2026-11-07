@@ -48,3 +48,21 @@ Debug 与 Release 证书不同，不能直接覆盖安装。切换签名需要�
 Actions 固定为实际 commit SHA；默认只读仓库权限，仅草稿发布 job 获得 contents:write。没有 pull_request_target，不向 PR 运行或第三方步骤暴露签名环境。Gradle 9.3.1 分发校验值来自其官方 `.sha256` 文件，没有升级 Gradle。
 
 正式公开发包需要先关闭 docs/49 中的发布阻断并检查草稿附件、版本与发布说明。本次不创建版本标签，不自动公开 Release。
+
+## 本地核验记录
+
+- `build/release-signed-local.log`：`assembleRelease`、`bundleRelease` 成功。APK 与 AAB 均通过签名检查，证书与上述长期证书一致；APK 通过 16 KB ZIP 对齐检查。
+- APK：`app/build/outputs/apk/release/app-release.apk`；SHA-256：`B7DAF4BFB6B084E024D6864A30750122E60EDDCBB923DA1165AA3EF85F6302AC`。
+- AAB：`app/build/outputs/bundle/release/app-release.aab`；SHA-256：`77A6DCC804093CA09F240A80941DE732F3FF10CE42D5E7C735F88F3DD4C78012`。
+- PowerShell 脚本语法、工作流 YAML、内嵌 Python 与 Bash 语法检查通过。Unix Gradle 启动脚本已补齐项目目录初始化，并在 Git Bash 中验证。
+- 没有修改应用模块、数据库、保险库格式或用户密钥。API31/API37 设备手工验收仍未完成。正式包未覆盖模拟器中的 Debug 应用，用户数据保留。
+
+产物哈希仅对应此次本地构建；后续构建应使用各自产物旁的 `SHA256SUMS.txt`，不能沿用旧哈希。
+
+## GitHub 核验记录
+
+- [运行 42375177922](https://github.com/lllll081926i/AsterReader/actions/runs/42375177922)：提交 `22cc59d`，单测、Release Lint、签名 APK/AAB 构建、固定证书与对齐校验全部成功。手动运行未创建 Release。
+- 产物下载至 `build/github-release-42375177922/`；下载后重新验证 APK 签名，核对 APK/AAB/证书及 mapping 的全部 SHA-256，均通过。附件不含私钥或凭据配置。
+- GitHub APK SHA-256：`9556BD014AFB1F307877454DB869544A5811527549BEF6F0C16F6F6FC236854E`。
+- GitHub AAB SHA-256：`EE0D532DD640148C66C12E2AA9D1CE37C2B1CCBF3347C632D10199C7B446AB91`。
+- 本地与 GitHub 产物哈希不同，固定签名证书相同。以上验证对应签名专项提交，不代表后续 WebDAV 功能已随本次远程运行验证。
