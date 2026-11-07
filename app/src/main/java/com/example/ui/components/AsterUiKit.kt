@@ -161,7 +161,7 @@ fun AsterSubScreenHeader(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight)
-            .padding(start = 4.dp, end = 16.dp),
+            .padding(start = if (onBack == null) 16.dp else 4.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (onBack != null) {
@@ -176,13 +176,11 @@ fun AsterSubScreenHeader(
                     modifier = Modifier.size(22.dp)
                 )
             }
-        } else {
-            Spacer(Modifier.size(12.dp))
         }
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(start = 6.dp),
+                .padding(start = if (onBack == null) 0.dp else 6.dp),
             verticalArrangement = Arrangement.Center
         ) {
             Text(

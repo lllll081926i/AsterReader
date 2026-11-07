@@ -102,6 +102,7 @@ fun PublicationPageCanvas(
     onViewportChanged: (page: Int, offsetFraction: Float, scale: Float, panX: Float, panY: Float) -> Unit,
     onNextPage: () -> Unit = {},
     onPrevPage: () -> Unit = {},
+    onReachedEnd: (Boolean) -> Unit = {},
     onToggleChrome: () -> Unit
 ) {
     val reduceMotion = LocalAsterReduceMotion.current
@@ -122,6 +123,12 @@ fun PublicationPageCanvas(
     if (mode == ReaderLayoutMode.VERTICAL_SCROLL) {
         val list = rememberLazyListState(initialFirstVisibleItemIndex = (page - 1).coerceIn(0, totalPages - 1))
         var lastReported by remember(publicationId) { mutableIntStateOf(page) }
+        LaunchedEffect(list, totalPages) {
+            snapshotFlow {
+                list.layoutInfo.totalItemsCount == totalPages &&
+                    list.layoutInfo.visibleItemsInfo.lastOrNull()?.index == totalPages - 1 && !list.canScrollForward
+            }.distinctUntilChanged().collect { onReachedEnd(it) }
+        }
         var restored by remember(publicationId) { mutableStateOf(false) }
 
         // 恢复页内滚动比例：首帧布局完成后按比例跳转
@@ -211,6 +218,7 @@ fun PublicationPageCanvas(
                 lastReported = actualPage
                 onPageChanged(actualPage)
                 onViewportChanged(actualPage, 0f, zoomScale, panX, panY)
+                onReachedEnd(it == spreads.count - 1)
             }
         }
         HorizontalPager(
@@ -457,8 +465,10 @@ private fun DocumentPage(
     ) {
         when {
             result?.isFailure == true -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("第 $page 页无法读取，请检查文件")
-                TextButton(onClick = { attempt++ }) { Text("重试") }
+                Text("第 $page 页无法读取，请检查文件", color = com.asterreader.core.designsystem.AsterReaderPalette.ComicInk)
+                TextButton(onClick = { attempt++ }) {
+                    Text("重试", color = com.asterreader.core.designsystem.AsterReaderPalette.ComicInk)
+                }
             }
             displayed != null -> {
                 val bitmap = displayed!!

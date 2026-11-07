@@ -16,6 +16,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.asterreader.core.designsystem.AsterSettingsChoice
+import com.asterreader.core.designsystem.AsterChoice
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import com.asterreader.core.designsystem.AsterLayout
 import com.example.data.local.SystemBiometrics
 import com.example.ui.*
@@ -63,31 +67,25 @@ fun PrivacySecuritySettingsScreen(
                         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth(), isError = error != null)
                     if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
-                    Button(onClick = {
-                        when {
-                            pin.length !in 4..8 -> error = "PIN 需为 4–8 位数字"
-                            pin != confirmation -> error = "两次输入不一致"
-                            else -> { viewModel.setCustomPin(pin); onBack() }
-                        }
-                    }) { Text("保存") }
+                    AsterPairedActions("取消", Icons.Outlined.Close, back,
+                        "保存", Icons.Outlined.Check, {
+                            when {
+                                pin.length !in 4..8 -> error = "PIN 需为 4–8 位数字"
+                                pin != confirmation -> error = "两次输入不一致"
+                                else -> { viewModel.setCustomPin(pin); pin = ""; confirmation = "" }
+                            }
+                        }, primaryOnRight = true, rightEnabled = pin.length in 4..8 && pin == confirmation)
                 }
                 "timeout" -> AsterSettingsGroup {
-                    listOf("立即锁定", "30 秒后", "1 分钟后", "5 分钟后", "仅息屏锁定").forEachIndexed { index, label ->
-                        if (index > 0) AsterGroupDivider()
-                        Row(Modifier.fillMaxWidth().heightIn(min = AsterLayout.SettingsRowHeight)
-                            .selectable(uiState.autoLockPolicyLabel == label, role = Role.RadioButton,
-                                onClick = { viewModel.setAutoLockPolicyLabel(label) }).padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-                            RadioButton(uiState.autoLockPolicyLabel == label, onClick = null)
-                        }
-                    }
+                    val labels = listOf("立即锁定", "30 秒后", "1 分钟后", "5 分钟后", "仅息屏锁定")
+                    AsterSettingsChoice(labels.map { AsterChoice(it, Icons.Outlined.Timer) },
+                        labels.indexOf(uiState.autoLockPolicyLabel), { viewModel.setAutoLockPolicyLabel(labels[it]) })
                 }
                 else -> {
                     AsterSettingsGroup("身份验证") {
                         AsterSwitchRow("应用锁", checked = uiState.isAppLockEnabled, onCheckedChange = viewModel::setAppLockEnabled)
                         AsterGroupDivider()
-                        AsterSettingsRow("应用 PIN", badgeText = if (uiState.hasCustomPin) "已设置" else "未设置",
+                        AsterSettingsRow("应用 PIN", leadingIcon = Icons.Outlined.Password, badgeText = if (uiState.hasCustomPin) "已设置" else "未设置",
                             onClick = { viewModel.pushSubScreen(SubScreen.SecuritySection("pin")) })
                         AsterGroupDivider()
                         AsterSwitchRow("系统生物识别", subtitle = SystemBiometrics.hint(availability),
@@ -95,15 +93,15 @@ fun PrivacySecuritySettingsScreen(
                             onCheckedChange = viewModel::setBiometricUnlockEnabled)
                     }
                     AsterSettingsGroup("锁定时机") {
-                        AsterSettingsRow("自动锁定", badgeText = uiState.autoLockPolicyLabel,
+                        AsterSettingsRow("自动锁定", leadingIcon = Icons.Outlined.Timer, badgeText = uiState.autoLockPolicyLabel,
                             onClick = { viewModel.pushSubScreen(SubScreen.SecuritySection("timeout")) })
                         AsterGroupDivider()
                         AsterSwitchRow("息屏锁定", checked = uiState.lockOnScreenOff, onCheckedChange = viewModel::setLockOnScreenOff)
                         AsterGroupDivider()
-                        AsterSettingsRow("立即锁定", onClick = viewModel::lockAppImmediately)
+                        AsterSettingsRow("立即锁定", leadingIcon = Icons.Outlined.Lock, onClick = viewModel::lockAppImmediately)
                     }
                     AsterSettingsGroup("内容与防窥") {
-                        AsterSettingsRow("隐藏作品（访问锁）", onClick = viewModel::openHiddenBooks)
+                        AsterSettingsRow("隐藏作品（访问锁）", leadingIcon = Icons.Outlined.VisibilityOff, onClick = viewModel::openHiddenBooks)
                         AsterGroupDivider()
                         AsterSwitchRow("禁止截屏与录屏", checked = uiState.flagSecureEnabled, onCheckedChange = viewModel::setFlagSecureEnabled)
                         AsterGroupDivider()

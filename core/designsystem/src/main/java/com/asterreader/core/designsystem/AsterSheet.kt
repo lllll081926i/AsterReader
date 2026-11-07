@@ -3,6 +3,7 @@ package com.asterreader.core.designsystem
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -30,8 +31,11 @@ fun AsterModalBottomSheet(
     sheetState: AsterSheetState = rememberAsterSheetState(),
     shape: Shape = MaterialTheme.shapes.extraLarge,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
+    showDragHandle: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismissRequest, modifier = modifier,
-        sheetState = sheetState.value, shape = shape, containerColor = containerColor, content = content)
+        sheetState = sheetState.value, shape = shape, containerColor = containerColor,
+        dragHandle = if (showDragHandle) ({ BottomSheetDefaults.DragHandle() }) else null,
+        content = content)
 }

@@ -1,5 +1,7 @@
 # 00 START HERE — Aster Reader FINAL v3.0
 
+> **2026-11-07 补充**：现已提供公开书库清单的口令加密导出与认证后恢复。该功能不包含漫画文件、隐藏作品或安全凭据，不构成文件 Vault。PIN 凭据升级、敏感设置重新认证和后续 Vault 协议约束见 `43_SECURITY_PROTOCOL_CONSTRAINTS.md`。本轮界面及核验记录见 `44_SETTINGS_READER_DELIVERY_2026-11-07.md`。
+
 > **实现状态（2026-11-05，务必先读）**
 > 本目录 01–39 是开发前的规划文档，其中 `19_SECURITY_VAULT_AND_APP_LOCK.md`、
 > `23_THREAT_MODEL_AND_RECOVERY.md`、`32_SECURITY_VERIFICATION_PLAN.md` 以及 PRD 里

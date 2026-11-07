@@ -17,6 +17,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.asterreader.core.designsystem.AsterSettingsChoice
+import com.asterreader.core.designsystem.AsterChoice
 import com.asterreader.core.designsystem.AsterLayout
 import com.example.data.local.RepositoryEntity
 import com.example.data.local.ShelfEntity
@@ -26,7 +28,8 @@ import com.example.ui.components.*
 private val sectionTitles = mapOf(
     "appearance" to "外观与主题", "reading" to "默认阅读配置", "sources" to "本地仓库",
     "shelves" to "书架管理", "tags" to "标签管理", "storage" to "缓存与空间",
-    "backup" to "备份与恢复", "stats" to "阅读统计", "about" to "关于", "diagnostics" to "诊断与帮助"
+    "backup" to "备份与恢复", "stats" to "阅读统计", "about" to "关于", "diagnostics" to "诊断与帮助",
+    "encryptedExport" to "加密导出清单", "encryptedRestore" to "恢复加密清单"
 )
 
 @Composable
@@ -66,6 +69,7 @@ fun SettingsScreen(
             .padding(top = 4.dp, bottom = AsterLayout.BottomSpacing),
             verticalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
             when (section) {
+                "encryptedExport", "encryptedRestore" -> EncryptedBackupForm(section == "encryptedExport", uiState, viewModel, { onBack?.invoke() })
                 null -> {
                     AsterSettingsGroup("外观与阅读") {
                         AsterSettingsRow("外观与主题", leadingIcon = Icons.Outlined.Palette, onClick = { navigate("appearance") })
@@ -97,10 +101,11 @@ fun SettingsScreen(
                 }
                 "appearance" -> {
                     AsterSettingsGroup("主题") {
-                        ThemeMode.entries.forEachIndexed { index, mode ->
-                            if (index > 0) AsterGroupDivider()
-                            SettingsRadioRow(mode.label, uiState.themeMode == mode) { viewModel.setThemeMode(mode) }
-                        }
+                        AsterSettingsChoice(ThemeMode.entries.map { AsterChoice(it.label, when (it) {
+                            ThemeMode.SYSTEM -> Icons.Outlined.BrightnessAuto
+                            ThemeMode.LIGHT -> Icons.Outlined.LightMode
+                            ThemeMode.DARK -> Icons.Outlined.DarkMode
+                        }) }, ThemeMode.entries.indexOf(uiState.themeMode), { viewModel.setThemeMode(ThemeMode.entries[it]) })
                     }
                     AsterSettingsGroup("动效与首页") {
                         AsterSwitchRow("减少动效", checked = uiState.reduceMotion, onCheckedChange = viewModel::setReduceMotion)
@@ -110,16 +115,12 @@ fun SettingsScreen(
                 }
                 "reading" -> {
                     AsterSettingsGroup("阅读模式") {
-                        ReaderLayoutMode.entries.forEachIndexed { index, mode ->
-                            if (index > 0) AsterGroupDivider()
-                            SettingsRadioRow(mode.label, uiState.readerLayoutMode == mode) { viewModel.setReaderLayoutMode(mode) }
-                        }
+                        AsterSettingsChoice(ReaderLayoutMode.entries.map { AsterChoice(it.label, readerModeIcon(it)) },
+                            ReaderLayoutMode.entries.indexOf(uiState.readerLayoutMode), { viewModel.setReaderLayoutMode(ReaderLayoutMode.entries[it]) })
                     }
                     AsterSettingsGroup("画面适配") {
-                        listOf("适合屏幕", "原始比例").forEachIndexed { index, fit ->
-                            if (index > 0) AsterGroupDivider()
-                            SettingsRadioRow(fit, uiState.fitModeLabel == fit) { viewModel.setFitModeLabel(fit) }
-                        }
+                        AsterSettingsChoice(listOf(AsterChoice("适合屏幕", Icons.Outlined.FitScreen), AsterChoice("原始比例", Icons.Outlined.AspectRatio)),
+                            if (uiState.fitModeLabel == "适合屏幕") 0 else 1, { viewModel.setFitModeLabel(if (it == 0) "适合屏幕" else "原始比例") })
                     }
                     AsterSettingsGroup("翻页") {
                         AsterSwitchRow("音量键翻页", checked = uiState.volumeKeyPageTurn, onCheckedChange = viewModel::setVolumeKeyPageTurn)
@@ -128,6 +129,8 @@ fun SettingsScreen(
                     }
                 }
                 "stats" -> AsterSettingsGroup {
+                    AsterSwitchRow("显示统计 Tab", checked = uiState.showStatsTab, onCheckedChange = viewModel::setShowStatsTab)
+                    AsterGroupDivider()
                     AsterSwitchRow("记录阅读时长", checked = uiState.showReadingStats, onCheckedChange = viewModel::setShowReadingStats)
                     if (uiState.showReadingStats) {
                         AsterGroupDivider()
@@ -182,6 +185,12 @@ fun SettingsScreen(
                     AsterSettingsRow("重建封面", onClick = viewModel::rebuildLibraryCovers)
                 }
                 "backup" -> AsterSettingsGroup {
+                    AsterSettingsRow("加密导出公开清单", leadingIcon = Icons.Outlined.Lock,
+                        onClick = { viewModel.chooseEncryptedBackupTarget(true) })
+                    AsterGroupDivider()
+                    AsterSettingsRow("恢复加密清单", leadingIcon = Icons.Outlined.LockOpen,
+                        onClick = { viewModel.chooseEncryptedBackupTarget(false) })
+                    AsterGroupDivider()
                     AsterSettingsRow("导出公开书库清单", onClick = { confirmation = "export" })
                     AsterGroupDivider()
                     AsterSettingsRow("合并恢复书库清单", onClick = { confirmation = "restore" })
@@ -249,22 +258,6 @@ fun SettingsScreen(
             }
         })
 }
-
-@Composable
-private fun SettingsRadioRow(title: String, selected: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = AsterLayout.SettingsRowHeight)
-        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
-        .selectableSetting(selected, onClick).padding(horizontal = 16.dp, vertical = 4.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
-            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface)
-        RadioButton(selected, onClick = null,
-            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.onSecondaryContainer))
-    }
-}
-
-private fun Modifier.selectableSetting(selected: Boolean, onClick: () -> Unit): Modifier =
-    this.then(Modifier.selectable(selected, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick))
 
 @Composable
 private fun SettingsValueRow(title: String, value: String) {

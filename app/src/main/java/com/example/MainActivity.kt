@@ -211,6 +211,20 @@ fun AsterReaderAppRoot(
         }
     }
 
+    val encryptedExportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) {
+        viewModel.receiveEncryptedBackupTarget(it, true)
+    }
+    val encryptedRestorePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
+        viewModel.receiveEncryptedBackupTarget(it, false)
+    }
+    LaunchedEffect(uiState.requestEncryptedBackupPicker) {
+        when (uiState.requestEncryptedBackupPicker) {
+            true -> encryptedExportPicker.launch("aster-library.asterbackup")
+            false -> encryptedRestorePicker.launch(arrayOf("*/*"))
+            null -> Unit
+        }
+    }
+
     val relocateLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -563,6 +577,8 @@ fun AsterReaderAppRoot(
                             )
                         }
 
+                        MainNavDestination.STATS -> ReadingStatsScreen(viewModel,
+                            allBooks.count { it.progressPercent >= 100 }, allBooks.size)
                         MainNavDestination.SEARCH -> {
                             SearchAndFilterScreen(
                                 uiState = uiState,
@@ -585,7 +601,7 @@ fun AsterReaderAppRoot(
                 modifier = Modifier.align(if (useNavigationRail) Alignment.CenterStart else Alignment.BottomCenter)
             ) {
                 AsterMainNavigation(useNavigationRail, uiState.currentTab, viewModel::selectMainTab,
-                    Modifier.onSizeChanged { navigationWidth = it.width; navigationHeight = it.height })
+                    Modifier.onSizeChanged { navigationWidth = it.width; navigationHeight = it.height }, showStatsTab = uiState.showStatsTab)
             }
 
             androidx.compose.material3.SnackbarHost(

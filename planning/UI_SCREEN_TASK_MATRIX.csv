@@ -3,10 +3,10 @@ O-00,启动 Bootstrap / 安全遮盖,P0,正常、锁定、数据库失败,UI-W0/
 O-01,欢迎与本地优先说明,P0,首次、返回,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 O-02,添加内容引导,P0,未授权、选择来源,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 O-03,首次安全引导,P0,跳过、设置完成,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-L-01,资料库首页,P0,空、加载、正常、错误、受保护,UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+L-01,资料库首页,P0,空、加载、正常、错误、受保护,UI-W1,已统一书架标题高度与正文间距；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 L-02,资料库作用域 / 文件夹视图,P0,所有、某仓库、某书架,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 L-03,搜索输入与历史,P0,焦点、无历史、有历史,UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-L-04,搜索结果 / 筛选,P0,全部、零结果、错误、局部解锁,UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+L-04,搜索结果 / 筛选,P0,全部、零结果、错误、局部解锁,UI-W1,已实现紧凑分类 Tab 与单一筛选入口；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 L-05,批量选择 / 批量动作,P0,选择、部分失败、撤销,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 S-01,书架总览,P0,仅快捷、存在自定义,UI-W1,已实现紧凑书架页；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 S-02,书架详情,P0,空、正常、锁定,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
@@ -30,7 +30,7 @@ I-04,扫描预览,P0,分类调整、冲突,UI-W1,未开始,引用 docs/36_COMPLE
 I-05,扫描任务列表/详情,P0,运行、暂停/取消、失败,UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-06,本地仓库管理,P0,正常、权限丢失、目录离线,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-07,远程仓库(WebDAV),P1,凭据、测试连接、同步,UI-W7,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-V-01,应用认证门禁,P0,系统认证、应用密码、取消,UI-W2,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+V-01,应用认证门禁,P0,系统认证、应用密码、取消,UI-W2,已实现紧凑完整弹出验证面板；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-02,安全设置 / 应用锁,P0,开关、超时、策略,UI-W2,已实现分层安全设置与截图；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-03,保险库首次建立,P0,风险告知、密钥/恢复配置,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-04,加密并上锁向导,P0,选择范围、源文件策略,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
@@ -41,10 +41,10 @@ V-08,文件夹/仓库/书架保护策略,P0,继承、覆盖、批量迁移,UI-W2
 V-09,恢复密码与应急恢复,P0,设置、验证、密钥不可用,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-10,解密导出 / 解除保护,P0,目标目录选择、校验、删除源密文,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-01,设置首页,P0,各分组,UI-W6,已实现紧凑分类页与截图测试；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-T-02,外观主题与 Monet,P0,默认、亮/暗、预览,UI-W6,已实现主题二级页与深色截图；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+T-02,外观主题与 Monet,P0,默认、亮/暗、预览,UI-W6,已统一莫奈分段与整行勾选；深浅色和大字体待设备验收；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-03,默认阅读配置与手势,P0,漫画/文字/PDF,UI-W6,已实现默认漫画配置；文字与PDF专属配置未完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-04,缓存与空间管理,P0,统计、清理、失败,UI-W6,已修复缓存清理；空间统计未完整,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-T-05,备份与恢复,P0,加密备份、验证、恢复,UI-W6,公开清单事务恢复已实现；加密备份与预览未完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+T-05,备份与恢复,P0,加密备份、验证、恢复,UI-W6,公开清单与口令加密清单已实现；完整内容备份与恢复预览未完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-06,诊断与帮助,P0,分享脱敏日志、检查权限,UI-W6,基础诊断已实现；脱敏导出未完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-07,关于、开源许可,P0,版本、许可证列表,UI-W6,真实版本已实现；许可清单未完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 E-01,通用错误/离线/权限失效,P0,重试、修复、回退,UI-W6,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md

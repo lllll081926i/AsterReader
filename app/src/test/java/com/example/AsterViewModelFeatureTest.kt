@@ -60,6 +60,47 @@ class AsterViewModelFeatureTest {
         assertNull(uiState.activeSubScreen)
     }
 
+    @Test fun disablingAppLockRequiresFreshAuthenticationAndCancellationKeepsProtection() = runBlocking {
+        viewModel.setCustomPin("4321")
+        withTimeout(5000) { viewModel.uiState.first { it.hasCustomPin } }
+        viewModel.setAppLockEnabled(true)
+        withTimeout(5000) { viewModel.uiState.first { it.isAppLockEnabled } }
+        viewModel.setAppLockEnabled(false)
+        assertTrue(viewModel.uiState.value.isAppLockEnabled)
+        assertTrue(viewModel.uiState.value.showQuickAuthSheet)
+        viewModel.unlockAppAndVault()
+        assertTrue(viewModel.uiState.value.isAppLockEnabled)
+        viewModel.dismissQuickAuthSheet()
+        assertTrue(viewModel.uiState.value.isAppLockEnabled)
+        viewModel.setAppLockEnabled(false)
+        viewModel.beginUnlockAttempt()
+        assertTrue(viewModel.unlockWithPin("4321"))
+        withTimeout(5000) { viewModel.uiState.first { !it.isAppLockEnabled } }
+        Unit
+    }
+
+    @Test fun lockedSessionCannotRunPendingSensitiveSetting() = runBlocking {
+        viewModel.setCustomPin("4321")
+        withTimeout(5000) { viewModel.uiState.first { it.hasCustomPin } }
+        viewModel.setFlagSecureEnabled(false)
+        assertTrue(viewModel.uiState.value.showQuickAuthSheet)
+        viewModel.beginUnlockAttempt()
+        viewModel.lockAppImmediately()
+        viewModel.unlockAppAndVault()
+        assertTrue(viewModel.uiState.value.flagSecureEnabled)
+        assertFalse(viewModel.uiState.value.isVaultUnlocked)
+    }
+
+    @Test fun hidingStatsTabReturnsToLibraryWithoutDisablingRecording() {
+        viewModel.selectMainTab(MainNavDestination.STATS)
+        assertEquals(MainNavDestination.STATS, viewModel.uiState.value.currentTab)
+        viewModel.setShowStatsTab(false)
+        assertEquals(MainNavDestination.LIBRARY, viewModel.uiState.value.currentTab)
+        assertTrue(viewModel.uiState.value.showReadingStats)
+        viewModel.selectMainTab(MainNavDestination.STATS)
+        assertEquals(MainNavDestination.LIBRARY, viewModel.uiState.value.currentTab)
+    }
+
     @Test fun pinCooldownSurvivesViewModelRecreation() = runBlocking {
         viewModel.setCustomPin("4321")
         withTimeout(5000) { viewModel.uiState.first { it.hasCustomPin } }

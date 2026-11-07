@@ -77,6 +77,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
+import com.asterreader.core.designsystem.AsterLayout
 import com.asterreader.core.designsystem.asterBounceClick
 import com.example.ui.components.BotanicalGrimoireIllustration
 import com.example.ui.components.VaultGeometricShieldIllustration
@@ -105,14 +107,17 @@ fun OnboardingScreen(
             .statusBarsPadding()
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
+            .padding(horizontal = AsterLayout.PagePadding)
+            .padding(bottom = AsterLayout.BottomSpacing),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .widthIn(max = 560.dp),
+                .widthIn(max = 560.dp)
+                .heightIn(min = AsterLayout.HeaderHeight)
+                .testTag("onboarding_main_header"),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {

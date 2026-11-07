@@ -267,12 +267,16 @@ interface AsterDao {
         val book = getBookById(id) ?: return
         if (book.isVaultEncrypted) return
         val position = (viewport ?: com.asterreader.core.model.ReaderViewport(page)).copy(page = page).sanitized(book.totalPages)
-        val percent = (position.page.toLong() * 100 / book.totalPages.coerceAtLeast(1)).toInt().coerceIn(0, 100)
+        val percent = if (book.statusBadge == "已读完") 100 else
+            (position.page.toLong() * 100 / book.totalPages.coerceAtLeast(1)).toInt().coerceIn(0, 99)
         updateProgress(id, position.page, percent, if (percent == 100) "已读完" else "在读", chapter, timestamp)
         val previous = getReaderState(id) ?: ReaderStateEntity(id)
         saveReaderState(previous.copy(page = position.page, offsetFraction = position.offsetFraction,
             scale = position.scale, panX = position.panX, panY = position.panY))
     }
+
+    @Query("UPDATE books SET progressPercent = 100, statusBadge = '已读完' WHERE id = :id AND isVaultEncrypted = 0")
+    suspend fun markReadingCompleted(id: String)
 
     @Transaction
     suspend fun saveViewport(id: String, position: com.asterreader.core.model.ReaderViewport) {

@@ -55,6 +55,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import com.asterreader.core.designsystem.AsterLayout
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
@@ -160,7 +166,6 @@ fun AppLockScreen(
 
     val launchBiometric = rememberSystemBiometricLauncher(
         onSuccess = {
-            viewModel.beginUnlockAttempt()
             viewModel.unlockAppAndVault()
         },
         onMessage = { message ->
@@ -365,7 +370,6 @@ fun SystemSecurityAuthPromptSheet(
 
     val launchBiometric = rememberSystemBiometricLauncher(
         onSuccess = {
-            viewModel.beginUnlockAttempt()
             viewModel.unlockAppAndVault()
         },
         onMessage = { message ->
@@ -376,79 +380,80 @@ fun SystemSecurityAuthPromptSheet(
 
     AsterModalBottomSheet(
         onDismissRequest = onDismiss,
-        modifier = modifier
+        modifier = modifier,
+        sheetState = com.asterreader.core.designsystem.rememberAsterSheetState(skipPartiallyExpanded = true),
+        showDragHandle = false
     ) {
         Column(
             modifier = Modifier
+                .widthIn(max = AsterLayout.AuthPanelMaxWidth)
                 .fillMaxWidth()
+                .align(Alignment.CenterHorizontally)
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(AsterLayout.PagePadding)
+                .testTag("identity_auth_panel"),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(AsterLayout.AuthKeyGap)
         ) {
-            Box(
-                modifier = Modifier
-                    .width(36.dp)
-                    .height(4.dp)
-                    .clip(CircleShape)
-                    .background(colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
-            )
-            Spacer(Modifier.height(20.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AsterLayout.AuthKeyGap)) {
+                Icon(Icons.Outlined.Lock, null, tint = colorScheme.primary,
+                    modifier = Modifier.size(AsterLayout.HeaderIconSize))
+                Text("验证身份", style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
+            }
             Text(
-                text = "验证身份",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = colorScheme.onSurface
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "输入应用 PIN 码或使用系统验证",
+                text = if (biometricReady) "输入应用 PIN，或使用指纹按钮进行系统验证" else "输入 4–8 位应用 PIN",
                 style = MaterialTheme.typography.bodySmall,
                 color = colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(22.dp))
-
-            PinErrorShake(shakeToken, reduceMotion) { PinDots(pin.length) }
-            Box(Modifier.height(20.dp).padding(top = 2.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.height(AsterLayout.AuthInputHeight), contentAlignment = Alignment.Center) {
+                PinErrorShake(shakeToken, reduceMotion) { PinDots(pin.length) }
+            }
+            if (remainingSeconds > 0 || error != null) {
                 Text(
-                    text = if (remainingSeconds > 0) "请 $remainingSeconds 秒后重试" else error ?: "",
+                    text = if (remainingSeconds > 0) "请 $remainingSeconds 秒后重试" else error.orEmpty(),
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (error != null) colorScheme.error else colorScheme.onSurfaceVariant,
+                    color = colorScheme.error,
                     textAlign = TextAlign.Center,
-                    maxLines = 2
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
                 )
             }
-            Spacer(Modifier.height(10.dp))
-
             PinKeypad(
                 enabled = remainingSeconds == 0L && !checkingPin,
-                keySize = 52.dp,
+                compact = true,
+                modifier = Modifier.widthIn(max = AsterLayout.AuthKeypadMaxWidth),
+                keySize = AsterLayout.AuthKeyHeight,
                 onDigit = { digit -> if (pin.length < 8) pin += digit; error = null },
                 onDelete = { if (pin.isNotEmpty()) pin = pin.dropLast(1); error = null },
                 onBiometric = if (biometricReady) {
                     { viewModel.beginUnlockAttempt(); launchBiometric() }
                 } else null
             )
-
-            Spacer(Modifier.height(18.dp))
             AsterPairedActions(leftLabel = "取消", leftIcon = Icons.Outlined.Close, onLeft = onDismiss,
-                rightLabel = "解锁", rightIcon = Icons.Outlined.LockOpen, onRight = {
-                        checkingPin = true
-                        viewModel.beginUnlockAttempt()
-                        scope.launch {
-                            try {
-                                if (!viewModel.unlockWithPin(pin)) {
-                                    viewModel.cancelUnlockAttempt()
-                                    error = "PIN 码不正确"
-                                    shakeToken++
-                                    pin = ""
-                                }
-                            } finally { checkingPin = false }
-                        }
-                    },
-                primaryOnRight = true, rightEnabled = pin.isNotEmpty() && remainingSeconds == 0L && !checkingPin)
-            Spacer(Modifier.height(8.dp))
+                rightLabel = if (checkingPin) "验证中…" else "确认", rightIcon = Icons.Outlined.LockOpen, onRight = {
+                    checkingPin = true
+                    viewModel.beginUnlockAttempt()
+                    scope.launch {
+                        try {
+                            if (!viewModel.unlockWithPin(pin)) {
+                                viewModel.cancelUnlockAttempt()
+                                error = "PIN 码不正确"
+                                shakeToken++
+                                pin = ""
+                            }
+                        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            viewModel.cancelUnlockAttempt()
+                            error = "验证失败，请重试"
+                            pin = ""
+                        } finally { checkingPin = false }
+                    }
+                }, primaryOnRight = true,
+                rightEnabled = pin.length in 4..8 && remainingSeconds == 0L && !checkingPin)
         }
     }
 }
@@ -477,7 +482,9 @@ private fun PinDots(count: Int) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.height(18.dp)
+        modifier = Modifier.height(18.dp).semantics(mergeDescendants = true) {
+            contentDescription = "已输入 $count 位 PIN"
+        }
     ) {
         val slots = maxOf(4, count).coerceAtMost(8)
         repeat(slots) { index ->
@@ -502,23 +509,27 @@ private fun PinKeypad(
     onDelete: () -> Unit,
     onBiometric: (() -> Unit)?,
     keySize: Dp = 66.dp,
+    compact: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val rows = listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"))
-    val gap = 16.dp
+    val gap = if (compact) AsterLayout.AuthKeyGap else 16.dp
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(gap),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         rows.forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            Row(modifier = if (compact) Modifier.fillMaxWidth() else Modifier,
+                horizontalArrangement = Arrangement.spacedBy(gap)) {
                 row.forEach { digit ->
-                    PinKey(label = digit, enabled = enabled, size = keySize) { onDigit(digit) }
+                    PinKey(label = digit, enabled = enabled, size = keySize,
+                        modifier = if (compact) Modifier.weight(1f) else Modifier, compact = compact) { onDigit(digit) }
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+        Row(modifier = if (compact) Modifier.fillMaxWidth() else Modifier,
+            horizontalArrangement = Arrangement.spacedBy(gap)) {
             if (onBiometric != null) {
                 PinKey(
                     icon = Icons.Filled.Fingerprint,
@@ -526,17 +537,22 @@ private fun PinKeypad(
                     enabled = enabled,
                     prominent = true,
                     size = keySize,
+                    modifier = if (compact) Modifier.weight(1f) else Modifier,
+                    compact = compact,
                     onClick = onBiometric
                 )
             } else {
-                Spacer(Modifier.size(keySize))
+                Spacer(if (compact) Modifier.weight(1f).height(keySize) else Modifier.size(keySize))
             }
-            PinKey(label = "0", enabled = enabled, size = keySize) { onDigit("0") }
+            PinKey(label = "0", enabled = enabled, size = keySize,
+                modifier = if (compact) Modifier.weight(1f) else Modifier, compact = compact) { onDigit("0") }
             PinKey(
                 icon = Icons.Filled.Backspace,
                 description = "删除一位",
                 enabled = enabled,
                 size = keySize,
+                modifier = if (compact) Modifier.weight(1f) else Modifier,
+                compact = compact,
                 onClick = onDelete
             )
         }
@@ -551,17 +567,18 @@ private fun PinKey(
     enabled: Boolean = true,
     prominent: Boolean = false,
     size: Dp,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
     onClick: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     Surface(
-        shape = CircleShape,
-        color = if (prominent) colorScheme.primaryContainer else colorScheme.surfaceContainerLow,
+        onClick = onClick,
+        enabled = enabled,
+        shape = if (compact) MaterialTheme.shapes.medium else CircleShape,
+        color = if (prominent) colorScheme.primaryContainer else if (compact) colorScheme.secondaryContainer else colorScheme.surfaceContainerLow,
         contentColor = if (prominent) colorScheme.onPrimaryContainer else colorScheme.onSurface,
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape)
-            .asterBounceClick(enabled = enabled, targetScale = 0.92f) { if (enabled) onClick() }
+        modifier = modifier.then(if (compact) Modifier.heightIn(min = size) else Modifier.size(size))
     ) {
         Box(contentAlignment = Alignment.Center) {
             when {

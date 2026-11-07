@@ -172,6 +172,7 @@ fun ShelvesScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = com.asterreader.core.designsystem.AsterLayout.MainHeaderHeight)
+                .testTag("shelves_main_header")
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically

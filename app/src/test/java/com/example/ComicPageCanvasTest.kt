@@ -18,6 +18,31 @@ import org.robolectric.annotation.Config
 class ComicPageCanvasTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun lastSpreadReportsCompletionEvenWhenItsFirstPageIsNotTheLastPage() {
+        var completed = false
+        var reported = 0
+        val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.ARGB_8888)
+        compose.setContent {
+            PublicationPageCanvas("末页双页", 3, 4, ReaderLayoutMode.DUAL_PAGE, true,
+                coverSingle = false, loadPage = { _, _ -> bitmap }, onPageChanged = { reported = it },
+                onViewportChanged = { _, _, _, _, _ -> }, onReachedEnd = { completed = it }, onToggleChrome = {})
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { org.junit.Assert.assertEquals(3, reported); org.junit.Assert.assertTrue(completed) }
+    }
+
+    @Test fun verticalReadingReportsCompletionWhenTheLastShortPageIsFullyVisible() {
+        var completed = false
+        val bitmap = Bitmap.createBitmap(4, 2, Bitmap.Config.ARGB_8888)
+        compose.setContent {
+            PublicationPageCanvas("末页滚动", 6, 6, ReaderLayoutMode.VERTICAL_SCROLL, false,
+                loadPage = { _, _ -> bitmap }, onPageChanged = {}, onViewportChanged = { _, _, _, _, _ -> },
+                onReachedEnd = { completed = it }, onToggleChrome = {})
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { org.junit.Assert.assertTrue(completed) }
+    }
+
     @Test
     fun seekingAndChangingSpreadModeKeepRequestedComicPageVisible() {
         val page = mutableIntStateOf(1)

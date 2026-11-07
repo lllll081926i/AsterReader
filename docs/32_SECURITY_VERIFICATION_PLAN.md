@@ -89,10 +89,14 @@ Encrypt & Lock 默认：
 read source
 → write encrypted temp/container.new
 → fsync/close
-→ verify header + sampled/full integrity according to policy
+→ reread persisted ciphertext; verify full header + ALL chunk tags + logical length
 → atomically publish Vault record
 → mark migration committed
 → ONLY THEN offer/delete source
 ```
 
 如果 SAF provider 不保证 atomic rename，则以数据库 transaction + immutable final object + recovery journal 保证可恢复，而不是假设 POSIX 原子语义。
+
+删除原文件前不允许抽样校验。必须确认源文件身份与内容版本仍为本次迁移对象；无法证明时保留源文件。抽样仅允许用于非破坏性的日常巡检，不能作为删除授权条件。
+
+新增门禁：完整尾块截断、伪造长度、对象/头交换、重复 nonce、源文件并发替换、槽轮换中断、过大 KDF 参数、锁定后并发渲染回调和旧备份回滚。具体状态与范围见 `43_SECURITY_PROTOCOL_CONSTRAINTS.md`。

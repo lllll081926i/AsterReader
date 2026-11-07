@@ -1,5 +1,7 @@
 # 19 安全保险库、应用锁与局部加密架构
 
+> 实现状态（2026-11-07）：文件 Vault 尚未实现。本文件是规划，不是已交付能力。当前应用锁与隐藏作品属于访问门禁；新增的口令加密公开清单不包含漫画文件或隐藏作品。实施前必须同时遵循 `43_SECURITY_PROTOCOL_CONSTRAINTS.md` 的收敛约束；示意容器头不得直接当作已冻结协议。
+
 > 这是 v2.0 新增的核心文档。目标不是“加一个密码页面”，而是让 **应用锁、单本书锁、文件夹锁、书架锁、仓库锁与真正的磁盘加密** 在同一套安全模型中工作。
 
 ## 1. 必须先明确的语义
@@ -70,7 +72,7 @@ BIOMETRIC_STRONG | DEVICE_CREDENTIAL
 提供两类：
 
 1. **快捷 PIN**：4–8 位，主要用于 App 内访问门禁。
-2. **保险库恢复密码**：建议 8+ 字符，用于真正的可恢复密钥包装。
+2. **保险库恢复密码**：至少 12 个字符，建议较长随机口令；必须配套版本化 KDF、独立盐与成本参数，用于可恢复密钥包装。长度不构成抗猜测保证。
 
 短 PIN 熵太低，不应单独承担“离线文件被拷走后仍抗暴力破解”的全部责任。
 
@@ -194,7 +196,7 @@ Device KEK 使用 Android Keystore：
 
 若 StrongBox 可用可优先尝试，但 **StrongBox 不应成为硬依赖**，失败时回退到普通 hardware-backed / TEE Keystore。
 
-密钥永不写入：
+明文秘密与 Device KEK 永不写入普通存储、日志或备份。经过认证加密包装的 Master Secret/DEK 可以写入受控槽位和用户主动加密备份，不等同于保存明文密钥。禁止明文写入：
 
 - Room
 - DataStore
@@ -324,7 +326,7 @@ Session 关闭后主动清除可控 byte arrays；Bitmap/系统图形内存交�
    - header
    - all chunk tags
    - plaintext logical length
-   - optional content digest
+   - source content digest when source deletion is requested
 7. Atomically commit vault record
 8. Update Publication protection state
 9. Ask/execute delete original (only if explicitly requested)

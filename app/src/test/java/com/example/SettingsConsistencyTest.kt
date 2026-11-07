@@ -93,6 +93,88 @@ open class SettingsConsistencyTest {
         capture("privacy-light")
     }
 
+    @Test fun choicesUseNativeSegmentedButtonsAndLargeFontCheckRows() {
+        var selected by androidx.compose.runtime.mutableIntStateOf(0)
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme {
+                com.asterreader.core.designsystem.AsterSettingsChoice(
+                    com.example.ui.components.readerFitChoices, selected, { selected = it })
+            }
+        }
+        compose.onNodeWithText("适合屏幕").assertIsSelected()
+        compose.onNodeWithText("原始比例").performClick().assertIsSelected()
+        capture("settings-native-segmented")
+    }
+
+    @Test fun darkThemeChoicesAtDoubleFontScaleRemainReachable() {
+        content(section = "appearance", dark = true, fontScale = 2f)
+        compose.onNodeWithText("跟随系统").assertIsSelected()
+        compose.onNodeWithText("深色模式").assertIsDisplayed()
+        capture("settings-native-choices-dark-font-200")
+    }
+
+    @Test fun encryptedRestoreShowsTargetAndPasswordErrorStates() {
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme {
+                SettingsScreen(AsterUiState(settingsLoaded = true, encryptedBackupHasTarget = true,
+                    encryptedBackupError = "口令不正确或文件损坏"), emptyList(), 0, model, {}, {}, "encryptedRestore")
+            }
+        }
+        compose.onNodeWithText("口令不正确或文件损坏").assertIsDisplayed()
+        compose.onNodeWithText("验证并恢复").assertIsNotEnabled()
+        capture("encrypted-restore-error")
+    }
+
+    @Test fun statsCanBeHiddenFromTheFloatingNavigation() {
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme {
+                com.example.ui.components.AsterMainNavigation(false, com.example.ui.components.MainNavDestination.LIBRARY,
+                    {}, showStatsTab = false)
+            }
+        }
+        compose.onNodeWithTag("nav_dock_stats").assertDoesNotExist()
+        compose.onNodeWithTag("nav_dock_search").assertIsDisplayed()
+    }
+
+    @Test fun readerUsesCompactMonetControlsAndNoSideZoomButtons() {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val source = File(app.cacheDir, "布局验收.zip")
+        val image = Bitmap.createBitmap(120, 180, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.LTGRAY) }
+        java.util.zip.ZipOutputStream(source.outputStream()).use { zip ->
+            repeat(4) { index ->
+                zip.putNextEntry(java.util.zip.ZipEntry("${index + 1}.png"))
+                image.compress(Bitmap.CompressFormat.PNG, 100, zip)
+                zip.closeEntry()
+            }
+        }
+        image.recycle()
+        val book = kotlinx.coroutines.runBlocking {
+            com.example.data.local.LibraryRepository(app).importDocument(android.net.Uri.fromFile(source), persist = false)
+        }
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme {
+                com.example.ui.screens.ReaderScreen(book, uiState = AsterUiState(settingsLoaded = true, isAppLockedNow = false),
+                    isExpandedTablet = false, viewModel = model, onBack = {})
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("放大页面").assertDoesNotExist()
+        compose.onNodeWithContentDescription("缩小页面").assertDoesNotExist()
+        val pill = compose.onNodeWithTag("reader_mini_status_pill").getUnclippedBoundsInRoot()
+        val bounds = compose.onRoot().getUnclippedBoundsInRoot()
+        org.junit.Assert.assertTrue((bounds.right - pill.right).value <= 4f)
+        capture("reader-compact-monet")
+        compose.onNodeWithText("设置").performClick()
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        captureDialog("reader-settings-monet")
+        compose.onNodeWithText("画面缩放模式").performScrollTo().assertIsDisplayed()
+    }
+
     @Test fun settingsRowsHaveTheSameCompactHeight() {
         content()
         val first = compose.onNodeWithText("外观与主题").getUnclippedBoundsInRoot()
@@ -264,6 +346,80 @@ open class SettingsConsistencyTest {
         org.junit.Assert.assertFalse(closed)
         compose.onNodeWithText("继续编辑").performClick()
         compose.onNodeWithText("修改后的标题").assertIsDisplayed()
+    }
+
+    @Test fun mainPagesShareTheShelfHeaderHeightAndTopInset() {
+        var screen by androidx.compose.runtime.mutableIntStateOf(0)
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme {
+                when (screen) {
+                    0 -> com.example.ui.screens.ShelvesScreen(emptyList(), emptyList(), 0, AsterUiState(settingsLoaded = true), false, model)
+                    1 -> com.example.ui.screens.LibraryHomeScreen(AsterUiState(settingsLoaded = true), emptyList(), emptyList(), false, model, {})
+                    2 -> com.example.ui.screens.SearchAndFilterScreen(AsterUiState(settingsLoaded = true), emptyList(),
+                        openFilterInitially = false, viewModel = model, onBack = {})
+                    3 -> com.example.ui.screens.ReadingStatsScreen(model, 0, 0)
+                    else -> com.example.ui.screens.OnboardingScreen({}, {}, {}, {})
+                }
+            }
+        }
+        val tags = listOf("shelves_main_header", "library_main_header", "search_content_header", "stats_main_header", "onboarding_main_header")
+        val shelf = compose.onNodeWithTag(tags[0]).getUnclippedBoundsInRoot()
+        tags.forEachIndexed { index, tag ->
+            compose.runOnIdle { screen = index }
+            val header = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+            org.junit.Assert.assertEquals(48f, (header.bottom - header.top).value, .5f)
+            org.junit.Assert.assertEquals(shelf.top.value, header.top.value, .5f)
+            capture("main-header-$index")
+        }
+        compose.runOnIdle { screen = 2 }
+        val filter = compose.onNodeWithTag("toggle_filter_sheet_btn").assertIsDisplayed().getUnclippedBoundsInRoot()
+        org.junit.Assert.assertEquals(48f, (filter.bottom - filter.top).value, .5f)
+        compose.onNodeWithText("札记").performClick().assertIsSelected()
+    }
+
+    @Test fun identityPromptOpensFullyAndUsesCompactEqualActions() {
+        var dismissed by androidx.compose.runtime.mutableStateOf(false)
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme {
+                if (!dismissed) com.example.ui.screens.SystemSecurityAuthPromptSheet(model, { dismissed = true })
+            }
+        }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.waitForIdle()
+        compose.onNodeWithText("验证身份").assertIsDisplayed()
+        compose.onNodeWithText("取消").assertIsDisplayed()
+        compose.onNodeWithText("确认").assertIsDisplayed().assertIsNotEnabled()
+        val panel = compose.onNodeWithTag("identity_auth_panel").getUnclippedBoundsInRoot()
+        org.junit.Assert.assertTrue((panel.bottom - panel.top).value < 440f)
+        repeat(3) { compose.onNodeWithText("1").performClick() }
+        compose.onNodeWithText("确认").assertIsNotEnabled()
+        compose.onNodeWithText("2").performClick()
+        compose.onNodeWithText("确认").assertIsEnabled()
+        compose.onNodeWithContentDescription("已输入 4 位 PIN").assertIsDisplayed()
+        repeat(5) { compose.onNodeWithText("3").performClick() }
+        compose.onNodeWithContentDescription("已输入 8 位 PIN").assertIsDisplayed()
+        compose.onNodeWithContentDescription("删除一位").performClick()
+        compose.onNodeWithContentDescription("已输入 7 位 PIN").assertIsDisplayed()
+        val cancel = compose.onNodeWithText("取消").getUnclippedBoundsInRoot()
+        val confirm = compose.onNodeWithText("确认").getUnclippedBoundsInRoot()
+        org.junit.Assert.assertEquals((cancel.right - cancel.left).value, (confirm.right - confirm.left).value, .5f)
+        captureDialog("identity-auth-compact")
+        compose.onNodeWithText("确认").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("PIN 码不正确").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("PIN 码不正确").assertIsDisplayed()
+        captureDialog("identity-auth-error")
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("验证身份").assertDoesNotExist()
+    }
+
+    private fun captureDialog(name: String) {
+        compose.runOnIdle {
+            rootView = android.view.inspector.WindowInspector.getGlobalWindowViews()
+                .lastOrNull { it.isShown && it.width > 0 && it.height > 0 } ?: rootView
+        }
+        capture(name)
     }
 
     private fun content(section: String? = null, dark: Boolean = false, fontScale: Float = 1f) {

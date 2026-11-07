@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -114,6 +115,7 @@ data class AsterUiState(
     val shelvesViewMode: ShelvesViewMode = ShelvesViewMode.COLLAGE_GRID,
     val showRecentReading: Boolean = true,
     val showReadingStats: Boolean = true,
+    val showStatsTab: Boolean = true,
 
     // Security & Auth
     val isAppLockEnabled: Boolean = false,
@@ -155,6 +157,10 @@ data class AsterUiState(
     // 扫描与来源
     val isScanning: Boolean = false,
     val requestDirectoryPicker: Boolean = false,
+    val requestEncryptedBackupPicker: Boolean? = null,
+    val encryptedBackupBusy: Boolean = false,
+    val encryptedBackupError: String? = null,
+    val encryptedBackupHasTarget: Boolean = false,
     val pendingRepositoryName: String = "本地目录",
     val pendingRelocateBookId: String? = null,
     val pendingRelocateIsFolder: Boolean = false
@@ -211,8 +217,14 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     private var pendingPostAuthAction: (() -> Unit)? = null
     private var systemAuthenticationInProgress = false
+    private var authenticationGeneration = 0L
+    private var pendingAuthenticationDeadline = 0L
+    private var pinSetupJob: kotlinx.coroutines.Job? = null
+    private var authenticationExpiry: kotlinx.coroutines.Job? = null
     private var pinFailures = pinAttempts.getInt("failures", 0)
     private var pendingExternalUri: Uri? = null
+    private var encryptedBackupTarget: Uri? = null
+    private var encryptedBackupJob: kotlinx.coroutines.Job? = null
 
     val allBooks: StateFlow<List<BookEntity>> = uiState
         .distinctUntilChangedBy { Triple(it.settingsLoaded, it.isAppLockedNow, it.isVaultUnlocked) }
@@ -276,7 +288,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             }
             uiState.filter { it.settingsLoaded }.distinctUntilChangedBy { state ->
                 listOf(state.isAppLockEnabled, state.themeMode, state.reduceMotion, state.libraryLayoutMode,
-                    state.shelvesViewMode, state.showRecentReading, state.showReadingStats, state.readerLayoutMode,
+                    state.shelvesViewMode, state.showRecentReading, state.showReadingStats, state.showStatsTab, state.readerLayoutMode,
                     state.autoLockPolicyLabel, state.lockOnScreenOff, state.flagSecureEnabled,
                     state.hideRecentsPreview, state.volumeKeyPageTurn, state.smartSpreadStitch,
                     state.fitModeLabel, state.readerBrightness, state.pinHash,
@@ -316,7 +328,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
         _uiState.update { state ->
             state.copy(
-                currentTab = if (valid.any { screen -> screen is SubScreen.Reader }) MainNavDestination.LIBRARY else tab,
+                currentTab = if (valid.any { screen -> screen is SubScreen.Reader } ||
+                    tab == MainNavDestination.STATS && !state.showStatsTab) MainNavDestination.LIBRARY else tab,
                 subScreenStack = valid,
                 searchQuery = session.searchQuery
             )
@@ -435,6 +448,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     // Navigation & Backstack
     // ========================================================================
     fun selectMainTab(tab: MainNavDestination) {
+        if (tab == MainNavDestination.STATS && !_uiState.value.showStatsTab) return
         _uiState.update {
             it.copy(
                 currentTab = tab,
@@ -553,13 +567,18 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     // Security & System Authentication
     // ========================================================================
     fun lockAppImmediately() {
+        authenticationGeneration++
+        pinSetupJob?.cancel()
+        authenticationExpiry?.cancel()
+        encryptedBackupJob?.cancel()
+        encryptedBackupTarget = null
         _pendingRemoval.value = emptyList()
         val hiddenIds = allBooks.value.filter { it.isVaultProtected || it.isVaultEncrypted }.map { it.id }.toSet()
         releaseReaderResources()
         systemAuthenticationInProgress = false
         pendingPostAuthAction = null
         _uiState.update { state -> state.copy(isAppLockedNow = state.isAppLockEnabled, isVaultUnlocked = false,
-            showQuickAuthSheet = false,
+            showQuickAuthSheet = false, encryptedBackupHasTarget = false, encryptedBackupError = null,
             subScreenStack = if (state.isAppLockEnabled) emptyList() else state.subScreenStack.filterNot { screen ->
                 screen is SubScreen.HiddenBooks || screen is SubScreen.Reader && screen.bookId in hiddenIds ||
                     screen is SubScreen.PublicationDetail && screen.bookId in hiddenIds
@@ -577,8 +596,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setCustomPin(pin: String) {
         if (_uiState.value.hasCustomPin) {
-            pendingPostAuthAction = { applyCustomPin(pin) }
-            _uiState.update { it.copy(showQuickAuthSheet = true) }
+            requestFreshAuthentication { applyCustomPin(pin) }
             return
         }
         applyCustomPin(pin)
@@ -595,8 +613,13 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         val activate = _uiState.value.pendingAppLockActivation && sanitized.isNotEmpty()
-        viewModelScope.launch(operationErrors) {
+        pinSetupJob?.cancel()
+        pinSetupJob = viewModelScope.launch(operationErrors) {
             val hash = withContext(Dispatchers.Default) { PinCredentials.hash(sanitized) }
+            val next = _uiState.value.copy(pinHash = hash, requestPinSetup = false,
+                pendingAppLockActivation = false,
+                isAppLockEnabled = if (activate) true else _uiState.value.isAppLockEnabled)
+            preferences.save(next)
             _uiState.update {
                 it.copy(
                     pinHash = hash,
@@ -608,7 +631,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             pinFailures = 0
             _uiState.update { it.copy(pinLockedUntilMs = 0L) }
             withContext(Dispatchers.IO) { pinAttempts.edit().clear().commit() }
-            preferences.save(_uiState.value)
+            if (_uiState.value.activeSubScreen == SubScreen.SecuritySection("pin")) popSubScreen()
             if (activate) {
                 showSnackbar("应用 PIN 已设置，应用锁已开启", SnackbarTone.SUCCESS)
             } else {
@@ -621,7 +644,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setBiometricUnlockEnabled(enabled: Boolean) {
-        _uiState.update { it.copy(biometricUnlockEnabled = enabled) }
+        if (!enabled && _uiState.value.biometricUnlockEnabled) requestFreshAuthentication {
+            _uiState.update { it.copy(biometricUnlockEnabled = false) }
+        } else _uiState.update { it.copy(biometricUnlockEnabled = enabled) }
     }
 
     fun consumePinSetupRequest() {
@@ -630,13 +655,14 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     /** 用户放弃设置 PIN 时撤销待开启状态。 */
     fun cancelPendingAppLockActivation() {
+        pinSetupJob?.cancel()
         _uiState.update { it.copy(pendingAppLockActivation = false) }
     }
 
     /** 开始一次解锁尝试：PIN 与系统生物识别都走这个入口，杜绝「凭空解锁」。 */
     fun beginUnlockAttempt() { systemAuthenticationInProgress = true }
 
-    fun cancelUnlockAttempt() { systemAuthenticationInProgress = false }
+    fun cancelUnlockAttempt() { systemAuthenticationInProgress = false; authenticationGeneration++ }
 
     fun pinLockRemainingSeconds(): Long =
         ((_uiState.value.pinLockedUntilMs - System.currentTimeMillis() + 999L) / 1000L).coerceAtLeast(0L)
@@ -646,8 +672,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         if (!systemAuthenticationInProgress) return false
         if (pinLockRemainingSeconds() > 0) return false
         val hash = _uiState.value.pinHash
+        val generation = authenticationGeneration
         val matches = withContext(Dispatchers.Default) { hash.isNotBlank() && PinCredentials.verify(pin, hash) }
-        if (!systemAuthenticationInProgress || hash != _uiState.value.pinHash) return false
+        if (!systemAuthenticationInProgress || generation != authenticationGeneration || hash != _uiState.value.pinHash) return false
         if (!matches) {
             pinFailures++
             if (pinFailures >= MAX_PIN_ATTEMPTS) {
@@ -660,18 +687,27 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             return false
         }
         pinFailures = 0
+        if (PinCredentials.needsUpgrade(hash)) {
+            val upgraded = withContext(Dispatchers.Default) { PinCredentials.hash(pin) }
+            if (!systemAuthenticationInProgress || generation != authenticationGeneration) return false
+            preferences.save(_uiState.value.copy(pinHash = upgraded))
+            if (!systemAuthenticationInProgress || generation != authenticationGeneration) return false
+            _uiState.update { it.copy(pinHash = upgraded) }
+        }
         _uiState.update { it.copy(pinLockedUntilMs = 0L) }
         withContext(Dispatchers.IO) { pinAttempts.edit().clear().commit() }
+        if (!systemAuthenticationInProgress || generation != authenticationGeneration) return false
         return performUnlock()
     }
 
     fun unlockAppAndVault() {
-        if (!systemAuthenticationInProgress && !_uiState.value.showQuickAuthSheet) return
+        if (!systemAuthenticationInProgress) return
         performUnlock()
     }
 
     /** 验证通过后的统一状态跃迁，避免 PIN / 生物识别 / 系统凭据三条路径各自改状态。 */
     private fun performUnlock(): Boolean {
+        authenticationExpiry?.cancel()
         systemAuthenticationInProgress = false
         backgroundAt = null
         val action = pendingPostAuthAction
@@ -682,7 +718,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         _snackbar.value = null
-        action?.invoke()
+        if (SystemClock.elapsedRealtime() <= pendingAuthenticationDeadline) action?.invoke()
         pendingExternalUri?.let { uri ->
             pendingExternalUri = null
             importExternalDocument(uri)
@@ -693,10 +729,13 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun requestVaultUnlock(onUnlocked: (() -> Unit)? = null) {
         if (_uiState.value.isVaultUnlocked && !_uiState.value.isAppLockedNow) { onUnlocked?.invoke(); return }
         pendingPostAuthAction = onUnlocked
+        pendingAuthenticationDeadline = SystemClock.elapsedRealtime() + 120_000L
         _uiState.update { it.copy(showQuickAuthSheet = true) }
     }
 
     fun dismissQuickAuthSheet() {
+        authenticationExpiry?.cancel()
+        authenticationGeneration++
         systemAuthenticationInProgress = false
         pendingPostAuthAction = null
         _uiState.update { it.copy(showQuickAuthSheet = false) }
@@ -706,6 +745,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun onSystemAuthenticationStarted() { systemAuthenticationInProgress = true }
 
     fun onSystemAuthenticationFailed() {
+        authenticationGeneration++
+        pendingPostAuthAction = null
         systemAuthenticationInProgress = false
         _uiState.update { it.copy(showQuickAuthSheet = false) }
         onForeground(false)
@@ -714,6 +755,30 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun lockVaultSession() { lockAppImmediately() }
 
     fun setAppLockEnabled(enabled: Boolean) {
+        if (!enabled && _uiState.value.isAppLockEnabled) {
+            requestFreshAuthentication { applyAppLockEnabled(false) }
+            return
+        }
+        applyAppLockEnabled(enabled)
+    }
+
+    private fun requestFreshAuthentication(action: () -> Unit) {
+        if (!_uiState.value.hasCustomPin && !_uiState.value.isAppLockEnabled) { action(); return }
+        pendingPostAuthAction = action
+        pendingAuthenticationDeadline = SystemClock.elapsedRealtime() + 120_000L
+        _uiState.update { it.copy(showQuickAuthSheet = true) }
+        authenticationExpiry?.cancel()
+        authenticationExpiry = viewModelScope.launch {
+            kotlinx.coroutines.delay(120_000L)
+            pendingPostAuthAction = null
+            systemAuthenticationInProgress = false
+            authenticationGeneration++
+            _uiState.update { it.copy(showQuickAuthSheet = false) }
+            showSnackbar("验证已过期，请重新操作")
+        }
+    }
+
+    private fun applyAppLockEnabled(enabled: Boolean) {
         viewModelScope.launch(operationErrors) {
             if (enabled && !_uiState.value.hasCustomPin) {
                 // 绝不允许「应用锁开着却还在用默认 1234」：先设 PIN，设置成功后再真正开启
@@ -772,19 +837,30 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun onScreenOff() { if (_uiState.value.lockOnScreenOff) lockAppImmediately() }
 
     fun setAutoLockPolicyLabel(label: String) {
-        _uiState.update { it.copy(autoLockPolicyLabel = label) }
+        val labels = listOf("立即锁定", "30 秒后", "1 分钟后", "5 分钟后", "仅息屏锁定")
+        if (label !in labels) return
+        if (labels.indexOf(label) > labels.indexOf(_uiState.value.autoLockPolicyLabel) &&
+            (_uiState.value.hasCustomPin || _uiState.value.isAppLockEnabled)) {
+            requestFreshAuthentication { _uiState.update { it.copy(autoLockPolicyLabel = label) } }
+        } else _uiState.update { it.copy(autoLockPolicyLabel = label) }
     }
 
     fun setLockOnScreenOff(enabled: Boolean) {
-        _uiState.update { it.copy(lockOnScreenOff = enabled) }
+        if (!enabled && _uiState.value.lockOnScreenOff) requestFreshAuthentication {
+            _uiState.update { it.copy(lockOnScreenOff = false) }
+        } else _uiState.update { it.copy(lockOnScreenOff = enabled) }
     }
 
     fun setFlagSecureEnabled(enabled: Boolean) {
-        _uiState.update { it.copy(flagSecureEnabled = enabled) }
+        if (!enabled && _uiState.value.flagSecureEnabled) requestFreshAuthentication {
+            _uiState.update { it.copy(flagSecureEnabled = false) }
+        } else _uiState.update { it.copy(flagSecureEnabled = enabled) }
     }
 
     fun setHideRecentsPreview(enabled: Boolean) {
-        _uiState.update { it.copy(hideRecentsPreview = enabled) }
+        if (!enabled && _uiState.value.hideRecentsPreview) requestFreshAuthentication {
+            _uiState.update { it.copy(hideRecentsPreview = false) }
+        } else _uiState.update { it.copy(hideRecentsPreview = enabled) }
     }
 
     // ========================================================================
@@ -794,9 +870,15 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(showRecentReading = enabled) }
     }
 
+    fun setShowStatsTab(enabled: Boolean) {
+        _uiState.update { it.copy(showStatsTab = enabled,
+            currentTab = if (!enabled && it.currentTab == MainNavDestination.STATS) MainNavDestination.LIBRARY else it.currentTab) }
+        recordNavSession()
+    }
+
     /** 关闭统计时同时清空计时，避免关闭前的会话继续累加。 */
     fun setShowReadingStats(enabled: Boolean) {
-        if (!enabled) readingStartedAt = 0L
+        if (!enabled) endReadingSession()
         _uiState.update { it.copy(showReadingStats = enabled) }
     }
 
@@ -847,6 +929,12 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun updateReadingProgress(bookId: String, newPage: Int, chapterTitle: String? = null) {
         pendingProgress[bookId] = newPage to chapterTitle
         schedulePersist()
+    }
+
+    fun markReadingCompleted(bookId: String) {
+        viewModelScope.launch(operationErrors) {
+            progressMutex.withLock { repository.markReadingCompleted(bookId) }
+        }
     }
 
     // ========================================================================
@@ -1292,6 +1380,60 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             }
             outcome.onSuccess { showSnackbar("书库清单已导出", SnackbarTone.SUCCESS) }
                 .onFailure { showSnackbar(it.message ?: "导出失败，请检查可用空间", SnackbarTone.ERROR) }
+        }
+    }
+
+    fun chooseEncryptedBackupTarget(export: Boolean) {
+        _uiState.update { it.copy(requestEncryptedBackupPicker = export) }
+    }
+
+    fun receiveEncryptedBackupTarget(uri: Uri?, export: Boolean) {
+        _uiState.update { it.copy(requestEncryptedBackupPicker = null) }
+        if (uri == null) return
+        encryptedBackupTarget = uri
+        _uiState.update { it.copy(encryptedBackupHasTarget = true, encryptedBackupError = null) }
+        pushSubScreen(SubScreen.SettingsSection(if (export) "encryptedExport" else "encryptedRestore"))
+    }
+
+    fun clearEncryptedBackupTarget() {
+        if (_uiState.value.encryptedBackupBusy) return
+        encryptedBackupTarget = null
+        _uiState.update { it.copy(encryptedBackupHasTarget = false, encryptedBackupError = null) }
+    }
+
+    fun processEncryptedBackup(password: CharArray, export: Boolean) {
+        val target = encryptedBackupTarget
+        if (target == null || _uiState.value.encryptedBackupBusy || _uiState.value.isAppLockedNow) {
+            password.fill('\u0000'); return
+        }
+        _uiState.update { it.copy(encryptedBackupBusy = true, encryptedBackupError = null) }
+        encryptedBackupJob = viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    if (export) {
+                        val bytes = repository.encryptedLibraryBytes(password)
+                        try {
+                            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                            appContext.contentResolver.openOutputStream(target, "wt")?.use { it.write(bytes) }
+                                ?: error("无法写入加密清单")
+                        } finally { bytes.fill(0) }
+                    } else {
+                        appContext.contentResolver.openInputStream(target)?.use { repository.restoreEncryptedLibrary(it, password) }
+                            ?: error("无法读取加密清单")
+                    }
+                }
+                encryptedBackupTarget = null
+                _uiState.update { it.copy(encryptedBackupHasTarget = false) }
+                popSubScreen()
+                showSnackbar(if (export) "公开书库清单已加密导出" else "加密清单已验证并合并恢复；来源需重新授权", SnackbarTone.SUCCESS)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (failure: Exception) {
+                _uiState.update { it.copy(encryptedBackupError = if (export) "导出失败，请检查文件授权与可用空间；未完成文件不可用于恢复"
+                    else "恢复失败：口令不正确、文件损坏或格式不受支持。书库未按此文件恢复。") }
+            } finally {
+                password.fill('\u0000')
+                _uiState.update { it.copy(encryptedBackupBusy = false) }
+            }
         }
     }
 

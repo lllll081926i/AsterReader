@@ -36,6 +36,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -51,14 +52,14 @@ import java.time.LocalDate
 
 /**
  * 独立统计页。只展示阅读时长与完成度，不做内容采集。
- * 关闭「记录阅读时长」后不再进入本页（入口与开关都在设置里）。
+ * Tab 显示与记录阅读时长分别控制，已有记录始终保留。
  */
 @Composable
 fun ReadingStatsScreen(
     viewModel: AsterViewModel,
     finishedBooks: Int,
     totalBooks: Int,
-    onBack: () -> Unit
+    onBack: (() -> Unit)? = null
 ) {
     val stats by viewModel.readingStats.collectAsState()
     LaunchedEffect(Unit) { viewModel.refreshReadingStats() }
@@ -69,7 +70,7 @@ fun ReadingStatsScreen(
             .fillMaxSize()
             .statusBarsPadding()
     ) {
-        AsterSubScreenHeader("阅读统计", onBack)
+        AsterSubScreenHeader("阅读统计", onBack, Modifier.testTag("stats_main_header"))
 
         Column(
             modifier = Modifier

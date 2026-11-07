@@ -11,8 +11,8 @@ import com.asterreader.core.designsystem.AsterLayout
 
 @Composable
 fun AsterMainNavigation(expanded: Boolean, current: MainNavDestination,
-    onSelect: (MainNavDestination) -> Unit, modifier: Modifier = Modifier) {
-    val destinations = MainNavDestination.entries
+    onSelect: (MainNavDestination) -> Unit, modifier: Modifier = Modifier, showStatsTab: Boolean = true) {
+    val destinations = MainNavDestination.entries.filter { showStatsTab || it != MainNavDestination.STATS }
     if (expanded) NavigationRail(modifier.verticalScroll(rememberScrollState()).testTag("main_navigation_rail"), containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         destinations.forEach { destination ->
             NavigationRailItem(selected = destination == current, onClick = { onSelect(destination) },
@@ -20,5 +20,5 @@ fun AsterMainNavigation(expanded: Boolean, current: MainNavDestination,
                 modifier = Modifier.testTag("nav_dock_${destination.route}"))
         }
     } else AppleFloatingBottomDock(currentDestination = current, onSelectDestination = onSelect,
-        isExpandedTablet = false, modifier = modifier)
+        isExpandedTablet = false, modifier = modifier, showStatsTab = showStatsTab)
 }

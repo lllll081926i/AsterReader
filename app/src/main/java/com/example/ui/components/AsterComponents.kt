@@ -32,6 +32,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.LocalLibrary
 import androidx.compose.material.icons.filled.Search
@@ -79,7 +81,8 @@ enum class MainNavDestination(
 ) {
     LIBRARY("library", "书库", Icons.Filled.LocalLibrary, Icons.Outlined.LocalLibrary),
     SHELVES("shelves", "书架", Icons.Filled.AutoStories, Icons.Outlined.AutoStories),
-    SEARCH("search", "搜索", Icons.Filled.Search, Icons.Outlined.Search)
+    SEARCH("search", "搜索", Icons.Filled.Search, Icons.Outlined.Search),
+    STATS("stats", "统计", Icons.Filled.QueryStats, Icons.Outlined.QueryStats)
 }
 
 /**
@@ -95,15 +98,12 @@ fun AppleFloatingBottomDock(
     isExpandedTablet: Boolean,
     lastReadTitle: String? = null,
     onQuickResumeRead: (() -> Unit)? = null,
+    showStatsTab: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
-    val dockItems = listOf(
-        MainNavDestination.LIBRARY,
-        MainNavDestination.SHELVES,
-        MainNavDestination.SEARCH
-    )
+    val dockItems = MainNavDestination.entries.filter { showStatsTab || it != MainNavDestination.STATS }
 
     Box(
         modifier = modifier
@@ -123,7 +123,7 @@ fun AppleFloatingBottomDock(
                 width = 0.8.dp,
                 color = colorScheme.outlineVariant.copy(alpha = 0.45f)
             ),
-            modifier = Modifier.heightIn(min = com.asterreader.core.designsystem.AsterLayout.MainNavigationHeight)
+            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().heightIn(min = com.asterreader.core.designsystem.AsterLayout.MainNavigationHeight)
                 .testTag("apple_floating_bottom_dock")
         ) {
             Row(
@@ -151,12 +151,12 @@ fun AppleFloatingBottomDock(
 
                     Column(
                         modifier = Modifier
-                            .widthIn(min = 68.dp)
+                            .weight(1f)
                             .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                             .clip(androidx.compose.foundation.shape.CircleShape)
                             .background(pillBg)
                             .asterBounceClick { onSelectDestination(dest) }
-                            .padding(horizontal = 18.dp, vertical = 6.dp)
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
                             .semantics(mergeDescendants = true) { this.selected = selected; role = Role.Tab }
                             .testTag("nav_dock_${dest.route}"),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -440,7 +440,7 @@ fun AsterSettingsGroup(
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.6.sp
                 ),
-                color = colorScheme.onSurfaceVariant,
+                color = colorScheme.primary,
                 maxLines = 1,
                 softWrap = false,
                 modifier = Modifier.padding(start = 6.dp, top = 2.dp)
@@ -448,7 +448,7 @@ fun AsterSettingsGroup(
         }
         Surface(
             shape = MaterialTheme.shapes.large,
-            color = asterColors.surfaceContainerLow,
+            color = com.asterreader.core.designsystem.AsterSettingsColors.container,
             tonalElevation = 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -506,7 +506,7 @@ fun AsterSettingsRow(
                 Icon(
                     imageVector = leadingIcon,
                     contentDescription = null,
-                    tint = if (isDanger) colorScheme.error else colorScheme.onSurfaceVariant,
+                    tint = if (isDanger) colorScheme.error else colorScheme.primary,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -565,7 +565,7 @@ fun AsterSettingsRow(
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,
-                tint = if (isDanger) colorScheme.error else colorScheme.outline,
+                tint = if (isDanger) colorScheme.error else colorScheme.primary,
                 modifier = Modifier.size(18.dp)
             )
         }

@@ -23,6 +23,19 @@ class AsterDatabaseTest {
     private lateinit var database: AsterDatabase
     private lateinit var dao: AsterDao
 
+    @Test fun completedStatusSurvivesSavingTheFirstPageOfTheLastSpreadAndReopening() = runBlocking {
+        val book = comicFixture().copy(totalPages = 4)
+        dao.insertBook(book)
+        dao.markReadingCompleted(book.id)
+        dao.saveReadingPosition(book.id, 3, null, null, 10L)
+        val saved = dao.getBookById(book.id)!!
+        assertEquals(3, saved.currentPage)
+        assertEquals(100, saved.progressPercent)
+        assertEquals("已读完", saved.statusBadge)
+        dao.saveReadingPosition(book.id, 1, null, null, 11L)
+        assertEquals("已读完", dao.getBookById(book.id)!!.statusBadge)
+    }
+
     @Before
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()

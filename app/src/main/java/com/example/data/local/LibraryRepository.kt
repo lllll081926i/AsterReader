@@ -119,6 +119,7 @@ class LibraryRepository(
 
     /** 隐藏/取消隐藏：只改变书库中的可见性，文件字节保持原样。 */
     suspend fun setBookHidden(bookId: String, hidden: Boolean) = dao.setBookHidden(bookId, hidden)
+    suspend fun markReadingCompleted(bookId: String) = dao.markReadingCompleted(bookId)
 
     fun observeHiddenCount() = dao.observeHiddenCount()
     fun nativePageSize(bitmap: Bitmap): Pair<Int, Int>? = renderSession.nativeSize(bitmap)
@@ -1040,6 +1041,24 @@ class LibraryRepository(
     suspend fun exportLibraryTo(stream: OutputStream) = withContext(Dispatchers.IO) {
         LibraryBackup.export(dao, stream)
     }
+
+    suspend fun encryptedLibraryBytes(password: CharArray): ByteArray = withContext(Dispatchers.IO) {
+        val memory = object : java.io.ByteArrayOutputStream() {
+            fun clear() { buf.fill(0); reset() }
+        }
+        try {
+            LibraryBackup.export(dao, memory)
+            val plaintext = memory.toByteArray()
+            try { EncryptedLibraryBackup.encrypt(plaintext, password) } finally { plaintext.fill(0) }
+        } finally { memory.clear() }
+    }
+
+    suspend fun restoreEncryptedLibrary(stream: InputStream, password: CharArray): LibraryBackup.ImportResult =
+        withContext(Dispatchers.IO) {
+            val plaintext = EncryptedLibraryBackup.decrypt(stream, password)
+            try { LibraryBackup.import(dao, java.io.ByteArrayInputStream(plaintext)) }
+            finally { plaintext.fill(0) }
+        }
 
     suspend fun importLibraryFrom(stream: InputStream): LibraryBackup.ImportResult =
         withContext(Dispatchers.IO) { LibraryBackup.import(dao, stream) }

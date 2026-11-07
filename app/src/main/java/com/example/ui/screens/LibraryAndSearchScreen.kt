@@ -1,5 +1,10 @@
 package com.example.ui.screens
 
+
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Badge
+import androidx.compose.material.icons.outlined.Tune
+
 import com.asterreader.core.designsystem.AsterLayout
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.text.KeyboardActions
@@ -267,6 +272,135 @@ fun LibraryHomeScreen(
                     }
                 }
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = AsterLayout.MainHeaderHeight)
+                        .padding(horizontal = AsterLayout.PagePadding)
+                        .testTag("library_main_header"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "馆藏",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = colorScheme.onSurface,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Text(
+                            text = "${filteredBooks.size} 部",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.outline,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier.padding(bottom = 3.dp)
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        // 切换视图。
+                        IconButton(
+                            onClick = { viewModel.cycleLibraryLayoutMode() },
+                            modifier = Modifier
+                                .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                                .testTag("library_layout_cycle_btn")
+                        ) {
+                            Icon(
+                                imageVector = when (uiState.libraryLayoutMode) {
+                                    LibraryLayoutMode.GRID_2 -> Icons.Filled.GridView
+                                    LibraryLayoutMode.GRID_3 -> Icons.Outlined.ViewModule
+                                    LibraryLayoutMode.LIST -> Icons.AutoMirrored.Outlined.ViewList
+                                    LibraryLayoutMode.GALLERY -> Icons.Outlined.ViewAgenda
+                                },
+                                contentDescription = "切换视图",
+                                tint = colorScheme.primary,
+                                modifier = Modifier.size(AsterLayout.HeaderIconSize)
+                            )
+                        }
+
+                        Box {
+                            IconButton(
+                                onClick = { showOverflowMenu = true },
+                                modifier = Modifier
+                                    .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                                    .testTag("scope_overflow_menu_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.MoreVert,
+                                    contentDescription = "更多选项",
+                                    tint = colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(AsterLayout.HeaderIconSize)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(if (uiState.isScanning) "取消扫描" else "刷新书库", maxLines = 1, softWrap = false) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        viewModel.rescanRepositories()
+                                    }
+                                )
+                                if (uiState.showReadingStats) {
+                                    DropdownMenuItem(
+                                        text = { Text("阅读统计", maxLines = 1, softWrap = false) },
+                                        onClick = {
+                                            showOverflowMenu = false
+                                            viewModel.pushSubScreen(SubScreen.ReadingStats)
+                                        }
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text("系列与卷", maxLines = 1, softWrap = false) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        viewModel.pushSubScreen(SubScreen.SeriesList)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("批量管理", maxLines = 1, softWrap = false) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        viewModel.enterBatchSelection(null)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("添加目录", maxLines = 1, softWrap = false) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showRepoWizardDialog = true
+                                    }
+                                )
+                            }
+                        }
+
+                        // 设置按钮直接置于馆藏行最右侧
+                        IconButton(
+                            onClick = { viewModel.pushSubScreen(SubScreen.Settings) },
+                            modifier = Modifier
+                                .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                                .testTag("header_settings_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = "设置",
+                                tint = colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(AsterLayout.HeaderIconSize)
+                            )
+                        }
+                    }
+                }
+
                 // Main Scrollable Grid/List Canvas
                 LazyVerticalGrid(
                     columns = gridColumns,
@@ -286,136 +420,6 @@ fun LibraryHomeScreen(
                         .fillMaxSize()
                         .testTag("library_publication_grid")
                 ) {
-                    // 1. Scope Header ("馆藏") + Single Small Icon Layout Switcher + Settings Button
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = com.asterreader.core.designsystem.AsterLayout.MainHeaderHeight),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.Bottom,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = "馆藏",
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                    color = colorScheme.onSurface,
-                                    maxLines = 1,
-                                    softWrap = false
-                                )
-                                Text(
-                                    text = "${filteredBooks.size} 部",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = colorScheme.outline,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier.padding(bottom = 3.dp)
-                                )
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(0.dp)
-                            ) {
-                                // 切换视图。
-                                IconButton(
-                                    onClick = { viewModel.cycleLibraryLayoutMode() },
-                                    modifier = Modifier
-                                        .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                                        .testTag("library_layout_cycle_btn")
-                                ) {
-                                    Icon(
-                                        imageVector = when (uiState.libraryLayoutMode) {
-                                            LibraryLayoutMode.GRID_2 -> Icons.Filled.GridView
-                                            LibraryLayoutMode.GRID_3 -> Icons.Outlined.ViewModule
-                                            LibraryLayoutMode.LIST -> Icons.AutoMirrored.Outlined.ViewList
-                                            LibraryLayoutMode.GALLERY -> Icons.Outlined.ViewAgenda
-                                        },
-                                        contentDescription = "切换视图",
-                                        tint = colorScheme.primary,
-                                        modifier = Modifier.size(AsterLayout.HeaderIconSize)
-                                    )
-                                }
-
-                                Box {
-                                    IconButton(
-                                        onClick = { showOverflowMenu = true },
-                                        modifier = Modifier
-                                            .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                                            .testTag("scope_overflow_menu_btn")
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Filled.MoreVert,
-                                            contentDescription = "更多选项",
-                                            tint = colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(AsterLayout.HeaderIconSize)
-                                        )
-                                    }
-                                    DropdownMenu(
-                                        expanded = showOverflowMenu,
-                                        onDismissRequest = { showOverflowMenu = false }
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text(if (uiState.isScanning) "取消扫描" else "刷新书库", maxLines = 1, softWrap = false) },
-                                            onClick = {
-                                                showOverflowMenu = false
-                                                viewModel.rescanRepositories()
-                                            }
-                                        )
-                                        if (uiState.showReadingStats) {
-                                            DropdownMenuItem(
-                                                text = { Text("阅读统计", maxLines = 1, softWrap = false) },
-                                                onClick = {
-                                                    showOverflowMenu = false
-                                                    viewModel.pushSubScreen(SubScreen.ReadingStats)
-                                                }
-                                            )
-                                        }
-                                        DropdownMenuItem(
-                                            text = { Text("系列与卷", maxLines = 1, softWrap = false) },
-                                            onClick = {
-                                                showOverflowMenu = false
-                                                viewModel.pushSubScreen(SubScreen.SeriesList)
-                                            }
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("批量管理", maxLines = 1, softWrap = false) },
-                                            onClick = {
-                                                showOverflowMenu = false
-                                                viewModel.enterBatchSelection(null)
-                                            }
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("添加目录", maxLines = 1, softWrap = false) },
-                                            onClick = {
-                                                showOverflowMenu = false
-                                                showRepoWizardDialog = true
-                                            }
-                                        )
-                                    }
-                                }
-
-                                // 设置按钮直接置于馆藏行最右侧
-                                IconButton(
-                                    onClick = { viewModel.pushSubScreen(SubScreen.Settings) },
-                                    modifier = Modifier
-                                        .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                                        .testTag("header_settings_btn")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Settings,
-                                        contentDescription = "设置",
-                                        tint = colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(AsterLayout.HeaderIconSize)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
                     // 扫描进行中：一行细进度条，可点击取消
                     if (uiState.isScanning) {
                         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -1786,7 +1790,7 @@ fun SearchAndFilterScreen(
                 .fillMaxWidth()
                 .align(Alignment.CenterHorizontally)
                 .testTag("search_content_header")
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = AsterLayout.PagePadding),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Surface(
@@ -1858,144 +1862,24 @@ fun SearchAndFilterScreen(
                         }
                     }
 
-                    Surface(
-                        shape = CircleShape,
-                        color = colorScheme.secondaryContainer,
-                        contentColor = colorScheme.onSecondaryContainer,
-                        modifier = Modifier
-                            .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                            .clip(CircleShape)
-                            .clickable { showFilterSheet = true }
-                            .testTag("toggle_filter_sheet_btn")
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.Tune,
-                                contentDescription = "筛选",
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
                 }
             }
         }
 
-        // Scope Switcher Tabs + Active Filter Bar
-        Row(
-            modifier = Modifier
-                .widthIn(max = AsterLayout.SearchContentMaxWidth)
-                .fillMaxWidth()
-                .align(Alignment.CenterHorizontally)
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            listOf("全部", "漫画", "书签札记").forEach { tab ->
-                val isSelected = searchScopeTab == tab
-                Surface(
-                    shape = CircleShape,
-                    color = if (isSelected) colorScheme.secondaryContainer else asterColors.surfaceContainer,
-                    contentColor = if (isSelected) colorScheme.onSecondaryContainer else colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                        .clip(CircleShape)
-                        .selectable(isSelected, role = Role.Tab, onClick = { searchScopeTab = tab })
-                ) {
-                    Box(
-                        modifier = Modifier.padding(horizontal = 14.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = tab,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            ),
-                            maxLines = 1,
-                            softWrap = false
-                        )
-                    }
-                }
-            }
-
-            VerticalDivider(modifier = Modifier.height(18.dp), color = colorScheme.outlineVariant.copy(alpha = 0.45f))
-
-            Surface(
-                shape = CircleShape,
-                color = colorScheme.secondaryContainer,
-                contentColor = colorScheme.onSecondaryContainer,
-                modifier = Modifier
-                    .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                    .clip(CircleShape)
-                    .clickable { showFilterSheet = true }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Icon(Icons.Filled.Tune, contentDescription = null, modifier = Modifier.size(14.dp))
-                    Text("筛选", style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false)
-                    if (uiState.activeFilterCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(CircleShape)
-                                .background(colorScheme.primary),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = uiState.activeFilterCount.toString(),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                ),
-                                color = colorScheme.onPrimary,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
-                    }
-                }
-            }
-
-            Surface(
-                shape = CircleShape,
-                color = asterColors.surfaceContainerLow,
-                border = BorderStroke(0.8.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                modifier = Modifier
-                    .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                    .clip(CircleShape)
-                    .clickable { showFilterSheet = true }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = uiState.sortOption.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = colorScheme.onSurface,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                    Icon(
-                        imageVector = Icons.Outlined.ExpandMore,
-                        contentDescription = null,
-                        tint = colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(15.dp)
-                    )
+        Row(Modifier.widthIn(max = AsterLayout.SearchContentMaxWidth).fillMaxWidth()
+            .align(Alignment.CenterHorizontally).padding(horizontal = AsterLayout.PagePadding),
+            verticalAlignment = Alignment.CenterVertically) {
+            val scopes = listOf("全部", "漫画", "书签札记")
+            com.asterreader.core.designsystem.AsterScopeTabs(listOf("全部", "漫画", "札记"),
+                scopes.indexOf(searchScopeTab).coerceAtLeast(0), { searchScopeTab = scopes[it] }, Modifier.weight(1f))
+            IconButton(onClick = { showFilterSheet = true }, modifier = Modifier.size(AsterLayout.TouchTarget).testTag("toggle_filter_sheet_btn")) {
+                BadgedBox(badge = {
+                    if (uiState.activeFilterCount > 0) Badge { Text(uiState.activeFilterCount.toString()) }
+                }) {
+                    Icon(Icons.Outlined.Tune, "筛选与排序", Modifier.size(AsterLayout.HeaderIconSize), colorScheme.primary)
                 }
             }
         }
-
-        HorizontalDivider(
-            modifier = Modifier.padding(top = 4.dp),
-            thickness = 0.5.dp,
-            color = colorScheme.outlineVariant.copy(alpha = 0.35f)
-        )
-
         LazyColumn(
             modifier = Modifier
                 .widthIn(max = AsterLayout.SearchContentMaxWidth)

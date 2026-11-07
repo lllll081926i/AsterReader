@@ -8,14 +8,6 @@ import androidx.compose.runtime.setValue
 import com.asterreader.core.designsystem.AsterModalBottomSheet as ModalBottomSheet
 import com.asterreader.core.designsystem.AsterReaderPalette.ComicPaper
 import com.asterreader.core.designsystem.AsterReaderPalette.StatusIcon
-import com.asterreader.core.designsystem.AsterReaderPalette.StatusText
-import com.asterreader.core.designsystem.AsterReaderPalette.StatusSurface
-import com.asterreader.core.designsystem.AsterReaderPalette.ChromeBorderColor
-import com.asterreader.core.designsystem.AsterReaderPalette.ChromeAccentMint
-import com.asterreader.core.designsystem.AsterReaderPalette.ChromeTextSecondary
-import com.asterreader.core.designsystem.AsterReaderPalette.ChromeTextPrimary
-import com.asterreader.core.designsystem.AsterReaderPalette.ChromePillColor
-import com.asterreader.core.designsystem.AsterReaderPalette.ChromeSurfaceColor
 
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -24,6 +16,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.focusable
 import com.asterreader.core.designsystem.LocalAsterReduceMotion
 import com.example.ui.components.PublicationPageCanvas
+import com.asterreader.core.designsystem.AsterSettingsChoice
+import com.asterreader.core.designsystem.AsterChoice
+import com.example.ui.components.readerModeChoices
+import com.example.ui.components.readerFitChoices
 import com.example.ui.components.ReaderZoomCommand
 import androidx.compose.material.icons.outlined.ZoomIn
 import androidx.compose.material.icons.outlined.ZoomOut
@@ -208,6 +204,7 @@ fun ReaderScreen(
 
     var showChrome by remember { mutableStateOf(true) }
     var showMiniStatusPill by remember { mutableStateOf(true) }
+    var isAtEnd by remember(book.id) { mutableStateOf(false) }
     var showModeSheet by remember { mutableStateOf(false) }
     var showTocSheet by remember { mutableStateOf(false) }
     var tabletSideDrawerOpen by remember(isExpandedTablet) { mutableStateOf(false) }
@@ -278,6 +275,10 @@ fun ReaderScreen(
                     },
                     onPrefetch = { pages -> viewModel.prefetchPages(book.id, pages) },
                     onPageChanged = { currentPage = it },
+                    onReachedEnd = { end ->
+                        if (end && !isAtEnd) viewModel.markReadingCompleted(book.id)
+                        isAtEnd = end
+                    },
                     onViewportChanged = { p, fraction, scale, panX, panY ->
                         viewModel.updateViewport(book.id, p, fraction, scale, panX, panY)
                     },
@@ -306,26 +307,6 @@ fun ReaderScreen(
             }
 
             // High-Contrast Transient Top Bar Chrome (全屏模式不叠加系统栏边距，紧凑高度)
-            if (showChrome && stateLoaded) {
-                Surface(
-                    modifier = Modifier.align(Alignment.CenterEnd).displayCutoutPadding().padding(end = 8.dp),
-                    shape = MaterialTheme.shapes.large,
-                    color = ChromeSurfaceColor,
-                    contentColor = ChromeTextPrimary
-                ) {
-                    Column {
-                        IconButton(onClick = { zoomCommand = ReaderZoomCommand(zoomCommand.sequence + 1, 0.5f) }) {
-                            Icon(Icons.Outlined.ZoomIn, contentDescription = "放大页面")
-                        }
-                        IconButton(onClick = { zoomCommand = ReaderZoomCommand(zoomCommand.sequence + 1, -0.5f) }) {
-                            Icon(Icons.Outlined.ZoomOut, contentDescription = "缩小页面")
-                        }
-                        IconButton(onClick = { zoomCommand = ReaderZoomCommand(zoomCommand.sequence + 1, 0f) }) {
-                            Icon(Icons.Outlined.CenterFocusStrong, contentDescription = "重置页面缩放")
-                        }
-                    }
-                }
-            }
             androidx.compose.animation.AnimatedVisibility(
                 visible = showChrome,
                 enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically { -it } + fadeIn(),
@@ -333,8 +314,8 @@ fun ReaderScreen(
                 modifier = Modifier.align(Alignment.TopCenter)
             ) {
                 Surface(
-                    color = ChromeSurfaceColor,
-                    contentColor = ChromeTextPrimary,
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                     shadowElevation = 6.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -358,7 +339,7 @@ fun ReaderScreen(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "返回",
-                                    tint = ChromeTextPrimary
+                                    tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
                             Column(modifier = Modifier.padding(start = 2.dp, end = 8.dp)) {
@@ -369,7 +350,7 @@ fun ReaderScreen(
                                     Text(
                                         text = book.title,
                                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = ChromeTextPrimary,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f, fill = false)
@@ -378,7 +359,7 @@ fun ReaderScreen(
                                         Icon(
                                             imageVector = Icons.Outlined.Lock,
                                             contentDescription = "受保护",
-                                            tint = ChromeAccentMint,
+                                            tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
@@ -386,7 +367,7 @@ fun ReaderScreen(
                                 Text(
                                     text = activeChapterTitle,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = ChromeTextSecondary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -409,7 +390,7 @@ fun ReaderScreen(
                                 Icon(
                                     imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                                     contentDescription = "书签",
-                                    tint = if (isBookmarked) ChromeAccentMint else ChromeTextPrimary
+                                    tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                 )
                             }
 
@@ -421,7 +402,7 @@ fun ReaderScreen(
                                     Icon(
                                         imageVector = Icons.Outlined.Tune,
                                         contentDescription = "侧栏",
-                                        tint = if (tabletSideDrawerOpen) ChromeAccentMint else ChromeTextPrimary
+                                        tint = if (tabletSideDrawerOpen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }
@@ -438,14 +419,14 @@ fun ReaderScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Surface(
                     shape = MaterialTheme.shapes.extraLarge,
-                    color = ChromeSurfaceColor,
-                    contentColor = ChromeTextPrimary,
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                     shadowElevation = 12.dp,
-                    border = BorderStroke(0.8.dp, ChromeBorderColor),
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant),
                     modifier = Modifier
                         .widthIn(max = 500.dp)
                         .testTag("reader_unified_bottom_bar")
@@ -453,8 +434,8 @@ fun ReaderScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         // Top Half: Progress Scrub Bar + Chapter Step
                         Row(
@@ -476,14 +457,14 @@ fun ReaderScreen(
                                 Icon(
                                     imageVector = Icons.Default.SkipPrevious,
                                     contentDescription = null,
-                                    tint = ChromeTextPrimary,
+                                    tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = "上一话",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = ChromeTextPrimary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     softWrap = false
                                 )
@@ -494,7 +475,7 @@ fun ReaderScreen(
                                 style = MaterialTheme.typography.labelMedium,
                                 fontFamily = RobotoMonoFontFamily,
                                 fontWeight = FontWeight.Bold,
-                                color = ChromeAccentMint,
+                                color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
                                 softWrap = false
                             )
@@ -513,7 +494,7 @@ fun ReaderScreen(
                                 Text(
                                     text = "下一话",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = ChromeTextPrimary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     softWrap = false
                                 )
@@ -521,7 +502,7 @@ fun ReaderScreen(
                                 Icon(
                                     imageVector = Icons.Default.SkipNext,
                                     contentDescription = null,
-                                    tint = ChromeTextPrimary,
+                                    tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -536,9 +517,9 @@ fun ReaderScreen(
                             },
                             valueRange = 1f..totalPages.toFloat(),
                             colors = SliderDefaults.colors(
-                                thumbColor = ChromeAccentMint,
-                                activeTrackColor = ChromeAccentMint,
-                                inactiveTrackColor = ChromePillColor
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                inactiveTrackColor = MaterialTheme.colorScheme.secondaryContainer
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -546,7 +527,7 @@ fun ReaderScreen(
                                 .testTag("reader_progress_slider")
                         )
 
-                        HorizontalDivider(color = ChromeBorderColor)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                         // 漫画控制区：将滚动方式直接合并进设置中，改名为“设置”
                         Row(
@@ -588,25 +569,26 @@ fun ReaderScreen(
                 exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else fadeOut(),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp, bottom = 12.dp)
+                    .displayCutoutPadding().navigationBarsPadding().padding(end = 2.dp, bottom = 2.dp)
             ) {
                 Surface(
                     shape = androidx.compose.foundation.shape.CircleShape,
-                    color = StatusSurface,
-                    border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.16f)),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant),
                     shadowElevation = 4.dp,
                     modifier = Modifier.testTag("reader_mini_status_pill")
                 ) {
                     Box(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "$currentPage / $totalPages · ${((currentPage.toFloat() / totalPages) * 100).roundToInt()}%",
+                            text = if (isAtEnd) "已读完 · $totalPages / $totalPages" else
+                                "$currentPage / $totalPages · ${((currentPage.toFloat() / totalPages) * 100).toInt().coerceAtMost(99)}%",
                             fontFamily = RobotoMonoFontFamily,
-                            fontSize = 11.sp,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.Medium,
-                            color = StatusText,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
                             maxLines = 1,
                             softWrap = false,
                             modifier = Modifier.wrapContentHeight(Alignment.CenterVertically)
@@ -650,6 +632,7 @@ fun ReaderScreen(
     if (showModeSheet) {
         ModalBottomSheet(
             onDismissRequest = { showModeSheet = false },
+            sheetState = com.asterreader.core.designsystem.rememberAsterSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ) {
             Column(
@@ -657,7 +640,7 @@ fun ReaderScreen(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -695,54 +678,8 @@ fun ReaderScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val modes = listOf(
-                            ReaderLayoutMode.VERTICAL_SCROLL to "上下滚动",
-                            ReaderLayoutMode.RTL_PAGER to "右向左翻",
-                            ReaderLayoutMode.LTR_PAGER to "左向右翻",
-                            ReaderLayoutMode.DUAL_PAGE to "双页展开"
-                        )
-                        modes.forEach { (mode, title) ->
-                            val selected = readerMode == mode
-                            Surface(
-                                onClick = { modeOverride = mode },
-                                shape = MaterialTheme.shapes.medium,
-                                color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                                border = BorderStroke(
-                                    width = if (selected) 1.5.dp else 1.dp,
-                                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                                ),
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = when (mode) {
-                                            ReaderLayoutMode.VERTICAL_SCROLL -> Icons.Outlined.ViewDay
-                                            ReaderLayoutMode.DUAL_PAGE -> Icons.Outlined.ViewColumn
-                                            else -> Icons.Outlined.ViewArray
-                                        },
-                                        contentDescription = title,
-                                        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        text = title,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        softWrap = false
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    AsterSettingsChoice(readerModeChoices, ReaderLayoutMode.entries.indexOf(readerMode),
+                        { modeOverride = ReaderLayoutMode.entries[it] })
 
                     Text(
                         text = "画面缩放模式",
@@ -750,21 +687,8 @@ fun ReaderScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("适合屏幕", "原始比例").forEach { fitMode ->
-                            val selected = readerFit == fitMode
-                            FilterChip(
-                                selected = selected,
-                                onClick = { fitOverride = fitMode },
-                                label = { Text(fitMode, maxLines = 1, softWrap = false) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-
+                    AsterSettingsChoice(readerFitChoices, if (readerFit == "适合屏幕") 0 else 1,
+                        { fitOverride = if (it == 0) "适合屏幕" else "原始比例" })
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -919,7 +843,7 @@ private fun ReaderIslandButton(
     Surface(
         onClick = onClick,
         shape = androidx.compose.foundation.shape.CircleShape,
-        color = if (isActive) ChromePillColor else Color.Transparent
+        color = if (isActive) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
@@ -929,14 +853,14 @@ private fun ReaderIslandButton(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (isActive) ChromeAccentMint else ChromeTextPrimary,
+                tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(17.dp)
             )
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                color = if (isActive) ChromeAccentMint else ChromeTextPrimary,
+                color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 softWrap = false
             )
@@ -1002,37 +926,9 @@ private fun TabletReaderSidePanel(
                 }
             }
 
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            ) {
-                Row(modifier = Modifier.padding(4.dp)) {
-                    listOf("漫画设置", "目录").forEachIndexed { idx, title ->
-                        val active = selectedTab == idx
-                        Surface(
-                            onClick = { onSelectTab(idx) },
-                            shape = MaterialTheme.shapes.small,
-                            color = if (active) MaterialTheme.colorScheme.surface else Color.Transparent,
-                            shadowElevation = if (active) 2.dp else 0.dp,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                                color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
-                    }
-                }
-            }
+            AsterSettingsChoice(listOf(AsterChoice("设置", Icons.Outlined.Tune),
+                AsterChoice("目录", Icons.AutoMirrored.Filled.FormatListBulleted)), selectedTab, onSelectTab,
+                Modifier.padding(horizontal = 16.dp))
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -1042,7 +938,7 @@ private fun TabletReaderSidePanel(
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
 
                         Text(
@@ -1051,36 +947,8 @@ private fun TabletReaderSidePanel(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                SideModeButton(
-                                    title = "双页展开",
-                                    selected = uiState.readerLayoutMode == ReaderLayoutMode.DUAL_PAGE,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { onSelectLayoutMode(ReaderLayoutMode.DUAL_PAGE) }
-                                )
-                                SideModeButton(
-                                    title = "左向右翻",
-                                    selected = uiState.readerLayoutMode == ReaderLayoutMode.LTR_PAGER,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { onSelectLayoutMode(ReaderLayoutMode.LTR_PAGER) }
-                                )
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                SideModeButton(
-                                    title = "上下滚动",
-                                    selected = uiState.readerLayoutMode == ReaderLayoutMode.VERTICAL_SCROLL,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { onSelectLayoutMode(ReaderLayoutMode.VERTICAL_SCROLL) }
-                                )
-                                SideModeButton(
-                                    title = "右向左翻",
-                                    selected = uiState.readerLayoutMode == ReaderLayoutMode.RTL_PAGER,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { onSelectLayoutMode(ReaderLayoutMode.RTL_PAGER) }
-                                )
-                            }
-                        }
+                        AsterSettingsChoice(readerModeChoices, ReaderLayoutMode.entries.indexOf(uiState.readerLayoutMode),
+                            { onSelectLayoutMode(ReaderLayoutMode.entries[it]) })
 
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
@@ -1090,16 +958,8 @@ private fun TabletReaderSidePanel(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("适合屏幕", "原始比例").forEach { fitMode ->
-                                SideModeButton(
-                                    title = fitMode,
-                                    selected = uiState.fitModeLabel == fitMode,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = { onSelectFit(fitMode) }
-                                )
-                            }
-                        }
+                        AsterSettingsChoice(readerFitChoices, if (uiState.fitModeLabel == "适合屏幕") 0 else 1,
+                            { onSelectFit(if (it == 0) "适合屏幕" else "原始比例") })
 
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
 
@@ -1159,35 +1019,5 @@ private fun TabletReaderSidePanel(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SideModeButton(
-    title: String,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        shape = MaterialTheme.shapes.medium,
-        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-        border = BorderStroke(
-            if (selected) 1.5.dp else 1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-        ),
-        modifier = modifier
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            softWrap = false,
-            modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp)
-        )
     }
 }
