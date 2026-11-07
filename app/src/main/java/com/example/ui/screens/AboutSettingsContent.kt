@@ -3,6 +3,9 @@ package com.example.ui.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
@@ -23,48 +26,42 @@ import com.example.ui.AsterViewModel
 import com.example.ui.components.*
 
 @Composable
-fun AboutSettingsContent(onOpenLicenses: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = AsterLayout.ControlSpacing),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
-        Box(Modifier.size(AsterLayout.TouchTarget)) {
-            Image(painterResource(R.drawable.ic_launcher_background), null, Modifier.fillMaxSize())
-            Image(painterResource(R.drawable.ic_launcher_foreground), null, Modifier.fillMaxSize())
+fun AboutSettingsContent(model: AsterViewModel, onOpenLicenses: () -> Unit) {
+    val update by model.updateCheck.collectAsStateWithLifecycle()
+    val uriHandler = LocalUriHandler.current
+    AsterSettingsGroup {
+        Row(Modifier.fillMaxWidth().padding(AsterLayout.PagePadding),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
+            Box(Modifier.size(AsterLayout.TouchTarget)) {
+                Image(painterResource(R.drawable.ic_launcher_background), null, Modifier.fillMaxSize())
+                Image(painterResource(R.drawable.ic_launcher_foreground), null, Modifier.fillMaxSize())
+            }
+            Column(Modifier.weight(1f)) {
+                Text("Aster Reader", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface)
+                Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
-        Column {
-            Text("Aster Reader", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface)
-            Text("本地漫画阅读器", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    AsterSettingsGroup {
+        AsterSettingsRow(if (update.loading) "正在检查…" else "检查更新",
+            leadingIcon = Icons.Outlined.SystemUpdate, trailingText = "GitHub", onClick = model::checkForUpdate)
+        if (update.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        update.message?.let { message ->
+            Column(Modifier.fillMaxWidth().padding(horizontal = AsterLayout.PagePadding)
+                .padding(bottom = AsterLayout.ControlSpacing)) {
+                Text(message, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                if (update.openReleases) TextButton(onClick = {
+                    try { uriHandler.openUri(com.example.data.remote.GitHubUpdateRepository.RELEASES_URL) }
+                    catch (_: Exception) { model.showSnackbar("无法打开 GitHub") }
+                }) { Text("前往 GitHub") }
+            }
         }
-    }
-    AsterSettingsGroup("应用") {
-        AboutValue("版本", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
         AsterGroupDivider()
-        AboutValue("构建", if (BuildConfig.DEBUG) "调试版" else "正式版")
-        AsterGroupDivider()
-        AboutValue("系统", "Android 12 及以上")
-    }
-    AsterSettingsGroup("格式") {
-        AboutValue("漫画", "ZIP/CBZ · RAR4/CBR\n7Z/CB7 · TAR/CBT")
-        AsterGroupDivider()
-        AboutValue("文档", "PDF · 图片型 EPUB")
-        AsterGroupDivider()
-        AboutValue("图片", "单图 · 图片文件夹")
-    }
-    AsterSettingsGroup("隐私") {
-        AboutValue("文件", "本地或 WebDAV，保留原文件")
-        AsterGroupDivider()
-        AboutValue("联网", "仅按需读取，不上传漫画与阅读记录")
-        AsterGroupDivider()
-        AboutValue("隐藏", "应用内访问锁，不加密原文件")
-        AsterGroupDivider()
-        AboutValue("加密", "保险库保存密文，外部原文件保留")
-        AsterGroupDivider()
-        AboutValue("清单", "仅公开记录，不含漫画与隐藏作品")
-        AsterGroupDivider()
-        AboutValue("密文导出", "逐作品导出漫画与记录，需单独保存")
-    }
-    AsterSettingsGroup("致谢") {
-        AsterSettingsRow("开源许可", leadingIcon = Icons.Outlined.Code, onClick = onOpenLicenses)
+        AsterSettingsRow("致谢", leadingIcon = Icons.Outlined.FavoriteBorder, onClick = onOpenLicenses)
     }
 }
 

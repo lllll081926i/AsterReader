@@ -26,7 +26,7 @@ import com.example.ui.components.*
 private val sectionTitles = mapOf(
     "appearance" to "外观", "sources" to "仓库",
     "shelves" to "书架", "tags" to "标签", "storage" to "存储",
-    "backup" to "备份", "stats" to "阅读统计", "about" to "关于", "licenses" to "开源许可",
+    "backup" to "备份", "stats" to "阅读统计", "about" to "关于", "licenses" to "致谢",
     "encryptedExport" to "加密清单导出", "encryptedRestore" to "加密清单恢复"
 )
 
@@ -181,7 +181,7 @@ fun SettingsScreen(
                     AsterGroupDivider()
                     AsterSettingsRow("恢复清单", onClick = { confirmation = "restore" })
                 }
-                "about" -> AboutSettingsContent { navigate("licenses") }
+                "about" -> AboutSettingsContent(viewModel) { navigate("licenses") }
                 "licenses" -> OpenSourceSettingsContent(viewModel, onOpen = { navigate("license:${it.id}") })
                 else -> if (section.startsWith("fileExport:")) FileVaultContent(uiState, viewModel, section)
                     else if (section.startsWith("license:")) OpenSourceSettingsContent(viewModel, section.removePrefix("license:"))

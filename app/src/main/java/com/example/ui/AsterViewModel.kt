@@ -198,6 +198,23 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private val aboutRepository = com.example.data.local.AboutRepository(application)
     private val _openSource = MutableStateFlow(com.example.data.local.OpenSourceState())
     val openSource: StateFlow<com.example.data.local.OpenSourceState> = _openSource.asStateFlow()
+    private val updateRepository by lazy { com.example.data.remote.GitHubUpdateRepository() }
+    private val _updateCheck = MutableStateFlow(com.example.data.remote.UpdateCheckState())
+    val updateCheck = _updateCheck.asStateFlow()
+
+    fun checkForUpdate() {
+        if (_updateCheck.value.loading) return
+        _updateCheck.value = com.example.data.remote.UpdateCheckState(loading = true)
+        viewModelScope.launch {
+            try {
+                _updateCheck.value = updateRepository.check(com.example.BuildConfig.VERSION_NAME)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                _updateCheck.value = com.example.data.remote.UpdateCheckState(
+                    message = "无法检查更新，请检查网络后重试", openReleases = true)
+            }
+        }
+    }
 
     fun loadOpenSourceNotices() {
         if (_openSource.value.loading || _openSource.value.entries.isNotEmpty()) return

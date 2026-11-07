@@ -531,19 +531,24 @@ open class SettingsConsistencyTest {
         capture("reader-book-scope")
     }
 
-    @Test fun aboutShowsRealVersionAndPrivacyBoundaries() {
+    @Test fun aboutShowsOnlyVersionUpdateAndAcknowledgements() {
         content(section = "about")
         compose.onNodeWithText("Aster Reader").assertIsDisplayed()
         compose.onNodeWithText("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})").assertIsDisplayed()
         capture("about-light")
-        compose.onNodeWithText("应用内访问锁，不加密原文件").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("开源许可").performScrollTo().performClick()
+        compose.onNodeWithText("格式").assertDoesNotExist()
+        compose.onNodeWithText("隐私").assertDoesNotExist()
+        compose.onNodeWithText("构建").assertDoesNotExist()
+        compose.onNodeWithText("检查更新").assertIsDisplayed()
+        compose.onNodeWithText("GitHub").assertIsDisplayed()
+        compose.onNodeWithText("致谢").performScrollTo().performClick()
         compose.runOnIdle { check(model.uiState.value.activeSubScreen == com.example.ui.SubScreen.SettingsSection("licenses")) }
     }
 
     @Test fun aboutLicensesRemainReachableInDarkLargeFont() {
         content(section = "about", dark = true, fontScale = 2f)
-        compose.onNodeWithText("开源许可").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("检查更新").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("致谢").performScrollTo().assertIsDisplayed()
         capture("about-dark-font-200")
     }
 
