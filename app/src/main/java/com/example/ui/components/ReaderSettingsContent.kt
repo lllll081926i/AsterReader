@@ -40,19 +40,21 @@ fun ReaderSettingsContent(
     val selectedMode = if (defaults) state.readerLayoutMode else mode
     val selectedFit = if (defaults) state.fitModeLabel else fit
     val selectedCover = if (defaults) state.smartSpreadStitch else cover
-    Column(verticalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {
-        AsterSettingsChoice(listOf(AsterChoice("本书", Icons.Outlined.Book), AsterChoice("默认", Icons.Outlined.Settings)),
-            if (defaults) 1 else 0, { defaults = it == 1 }, compact = true)
-        if (!defaults) TextButton(onClick = onReset) {
-            Icon(Icons.Outlined.RestartAlt, null, Modifier.size(AsterLayout.HeaderIconSize))
-            Spacer(Modifier.width(AsterLayout.ControlSpacing))
-            Text("恢复默认")
+    Column(verticalArrangement = Arrangement.spacedBy(AsterLayout.CompactSpacing)) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AsterLayout.CompactSpacing)) {
+            AsterSettingsChoice(listOf(AsterChoice("本书", Icons.Outlined.Book), AsterChoice("默认", Icons.Outlined.Settings)),
+                if (defaults) 1 else 0, { defaults = it == 1 }, Modifier.weight(1f), compact = true)
+            IconButton(onClick = onReset, enabled = !defaults,
+                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.primary)) {
+                Icon(Icons.Outlined.RestartAlt, "恢复默认", Modifier.size(AsterLayout.HeaderIconSize))
+            }
         }
         ReaderSettingsLabel("翻页")
         AsterSettingsChoice(readerModeChoices, ReaderLayoutMode.entries.indexOf(selectedMode), {
             val next = ReaderLayoutMode.entries[it]
             if (defaults) model.setReaderLayoutMode(next) else onMode(next)
-        }, compact = true)
+        }, compact = true, singleRow = true)
         if (!defaults && selectedMode == ReaderLayoutMode.DUAL_PAGE) {
             AsterSwitchRow("从右向左", checked = rightToLeft, onCheckedChange = onRightToLeft)
         }
@@ -65,16 +67,14 @@ fun ReaderSettingsContent(
             onCheckedChange = { if (defaults) model.setSmartSpreadStitch(it) else onCover(it) })
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("亮度", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+            Text("亮度", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface)
-            Text("${(state.readerBrightness * 100).roundToInt()}%", style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {
-            Icon(Icons.Outlined.BrightnessLow, null, Modifier.size(AsterLayout.HeaderIconSize))
+            Spacer(Modifier.width(AsterLayout.ControlSpacing))
             Slider(state.readerBrightness, model::setReaderBrightness,
                 Modifier.weight(1f).semantics { contentDescription = "亮度" }, valueRange = 0.25f..1f)
-            Icon(Icons.Outlined.BrightnessHigh, null, Modifier.size(AsterLayout.HeaderIconSize))
+            Spacer(Modifier.width(AsterLayout.ControlSpacing))
+            Text("${(state.readerBrightness * 100).roundToInt()}%", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary)
         }
         AsterSwitchRow("音量键翻页", checked = state.volumeKeyPageTurn, onCheckedChange = model::setVolumeKeyPageTurn)
         AsterSwitchRow("状态条", checked = showStatus, onCheckedChange = onShowStatus)

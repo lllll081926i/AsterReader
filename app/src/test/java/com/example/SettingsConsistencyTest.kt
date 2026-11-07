@@ -6,6 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -198,9 +199,15 @@ open class SettingsConsistencyTest {
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
         compose.onNodeWithTag("reader_settings_page").assertIsDisplayed()
-        val firstMode = compose.onNodeWithText("上下滚动").getUnclippedBoundsInRoot()
-        val secondMode = compose.onNodeWithText("右向左翻页").getUnclippedBoundsInRoot()
-        org.junit.Assert.assertEquals(firstMode.top.value, secondMode.top.value, 0.5f)
+        val firstMode = compose.onNodeWithText("滚动").getUnclippedBoundsInRoot()
+        listOf("RTL", "LTR", "双页").forEach { label ->
+            val option = compose.onNodeWithText(label).assertIsDisplayed().getUnclippedBoundsInRoot()
+            org.junit.Assert.assertEquals(firstMode.top.value, option.top.value, 0.5f)
+            org.junit.Assert.assertEquals((firstMode.right - firstMode.left).value, (option.right - option.left).value, 0.5f)
+        }
+        org.junit.Assert.assertEquals(48f, (firstMode.bottom - firstMode.top).value, 0.5f)
+        compose.onNodeWithContentDescription("右向左翻页").assertIsDisplayed()
+        compose.onNodeWithContentDescription("恢复默认").assertIsDisplayed()
         captureDialog("reader-settings-monet")
         compose.onNodeWithText("缩放").performScrollTo().assertIsDisplayed()
         compose.onNodeWithContentDescription("返回阅读").performClick()
@@ -218,9 +225,21 @@ open class SettingsConsistencyTest {
 
     @Test @Config(qualifiers = "w891dp-h411dp-xhdpi")
     fun landscapeReadingOptionsRemainReachable() {
-        readerContent(fontScale = 2f)
+        readerContent(fontScale = 2f, dark = true)
+        compose.onNodeWithText("双页").performScrollTo().performClick().assertIsSelected()
         compose.onNodeWithText("封面单页").performScrollTo().assertIsDisplayed()
         capture("reading-landscape-font-200")
+    }
+
+    @Test @Config(qualifiers = "w320dp-h640dp-xhdpi")
+    fun narrowReaderModeRowScrollsWithoutWrappingAtLargeFontScale() {
+        readerContent(fontScale = 2f)
+        val top = compose.onNodeWithText("滚动").getUnclippedBoundsInRoot().top
+        compose.onNodeWithText("双页").performScrollTo().performClick().assertIsSelected()
+        val last = compose.onNodeWithText("双页").getUnclippedBoundsInRoot()
+        org.junit.Assert.assertEquals(top.value, last.top.value, 0.5f)
+        org.junit.Assert.assertTrue((last.bottom - last.top).value >= 48f)
+        capture("reader-single-row-narrow-font-200")
     }
 
     @Test fun emptyShelfManagementHasNoPlaceholderActions() {
@@ -472,12 +491,12 @@ open class SettingsConsistencyTest {
 
     @Test fun readerDefaultsDoNotOverwriteTheBookOverride() {
         readerContent()
-        compose.onNodeWithText("左向右翻页").performScrollTo().performClick()
+        compose.onNodeWithText("LTR").performScrollTo().performClick()
         compose.onNodeWithText("默认", substring = false).performScrollTo().performClick()
-        compose.onNodeWithText("双页展开").performScrollTo().performClick()
+        compose.onNodeWithText("双页").performScrollTo().performClick()
         compose.runOnIdle { check(model.uiState.value.readerLayoutMode == com.example.ui.ReaderLayoutMode.DUAL_PAGE) }
         compose.onNodeWithText("本书").performScrollTo().performClick()
-        compose.onNodeWithText("左向右翻页").assertIsSelected()
+        compose.onNodeWithText("LTR").assertIsSelected()
         capture("reader-book-scope")
     }
 
@@ -510,7 +529,7 @@ open class SettingsConsistencyTest {
         capture("open-source-list")
     }
 
-    private fun readerContent(fontScale: Float = 1f) {
+    private fun readerContent(fontScale: Float = 1f, dark: Boolean = false) {
         compose.setContent {
             rootView = androidx.compose.ui.platform.LocalView.current.rootView
             val density = LocalDensity.current.density
@@ -519,8 +538,9 @@ open class SettingsConsistencyTest {
             var fit by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("适合屏幕") }
             var cover by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
             CompositionLocalProvider(LocalDensity provides Density(density, fontScale)) {
-                AsterReaderTheme {
+                AsterReaderTheme(darkTheme = dark) {
                     androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()
+                        .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
                         .verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                         com.example.ui.components.ReaderSettingsContent(state, model, mode, fit, cover, true,
                             { mode = it }, { fit = it }, { cover = it }, {},

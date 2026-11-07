@@ -1,6 +1,8 @@
 package com.asterreader.core.designsystem
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -14,9 +16,11 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 
-data class AsterChoice(val label: String, val icon: ImageVector)
+data class AsterChoice(val label: String, val icon: ImageVector, val description: String? = null)
 
 object AsterSettingsColors {
     val container
@@ -28,11 +32,32 @@ object AsterSettingsColors {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AsterSettingsChoice(options: List<AsterChoice>, selectedIndex: Int, onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier, compact: Boolean = false) {
+    modifier: Modifier = Modifier, compact: Boolean = false, singleRow: Boolean = false) {
     val colors = MaterialTheme.colorScheme
     val fontScale = LocalDensity.current.fontScale
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        if (compact && options.size == 4 && maxWidth >= 300.dp * fontScale) {
+        if (singleRow && options.isNotEmpty()) {
+            val width = maxOf((maxWidth - AsterLayout.CompactSpacing * (options.size - 1)) / options.size,
+                AsterLayout.CompactChoiceMinWidth * fontScale)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(AsterLayout.CompactSpacing)) {
+                options.forEachIndexed { index, option ->
+                    val selected = index == selectedIndex
+                    Row(Modifier.width(width)
+                        .background(if (selected) colors.primaryContainer else AsterSettingsColors.container, MaterialTheme.shapes.small)
+                        .selectable(selected, role = Role.RadioButton, onClick = { onSelect(index) })
+                        .semantics { option.description?.let { contentDescription = it } }
+                        .heightIn(min = AsterLayout.TouchTarget).padding(AsterLayout.CompactSpacing),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                        Icon(if (selected) Icons.Outlined.Check else option.icon, null,
+                            Modifier.size(AsterLayout.CompactChoiceIconSize), colors.primary)
+                        Spacer(Modifier.width(AsterLayout.CompactSpacing))
+                        Text(option.label, style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false,
+                            color = if (selected) colors.onPrimaryContainer else colors.onSurface)
+                    }
+                }
+            }
+        } else if (compact && options.size == 4 && maxWidth >= 300.dp * fontScale) {
             Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {
                 options.indices.chunked(2).forEach { indices ->
                     Row(horizontalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {

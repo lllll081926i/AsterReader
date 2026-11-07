@@ -20,7 +20,7 @@ P-05,漫画页书签与笔记汇总,P0,有内容、空、格式受限,UI-W3,未�
 R-01,Reader Shell,P0,controls 隐藏/显示、会话失效,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-02,漫画分页/条漫,P0,正常、缩放、解码失败,UI-W3,已优化预取生命周期与解码并发（见 docs/47）；完整状态待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-03,Reader 进度/跳转,P0,拖动、预览、提交,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-R-04,漫画阅读设置,P0,独立页面及本书与默认共用配置,UI-W3,已统一紧凑选项与状态条；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+R-04,漫画阅读设置,P0,独立页面及本书与默认共用配置,UI-W3,已实现滚动/RTL/LTR/双页等宽单行与紧凑工具行；验收见 docs/48；完整状态待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-07,漫画页书签与笔记,P0,正常、空、错误、锁定,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-10,PDF 漫画,P0,正常、损坏、不支持、锁定,UI-W5,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-01,添加内容动作面板,P0,文件、目录、仓库,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md

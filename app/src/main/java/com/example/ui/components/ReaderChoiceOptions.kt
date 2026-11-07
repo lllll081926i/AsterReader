@@ -15,4 +15,11 @@ fun readerModeIcon(mode: ReaderLayoutMode): ImageVector = when (mode) {
 
 val readerFitChoices get() = listOf(AsterChoice("适合屏幕", Icons.Outlined.FitScreen),
     AsterChoice("原始比例", Icons.Outlined.AspectRatio))
-val readerModeChoices get() = ReaderLayoutMode.entries.map { AsterChoice(it.label, readerModeIcon(it)) }
+val readerModeChoices get() = ReaderLayoutMode.entries.map {
+    AsterChoice(when (it) {
+        ReaderLayoutMode.VERTICAL_SCROLL -> "滚动"
+        ReaderLayoutMode.RTL_PAGER -> "RTL"
+        ReaderLayoutMode.LTR_PAGER -> "LTR"
+        ReaderLayoutMode.DUAL_PAGE -> "双页"
+    }, readerModeIcon(it), it.label)
+}

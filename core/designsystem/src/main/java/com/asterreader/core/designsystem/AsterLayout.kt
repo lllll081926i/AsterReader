@@ -10,6 +10,9 @@ object AsterLayout {
     val PagePadding = 16.dp
     val GroupSpacing = 12.dp
     val ControlSpacing = 8.dp
+    val CompactSpacing = 4.dp
+    val CompactChoiceMinWidth = 64.dp
+    val CompactChoiceIconSize = 16.dp
     val BottomSpacing = 12.dp
     val MainNavigationHeight = 64.dp
     val FloatingDockBottomGap = 8.dp
