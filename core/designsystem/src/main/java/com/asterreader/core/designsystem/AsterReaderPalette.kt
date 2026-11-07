@@ -1,9 +1,15 @@
 package com.asterreader.core.designsystem
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /** 阅读纸与浮层使用独立的高对比度颜色令牌。 */
 object AsterReaderPalette {
+    const val StatusOpacity = 0.42f
+    val StatusFontSize = 8.sp
+    val StatusHorizontalPadding = 4.dp
+    val StatusVerticalPadding = 1.dp
     val ChromeSurfaceColor = Color(0xF2141B18)
     val ChromePillColor = Color(0xFF23302A)
     val ChromeTextPrimary = Color(0xFFF4F8F6)

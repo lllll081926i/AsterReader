@@ -1,4 +1,8 @@
 package com.example.ui.screens
+import com.asterreader.core.designsystem.AsterHeaderRow
+import com.asterreader.core.designsystem.AsterHeaderTitleStyle
+import com.asterreader.core.designsystem.asterHeaderAction
+import com.example.ui.components.ReaderSettingsContent
 
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.displayCutoutPadding
@@ -106,6 +110,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.asterreader.core.designsystem.AsterReaderPalette
 import com.example.data.local.BookEntity
 import com.example.data.local.ChapterEntity
 import com.example.ui.AsterUiState
@@ -319,7 +326,7 @@ fun ReaderScreen(
                     shadowElevation = 6.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
+                    AsterHeaderRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .displayCutoutPadding()
@@ -334,11 +341,12 @@ fun ReaderScreen(
                         ) {
                             IconButton(
                                 onClick = onBack,
-                                modifier = Modifier.testTag("reader_back_button")
+                                modifier = Modifier.asterHeaderAction().testTag("reader_back_button")
                             ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "返回",
+                                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize),
                                     tint = MaterialTheme.colorScheme.onSurface
                                 )
                             }
@@ -385,23 +393,25 @@ fun ReaderScreen(
                                 onClick = {
                                     viewModel.toggleBookmark(book.id, currentPage, activeChapterTitle)
                                 },
-                                modifier = Modifier.testTag("reader_bookmark_btn")
+                                modifier = Modifier.asterHeaderAction().testTag("reader_bookmark_btn")
                             ) {
                                 Icon(
                                     imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                                     contentDescription = "书签",
+                                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize),
                                     tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                 )
                             }
 
                             if (isExpandedTablet) {
                                 IconButton(
-                                    onClick = { tabletSideDrawerOpen = !tabletSideDrawerOpen },
-                                    modifier = Modifier.testTag("reader_tablet_drawer_toggle")
+                                    onClick = { showModeSheet = true },
+                                    modifier = Modifier.asterHeaderAction().testTag("reader_tablet_drawer_toggle")
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Tune,
-                                        contentDescription = "侧栏",
+                                        contentDescription = "阅读设置",
+                                        modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize),
                                         tint = if (tabletSideDrawerOpen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                     )
                                 }
@@ -573,22 +583,22 @@ fun ReaderScreen(
             ) {
                 Surface(
                     shape = androidx.compose.foundation.shape.CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant),
-                    shadowElevation = 4.dp,
+                    color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = AsterReaderPalette.StatusOpacity),
                     modifier = Modifier.testTag("reader_mini_status_pill")
                 ) {
                     Box(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        modifier = Modifier.padding(horizontal = AsterReaderPalette.StatusHorizontalPadding,
+                            vertical = AsterReaderPalette.StatusVerticalPadding),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (isAtEnd) "已读完 · $totalPages / $totalPages" else
                                 "$currentPage / $totalPages · ${((currentPage.toFloat() / totalPages) * 100).toInt().coerceAtMost(99)}%",
                             fontFamily = RobotoMonoFontFamily,
-                            fontSize = 9.sp,
+                            fontSize = AsterReaderPalette.StatusFontSize,
+                            lineHeight = AsterReaderPalette.StatusFontSize,
                             fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             softWrap = false,
                             modifier = Modifier.wrapContentHeight(Alignment.CenterVertically)
@@ -607,14 +617,19 @@ fun ReaderScreen(
             TabletReaderSidePanel(
                 chapters = chapters,
                 currentChapterIndex = currentChapterIndex,
-                uiState = uiState.copy(readerLayoutMode = readerMode, fitModeLabel = readerFit, smartSpreadStitch = readerCover),
+                uiState = uiState,
+                currentMode = readerMode, currentFit = readerFit, currentCover = readerCover,
                 selectedTab = tabletSideTab,
-                dualPageCoverOffset = readerCover,
                 viewModel = viewModel,
                 onSelectTab = { tabletSideTab = it },
                 onClose = { tabletSideDrawerOpen = false },
-                onSelectLayoutMode = { modeOverride = it },
+                onSelectLayoutMode = { modeOverride = it; if (it != ReaderLayoutMode.DUAL_PAGE) rtlOverride = null },
                 onSelectFit = { fitOverride = it },
+                rightToLeft = rtlOverride ?: (readerMode == ReaderLayoutMode.RTL_PAGER),
+                onRightToLeft = { rtlOverride = it },
+                onReset = { modeOverride = null; fitOverride = null; coverOverride = null; rtlOverride = null },
+                showStatus = showMiniStatusPill,
+                onShowStatus = { showMiniStatusPill = it },
                 onToggleCoverOffset = {
 
                     coverOverride = it
@@ -628,139 +643,52 @@ fun ReaderScreen(
         }
     }
 
-    // 漫画阅读设置。
+    // 独立设置页面；系统返回只关闭设置，保留当前阅读位置。
     if (showModeSheet) {
-        ModalBottomSheet(
+        Dialog(
             onDismissRequest = { showModeSheet = false },
-            sheetState = com.asterreader.core.designsystem.rememberAsterSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
+            Surface(Modifier.fillMaxSize().testTag("reader_settings_page"), color = MaterialTheme.colorScheme.background) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .fillMaxSize().statusBarsPadding().navigationBarsPadding()
+                    .padding(horizontal = com.asterreader.core.designsystem.AsterLayout.PagePadding)
             ) {
-                Row(
+                AsterHeaderRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(onClick = { showModeSheet = false }, modifier = Modifier.asterHeaderAction()) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回阅读",
+                            modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize))
+                    }
                     Text(
-                        text = "漫画阅读设置",
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "阅读设置",
+                        modifier = Modifier.weight(1f),
+                        style = AsterHeaderTitleStyle,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         softWrap = false
                     )
-                    IconButton(onClick = { showModeSheet = false }) {
-                        Icon(Icons.Default.Close, contentDescription = "关闭")
-                    }
                 }
-                TextButton(onClick = {
-                    modeOverride = null; fitOverride = null; coverOverride = null; rtlOverride = null
-
-                }) { Text("恢复全局默认") }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("从右向左翻页", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                    Switch(checked = rtlOverride ?: (readerMode == ReaderLayoutMode.RTL_PAGER), onCheckedChange = { rtlOverride = it })
+                Column(Modifier.weight(1f).align(Alignment.CenterHorizontally)
+                    .widthIn(max = com.asterreader.core.designsystem.AsterLayout.SearchContentMaxWidth)
+                    .fillMaxWidth().verticalScroll(rememberScrollState())) {
+                ReaderSettingsContent(uiState, viewModel, readerMode, readerFit, readerCover,
+                    rtlOverride ?: (readerMode == ReaderLayoutMode.RTL_PAGER),
+                    onMode = { modeOverride = it; if (it != ReaderLayoutMode.DUAL_PAGE) rtlOverride = null },
+                    onFit = { fitOverride = it }, onCover = { coverOverride = it },
+                    onRightToLeft = { rtlOverride = it },
+                    onReset = { modeOverride = null; fitOverride = null; coverOverride = null; rtlOverride = null },
+                    showStatus = showMiniStatusPill, onShowStatus = { showMiniStatusPill = it })
+                if (isAtEnd && book.series.isNotBlank()) {
+                    TextButton(onClick = { viewModel.openNextVolume(book) }) { Text("下一卷") }
                 }
-                if (currentPage == totalPages && book.series.isNotBlank()) {
-                    TextButton(onClick = { viewModel.openNextVolume(book) }) { Text("打开下一卷") }
-                }
-
-
-                    // ================= COMIC-ONLY SETTINGS =================
-                    Text(
-                        text = "阅读方向与翻页",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    AsterSettingsChoice(readerModeChoices, ReaderLayoutMode.entries.indexOf(readerMode),
-                        { modeOverride = ReaderLayoutMode.entries[it] })
-
-                    Text(
-                        text = "画面缩放模式",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    AsterSettingsChoice(readerFitChoices, if (readerFit == "适合屏幕") 0 else 1,
-                        { fitOverride = if (it == 0) "适合屏幕" else "原始比例" })
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("封面单页", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                        Switch(
-                            checked = readerCover,
-                            onCheckedChange = {
-                                coverOverride = it
-                            }
-                        )
-                    }
-
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                // Common Hardware & Display Controls
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("屏幕亮度", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                        Text(
-                            text = "${(readerBrightness * 100).roundToInt()}%",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontFamily = RobotoMonoFontFamily,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(Icons.Outlined.BrightnessLow, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Slider(
-                            value = readerBrightness,
-                            onValueChange = { viewModel.setReaderBrightness(it) },
-                            valueRange = 0.25f..1.0f,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(Icons.Outlined.BrightnessHigh, contentDescription = null, modifier = Modifier.size(18.dp))
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("音量键翻页", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    Switch(
-                        checked = uiState.volumeKeyPageTurn,
-                        onCheckedChange = { viewModel.setVolumeKeyPageTurn(it) }
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("页面状态条", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    Switch(
-                        checked = showMiniStatusPill,
-                        onCheckedChange = { showMiniStatusPill = it }
-                    )
-                }
-
                 Spacer(modifier = Modifier.height(14.dp))
+                }
+            }
             }
         }
     }
@@ -876,13 +804,20 @@ private fun TabletReaderSidePanel(
     chapters: List<ChapterEntity>,
     currentChapterIndex: Int,
     uiState: AsterUiState,
+    currentMode: ReaderLayoutMode,
+    currentFit: String,
+    currentCover: Boolean,
     selectedTab: Int,
-    dualPageCoverOffset: Boolean,
     viewModel: AsterViewModel,
     onSelectTab: (Int) -> Unit,
     onClose: () -> Unit,
     onSelectLayoutMode: (ReaderLayoutMode) -> Unit,
     onSelectFit: (String) -> Unit,
+    rightToLeft: Boolean,
+    onRightToLeft: (Boolean) -> Unit,
+    onReset: () -> Unit,
+    showStatus: Boolean,
+    onShowStatus: (Boolean) -> Unit,
     onToggleCoverOffset: (Boolean) -> Unit,
     onSelectChapter: (Int, ChapterEntity) -> Unit
 ) {
@@ -896,11 +831,12 @@ private fun TabletReaderSidePanel(
             .testTag("tablet_reader_side_panel")
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(
+            AsterHeaderRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight)
+                    .padding(horizontal = com.asterreader.core.designsystem.AsterLayout.PagePadding),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -914,14 +850,14 @@ private fun TabletReaderSidePanel(
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "漫画控制面板",
+                        text = "阅读设置",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         softWrap = false
                     )
                 }
-                IconButton(onClick = onClose, modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)) {
+                IconButton(onClick = onClose, modifier = Modifier.asterHeaderAction()) {
                     Icon(Icons.Default.Close, contentDescription = "收起", modifier = Modifier.size(18.dp))
                 }
             }
@@ -941,38 +877,9 @@ private fun TabletReaderSidePanel(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
 
-                        Text(
-                            text = "翻页布局",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        AsterSettingsChoice(readerModeChoices, ReaderLayoutMode.entries.indexOf(uiState.readerLayoutMode),
-                            { onSelectLayoutMode(ReaderLayoutMode.entries[it]) })
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                        Text(
-                            text = "画面缩放",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        AsterSettingsChoice(readerFitChoices, if (uiState.fitModeLabel == "适合屏幕") 0 else 1,
-                            { onSelectFit(if (it == 0) "适合屏幕" else "原始比例") })
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("首页单页偏移", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                            Switch(checked = dualPageCoverOffset, onCheckedChange = onToggleCoverOffset)
-                        }
-
-
+                    ReaderSettingsContent(uiState, viewModel, currentMode, currentFit, currentCover, rightToLeft,
+                        onSelectLayoutMode, onSelectFit, onToggleCoverOffset, onRightToLeft, onReset,
+                        showStatus, onShowStatus)
                 }
             } else {
                 LazyColumn(

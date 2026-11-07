@@ -1,4 +1,7 @@
 package com.example.ui.screens
+import com.asterreader.core.designsystem.AsterHeaderRow
+import com.asterreader.core.designsystem.AsterHeaderTitleStyle
+import com.asterreader.core.designsystem.asterHeaderAction
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -168,7 +171,7 @@ fun ShelvesScreen(
             .testTag("shelves_screen")
     ) {
         // Top Header with Title on Left and Actions + Settings Button at Far Top-Right
-        Row(
+        AsterHeaderRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = com.asterreader.core.designsystem.AsterLayout.MainHeaderHeight)
@@ -179,7 +182,7 @@ fun ShelvesScreen(
         ) {
             Text(
                 text = "书架",
-                style = MaterialTheme.typography.titleLarge,
+                style = AsterHeaderTitleStyle,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 softWrap = false
@@ -194,7 +197,7 @@ fun ShelvesScreen(
                     onClick = { showShelfOrderDialog = true },
                     shape = androidx.compose.foundation.shape.CircleShape,
                     color = androidx.compose.ui.graphics.Color.Transparent,
-                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                    modifier = Modifier.asterHeaderAction()
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -212,7 +215,7 @@ fun ShelvesScreen(
                     shape = androidx.compose.foundation.shape.CircleShape,
                     color = androidx.compose.ui.graphics.Color.Transparent,
                     modifier = Modifier
-                        .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                        .asterHeaderAction()
                         .testTag("create_shelf_button")
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -229,7 +232,7 @@ fun ShelvesScreen(
                 IconButton(
                     onClick = { viewModel.pushSubScreen(SubScreen.Settings) },
                     modifier = Modifier
-                        .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                        .asterHeaderAction()
                         .testTag("shelves_settings_btn")
                 ) {
                     Icon(
@@ -1254,8 +1257,9 @@ fun ShelfDetailScreen(
         AsterSubScreenHeader("${shelfDetail.title} (${booksInShelf.size})", onBack,
             trailing = {
                 IconButton(onClick = { viewModel.cycleLibraryLayoutMode() },
-                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)) {
-                    Icon(Icons.Outlined.GridView, contentDescription = "切换视图")
+                    modifier = Modifier.asterHeaderAction()) {
+                    Icon(Icons.Outlined.GridView, contentDescription = "切换视图",
+                        modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize))
                 }
             })
         if (booksInShelf.isEmpty()) {

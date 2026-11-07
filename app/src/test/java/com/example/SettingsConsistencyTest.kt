@@ -4,14 +4,20 @@ import android.app.Application
 import android.graphics.Bitmap
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
 import com.example.ui.AsterUiState
@@ -42,8 +48,10 @@ open class SettingsConsistencyTest {
 
     @Test fun settingsHomeHasOnlyCategoryNavigation() {
         content()
-        compose.onNodeWithText("外观与主题").assertIsDisplayed()
-        compose.onNodeWithText("应用锁与访问控制").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("默认阅读配置").assertDoesNotExist()
+        compose.onNodeWithText("诊断与帮助").assertDoesNotExist()
+        compose.onNodeWithText("外观").assertIsDisplayed()
+        compose.onNodeWithText("安全").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("关于").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("关于").performClick()
         compose.runOnIdle { check(model.uiState.value.activeSubScreen == com.example.ui.SubScreen.SettingsSection("about")) }
@@ -51,7 +59,7 @@ open class SettingsConsistencyTest {
     }
 
     @Test fun readingOptionsRemainReachableAtDoubleFontScale() {
-        content(section = "reading", fontScale = 2f)
+        readerContent(fontScale = 2f)
         compose.onNodeWithText("音量键翻页").performScrollTo().assertIsDisplayed().performClick()
         capture("reading-font-200")
     }
@@ -89,7 +97,7 @@ open class SettingsConsistencyTest {
             AsterReaderTheme { PrivacySecuritySettingsScreen(AsterUiState(settingsLoaded = true), model, {}) }
         }
         compose.onNodeWithText("应用 PIN").assertIsDisplayed()
-        compose.onNodeWithText("隐藏最近任务预览").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("隐藏任务预览").performScrollTo().assertIsDisplayed()
         capture("privacy-light")
     }
 
@@ -123,7 +131,7 @@ open class SettingsConsistencyTest {
             }
         }
         compose.onNodeWithText("口令不正确或文件损坏").assertIsDisplayed()
-        compose.onNodeWithText("验证并恢复").assertIsNotEnabled()
+        compose.onNodeWithText("恢复").assertIsNotEnabled()
         capture("encrypted-restore-error")
     }
 
@@ -167,26 +175,34 @@ open class SettingsConsistencyTest {
         val pill = compose.onNodeWithTag("reader_mini_status_pill").getUnclippedBoundsInRoot()
         val bounds = compose.onRoot().getUnclippedBoundsInRoot()
         org.junit.Assert.assertTrue((bounds.right - pill.right).value <= 4f)
+        org.junit.Assert.assertTrue((pill.bottom - pill.top).value < 20f)
         capture("reader-compact-monet")
         compose.onNodeWithText("设置").performClick()
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
+        compose.onNodeWithTag("reader_settings_page").assertIsDisplayed()
+        val firstMode = compose.onNodeWithText("上下滚动").getUnclippedBoundsInRoot()
+        val secondMode = compose.onNodeWithText("右向左翻页").getUnclippedBoundsInRoot()
+        org.junit.Assert.assertEquals(firstMode.top.value, secondMode.top.value, 0.5f)
         captureDialog("reader-settings-monet")
-        compose.onNodeWithText("画面缩放模式").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("缩放").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("返回阅读").performClick()
+        compose.onNodeWithTag("reader_settings_page").assertDoesNotExist()
+        compose.onNodeWithTag("reader_screen_root").assertIsDisplayed()
     }
 
     @Test fun settingsRowsHaveTheSameCompactHeight() {
         content()
-        val first = compose.onNodeWithText("外观与主题").getUnclippedBoundsInRoot()
-        val second = compose.onNodeWithText("默认阅读配置").getUnclippedBoundsInRoot()
+        val first = compose.onNodeWithText("外观").getUnclippedBoundsInRoot()
+        val second = compose.onNodeWithText("阅读统计").getUnclippedBoundsInRoot()
         org.junit.Assert.assertEquals(52f, (first.bottom - first.top).value, 0.5f)
         org.junit.Assert.assertEquals((first.bottom - first.top).value, (second.bottom - second.top).value, 0.5f)
     }
 
     @Test @Config(qualifiers = "w891dp-h411dp-xhdpi")
     fun landscapeReadingOptionsRemainReachable() {
-        content(section = "reading", fontScale = 2f)
-        compose.onNodeWithText("封面单独显示").performScrollTo().assertIsDisplayed()
+        readerContent(fontScale = 2f)
+        compose.onNodeWithText("封面单页").performScrollTo().assertIsDisplayed()
         capture("reading-landscape-font-200")
     }
 
@@ -368,7 +384,7 @@ open class SettingsConsistencyTest {
         tags.forEachIndexed { index, tag ->
             compose.runOnIdle { screen = index }
             val header = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
-            org.junit.Assert.assertEquals(48f, (header.bottom - header.top).value, .5f)
+            org.junit.Assert.assertEquals(40f, (header.bottom - header.top).value, .5f)
             org.junit.Assert.assertEquals(shelf.top.value, header.top.value, .5f)
             capture("main-header-$index")
         }
@@ -376,6 +392,29 @@ open class SettingsConsistencyTest {
         val filter = compose.onNodeWithTag("toggle_filter_sheet_btn").assertIsDisplayed().getUnclippedBoundsInRoot()
         org.junit.Assert.assertEquals(48f, (filter.bottom - filter.top).value, .5f)
         compose.onNodeWithText("札记").performClick().assertIsSelected()
+    }
+
+    @Test fun compactHeaderPreservesExpandedTouchTargets() {
+        var clicked = false
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme {
+                androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+                  com.asterreader.core.designsystem.AsterHeaderRow(Modifier.padding(top = 16.dp)) {
+                    androidx.compose.material3.IconButton(onClick = { clicked = true },
+                        modifier = Modifier.size(width = com.asterreader.core.designsystem.AsterLayout.TouchTarget,
+                            height = com.asterreader.core.designsystem.AsterLayout.HeaderHeight).testTag("compact_header_action")) {
+                        androidx.compose.material3.Text("返回")
+                    }
+                  }
+                }
+            }
+        }
+        compose.onNodeWithTag("compact_header_action").assertHeightIsEqualTo(40.dp)
+            .assertTouchHeightIsEqualTo(48.dp).performTouchInput {
+                click(androidx.compose.ui.geometry.Offset(center.x, -2.dp.toPx()))
+            }
+        compose.runOnIdle { org.junit.Assert.assertTrue(clicked) }
     }
 
     @Test fun identityPromptOpensFullyAndUsesCompactEqualActions() {
@@ -412,6 +451,67 @@ open class SettingsConsistencyTest {
         captureDialog("identity-auth-error")
         compose.onNodeWithText("取消").performClick()
         compose.onNodeWithText("验证身份").assertDoesNotExist()
+    }
+
+    @Test fun readerDefaultsDoNotOverwriteTheBookOverride() {
+        readerContent()
+        compose.onNodeWithText("左向右翻页").performScrollTo().performClick()
+        compose.onNodeWithText("默认", substring = false).performScrollTo().performClick()
+        compose.onNodeWithText("双页展开").performScrollTo().performClick()
+        compose.runOnIdle { check(model.uiState.value.readerLayoutMode == com.example.ui.ReaderLayoutMode.DUAL_PAGE) }
+        compose.onNodeWithText("本书").performScrollTo().performClick()
+        compose.onNodeWithText("左向右翻页").assertIsSelected()
+        capture("reader-book-scope")
+    }
+
+    @Test fun aboutShowsRealVersionAndPrivacyBoundaries() {
+        content(section = "about")
+        compose.onNodeWithText("Aster Reader").assertIsDisplayed()
+        compose.onNodeWithText("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})").assertIsDisplayed()
+        capture("about-light")
+        compose.onNodeWithText("应用内访问锁，不加密原文件").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("开源许可").performScrollTo().performClick()
+        compose.runOnIdle { check(model.uiState.value.activeSubScreen == com.example.ui.SubScreen.SettingsSection("licenses")) }
+    }
+
+    @Test fun aboutLicensesRemainReachableInDarkLargeFont() {
+        content(section = "about", dark = true, fontScale = 2f)
+        compose.onNodeWithText("开源许可").performScrollTo().assertIsDisplayed()
+        capture("about-dark-font-200")
+    }
+
+    @Test fun generatedLicensesOpenTheirOwnDetailPage() {
+        content(section = "licenses")
+        compose.waitUntil(10_000) {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            model.openSource.value.entries.isNotEmpty() || model.openSource.value.error != null
+        }
+        compose.runOnIdle { check(model.openSource.value.error == null) { model.openSource.value.toString() } }
+        val entry = model.openSource.value.entries.first()
+        compose.onNodeWithText(entry.name).performScrollTo().assertIsDisplayed().performClick()
+        compose.runOnIdle { check(model.uiState.value.activeSubScreen == com.example.ui.SubScreen.SettingsSection("license:${entry.id}")) }
+        capture("open-source-list")
+    }
+
+    private fun readerContent(fontScale: Float = 1f) {
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            val density = LocalDensity.current.density
+            val state by model.uiState.collectAsState()
+            var mode by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(com.example.ui.ReaderLayoutMode.RTL_PAGER) }
+            var fit by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("适合屏幕") }
+            var cover by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+            CompositionLocalProvider(LocalDensity provides Density(density, fontScale)) {
+                AsterReaderTheme {
+                    androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                        com.example.ui.components.ReaderSettingsContent(state, model, mode, fit, cover, true,
+                            { mode = it }, { fit = it }, { cover = it }, {},
+                            { mode = state.readerLayoutMode; fit = state.fitModeLabel; cover = state.smartSpreadStitch }, true, {})
+                    }
+                }
+            }
+        }
     }
 
     private fun captureDialog(name: String) {

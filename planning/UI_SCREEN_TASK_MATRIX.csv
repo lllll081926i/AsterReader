@@ -20,7 +20,7 @@ P-05,漫画页书签与笔记汇总,P0,有内容、空、格式受限,UI-W3,未�
 R-01,Reader Shell,P0,controls 隐藏/显示、会话失效,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-02,漫画分页/条漫,P0,正常、缩放、解码失败,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-03,Reader 进度/跳转,P0,拖动、预览、提交,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-R-04,漫画阅读设置,P0,显示模式、方向、性能,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+R-04,漫画阅读设置,P0,独立页面及本书与默认共用配置,UI-W3,已统一紧凑选项与状态条；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-07,漫画页书签与笔记,P0,正常、空、错误、锁定,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-10,PDF 漫画,P0,正常、损坏、不支持、锁定,UI-W5,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-01,添加内容动作面板,P0,文件、目录、仓库,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
@@ -42,9 +42,9 @@ V-09,恢复密码与应急恢复,P0,设置、验证、密钥不可用,UI-W2,未�
 V-10,解密导出 / 解除保护,P0,目标目录选择、校验、删除源密文,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-01,设置首页,P0,各分组,UI-W6,已实现紧凑分类页与截图测试；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-02,外观主题与 Monet,P0,默认、亮/暗、预览,UI-W6,已统一莫奈分段与整行勾选；深浅色和大字体待设备验收；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-T-03,默认阅读配置与手势,P0,漫画/文字/PDF,UI-W6,已实现默认漫画配置；文字与PDF专属配置未完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+T-03,默认阅读配置与手势,P0,合入R-04,UI-W6,按用户要求移除独立页面,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-04,缓存与空间管理,P0,统计、清理、失败,UI-W6,已修复缓存清理；空间统计未完整,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-05,备份与恢复,P0,加密备份、验证、恢复,UI-W6,公开清单与口令加密清单已实现；完整内容备份与恢复预览未完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-T-06,诊断与帮助,P0,分享脱敏日志、检查权限,UI-W6,基础诊断已实现；脱敏导出未完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-T-07,关于、开源许可,P0,版本、许可证列表,UI-W6,真实版本已实现；许可清单未完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+T-06,诊断与帮助,P0,移除入口与页面,UI-W6,按用户要求移除,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+T-07,关于、开源许可,P0,版本格式隐私与生成许可,UI-W6,已实现；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 E-01,通用错误/离线/权限失效,P0,重试、修复、回退,UI-W6,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md

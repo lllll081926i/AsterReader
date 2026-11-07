@@ -157,7 +157,7 @@ fun AsterSubScreenHeader(
     trailing: (@Composable () -> Unit)? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    Row(
+    com.asterreader.core.designsystem.AsterHeaderRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight)
@@ -167,13 +167,14 @@ fun AsterSubScreenHeader(
         if (onBack != null) {
             IconButton(
                 onClick = onBack,
-                modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                modifier = Modifier.size(width = com.asterreader.core.designsystem.AsterLayout.TouchTarget,
+                    height = com.asterreader.core.designsystem.AsterLayout.HeaderHeight)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                     contentDescription = "返回",
                     tint = colorScheme.onSurface,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize)
                 )
             }
         }
@@ -185,7 +186,7 @@ fun AsterSubScreenHeader(
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge.copy(
+                style = com.asterreader.core.designsystem.AsterHeaderTitleStyle.copy(
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.2).sp
                 ),

@@ -1,4 +1,7 @@
 package com.example.ui.screens
+import com.asterreader.core.designsystem.AsterHeaderRow
+import com.asterreader.core.designsystem.AsterHeaderTitleStyle
+import com.asterreader.core.designsystem.asterHeaderAction
 
 import androidx.compose.foundation.layout.heightIn
 
@@ -138,7 +141,7 @@ fun PublicationDetailScreen(
             .statusBarsPadding()
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Row(
+            AsterHeaderRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 920.dp)
@@ -150,19 +153,19 @@ fun PublicationDetailScreen(
             ) {
                 IconButton(
                     onClick = onBack,
-                    modifier = Modifier.testTag("detail_back_btn")
+                    modifier = Modifier.asterHeaderAction().testTag("detail_back_btn")
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "返回",
                         tint = colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize)
                     )
                 }
 
                 Text(
                     text = book.title,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = AsterHeaderTitleStyle,
                     color = colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -172,11 +175,12 @@ fun PublicationDetailScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
                         onClick = { viewModel.toggleFavorite(book.id) },
-                        modifier = Modifier.testTag("detail_favorite_btn")
+                        modifier = Modifier.asterHeaderAction().testTag("detail_favorite_btn")
                     ) {
                         Icon(
                             imageVector = if (book.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                             contentDescription = "收藏",
+                            modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize),
                             tint = if (book.isFavorite) colorScheme.primary else colorScheme.outline
                         )
                     }
@@ -184,11 +188,12 @@ fun PublicationDetailScreen(
                     Box {
                         IconButton(
                             onClick = { showOverflowMenu = true },
-                            modifier = Modifier.testTag("detail_more_menu_btn")
+                            modifier = Modifier.asterHeaderAction().testTag("detail_more_menu_btn")
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.MoreVert,
                                 contentDescription = "更多操作",
+                                modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize),
                                 tint = colorScheme.onSurface
                             )
                         }

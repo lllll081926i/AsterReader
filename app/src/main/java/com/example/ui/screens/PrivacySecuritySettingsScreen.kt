@@ -51,7 +51,7 @@ fun PrivacySecuritySettingsScreen(
     }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).statusBarsPadding()
         .testTag("privacy_security_settings_screen")) {
-        AsterSubScreenHeader(when (section) { "pin" -> "应用 PIN"; "timeout" -> "自动锁定"; else -> "隐私与安全" }, back)
+        AsterSubScreenHeader(when (section) { "pin" -> "应用 PIN"; "timeout" -> "自动锁定"; else -> "安全" }, back)
         Column(Modifier.weight(1f).widthIn(max = 840.dp).fillMaxWidth()
             .align(androidx.compose.ui.Alignment.CenterHorizontally).verticalScroll(rememberScrollState()).navigationBarsPadding().imePadding()
             .padding(horizontal = AsterLayout.PagePadding).padding(top = 4.dp, bottom = AsterLayout.BottomSpacing),
@@ -63,7 +63,7 @@ fun PrivacySecuritySettingsScreen(
                         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth(), isError = error != null)
                     OutlinedTextField(confirmation, { confirmation = it.filter(Char::isDigit).take(8); error = null },
-                        label = { Text("再次输入 PIN") }, singleLine = true,
+                        label = { Text("确认 PIN") }, singleLine = true,
                         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                         modifier = Modifier.fillMaxWidth(), isError = error != null)
                     if (error != null) Text(error!!, color = MaterialTheme.colorScheme.error)
@@ -88,7 +88,11 @@ fun PrivacySecuritySettingsScreen(
                         AsterSettingsRow("应用 PIN", leadingIcon = Icons.Outlined.Password, badgeText = if (uiState.hasCustomPin) "已设置" else "未设置",
                             onClick = { viewModel.pushSubScreen(SubScreen.SecuritySection("pin")) })
                         AsterGroupDivider()
-                        AsterSwitchRow("系统生物识别", subtitle = SystemBiometrics.hint(availability),
+                        AsterSwitchRow("系统验证", subtitle = if (biometricReady) null else when (availability) {
+                            SystemBiometrics.Availability.NEEDS_ENROLLMENT -> "请先设置系统锁屏"
+                            SystemBiometrics.Availability.NO_HARDWARE -> "请使用 PIN"
+                            else -> "暂不可用"
+                        },
                             checked = uiState.biometricUnlockEnabled && biometricReady, enabled = biometricReady,
                             onCheckedChange = viewModel::setBiometricUnlockEnabled)
                     }
@@ -101,11 +105,11 @@ fun PrivacySecuritySettingsScreen(
                         AsterSettingsRow("立即锁定", leadingIcon = Icons.Outlined.Lock, onClick = viewModel::lockAppImmediately)
                     }
                     AsterSettingsGroup("内容与防窥") {
-                        AsterSettingsRow("隐藏作品（访问锁）", leadingIcon = Icons.Outlined.VisibilityOff, onClick = viewModel::openHiddenBooks)
+                        AsterSettingsRow("隐藏作品", leadingIcon = Icons.Outlined.VisibilityOff, onClick = viewModel::openHiddenBooks)
                         AsterGroupDivider()
-                        AsterSwitchRow("禁止截屏与录屏", checked = uiState.flagSecureEnabled, onCheckedChange = viewModel::setFlagSecureEnabled)
+                        AsterSwitchRow("禁止截屏", checked = uiState.flagSecureEnabled, onCheckedChange = viewModel::setFlagSecureEnabled)
                         AsterGroupDivider()
-                        AsterSwitchRow("隐藏最近任务预览", checked = uiState.hideRecentsPreview, onCheckedChange = viewModel::setHideRecentsPreview)
+                        AsterSwitchRow("隐藏任务预览", checked = uiState.hideRecentsPreview, onCheckedChange = viewModel::setHideRecentsPreview)
                     }
                 }
             }

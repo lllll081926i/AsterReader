@@ -7,13 +7,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -26,10 +24,10 @@ import com.example.ui.*
 import com.example.ui.components.*
 
 private val sectionTitles = mapOf(
-    "appearance" to "外观与主题", "reading" to "默认阅读配置", "sources" to "本地仓库",
-    "shelves" to "书架管理", "tags" to "标签管理", "storage" to "缓存与空间",
-    "backup" to "备份与恢复", "stats" to "阅读统计", "about" to "关于", "diagnostics" to "诊断与帮助",
-    "encryptedExport" to "加密导出清单", "encryptedRestore" to "恢复加密清单"
+    "appearance" to "外观", "sources" to "仓库",
+    "shelves" to "书架", "tags" to "标签", "storage" to "存储",
+    "backup" to "备份", "stats" to "阅读统计", "about" to "关于", "licenses" to "开源许可",
+    "encryptedExport" to "加密导出", "encryptedRestore" to "加密恢复"
 )
 
 @Composable
@@ -43,7 +41,6 @@ fun SettingsScreen(
     section: String? = null
 ) {
     if (onBack != null) BackHandler(onBack = onBack)
-    val context = LocalContext.current
     val shelves by viewModel.allShelves.collectAsStateWithLifecycle()
     val books by viewModel.allBooks.collectAsStateWithLifecycle()
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) {
@@ -62,7 +59,7 @@ fun SettingsScreen(
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).statusBarsPadding()
         .testTag(if (section == null) "settings_screen" else "settings_$section")) {
-        AsterSubScreenHeader(sectionTitles[section] ?: "设置", onBack)
+        AsterSubScreenHeader(if (section?.startsWith("license:") == true) "许可" else sectionTitles[section] ?: "设置", onBack)
         Column(Modifier.weight(1f).widthIn(max = 840.dp).fillMaxWidth()
             .align(androidx.compose.ui.Alignment.CenterHorizontally).verticalScroll(rememberScrollState())
             .navigationBarsPadding().padding(horizontal = AsterLayout.PagePadding)
@@ -71,30 +68,26 @@ fun SettingsScreen(
             when (section) {
                 "encryptedExport", "encryptedRestore" -> EncryptedBackupForm(section == "encryptedExport", uiState, viewModel, { onBack?.invoke() })
                 null -> {
-                    AsterSettingsGroup("外观与阅读") {
-                        AsterSettingsRow("外观与主题", leadingIcon = Icons.Outlined.Palette, onClick = { navigate("appearance") })
-                        AsterGroupDivider()
-                        AsterSettingsRow("默认阅读配置", leadingIcon = Icons.Outlined.MenuBook, onClick = { navigate("reading") })
+                    AsterSettingsGroup("常用") {
+                        AsterSettingsRow("外观", leadingIcon = Icons.Outlined.Palette, onClick = { navigate("appearance") })
                         AsterGroupDivider()
                         AsterSettingsRow("阅读统计", leadingIcon = Icons.Outlined.Schedule, onClick = { navigate("stats") })
                     }
-                    AsterSettingsGroup("内容与仓库") {
-                        AsterSettingsRow("本地仓库", leadingIcon = Icons.Outlined.Folder, onClick = { navigate("sources") })
+                    AsterSettingsGroup("内容") {
+                        AsterSettingsRow("仓库", leadingIcon = Icons.Outlined.Folder, onClick = { navigate("sources") })
                         AsterGroupDivider()
-                        AsterSettingsRow("书架管理", leadingIcon = Icons.Outlined.CollectionsBookmark, onClick = { navigate("shelves") })
+                        AsterSettingsRow("书架", leadingIcon = Icons.Outlined.CollectionsBookmark, onClick = { navigate("shelves") })
                         AsterGroupDivider()
-                        AsterSettingsRow("标签管理", leadingIcon = Icons.Outlined.Tag, onClick = { navigate("tags") })
+                        AsterSettingsRow("标签", leadingIcon = Icons.Outlined.Tag, onClick = { navigate("tags") })
                         AsterGroupDivider()
-                        AsterSettingsRow("缓存与空间", leadingIcon = Icons.Outlined.Storage, onClick = { navigate("storage") })
+                        AsterSettingsRow("存储", leadingIcon = Icons.Outlined.Storage, onClick = { navigate("storage") })
                     }
-                    AsterSettingsGroup("隐私与安全") {
-                        AsterSettingsRow("应用锁与访问控制", leadingIcon = Icons.Outlined.Lock,
+                    AsterSettingsGroup("隐私") {
+                        AsterSettingsRow("安全", leadingIcon = Icons.Outlined.Lock,
                             onClick = { viewModel.pushSubScreen(SubScreen.PrivacySecuritySettings) })
                     }
-                    AsterSettingsGroup("数据与支持") {
-                        AsterSettingsRow("备份与恢复", leadingIcon = Icons.Outlined.Backup, onClick = { navigate("backup") })
-                        AsterGroupDivider()
-                        AsterSettingsRow("诊断与帮助", leadingIcon = Icons.Outlined.Info, onClick = { navigate("diagnostics") })
+                    AsterSettingsGroup("数据") {
+                        AsterSettingsRow("备份", leadingIcon = Icons.Outlined.Backup, onClick = { navigate("backup") })
                         AsterGroupDivider()
                         AsterSettingsRow("关于", leadingIcon = Icons.Outlined.Apps, onClick = { navigate("about") })
                     }
@@ -107,31 +100,16 @@ fun SettingsScreen(
                             ThemeMode.DARK -> Icons.Outlined.DarkMode
                         }) }, ThemeMode.entries.indexOf(uiState.themeMode), { viewModel.setThemeMode(ThemeMode.entries[it]) })
                     }
-                    AsterSettingsGroup("动效与首页") {
+                    AsterSettingsGroup("界面") {
                         AsterSwitchRow("减少动效", checked = uiState.reduceMotion, onCheckedChange = viewModel::setReduceMotion)
                         AsterGroupDivider()
                         AsterSwitchRow("继续阅读", checked = uiState.showRecentReading, onCheckedChange = viewModel::setShowRecentReading)
                     }
                 }
-                "reading" -> {
-                    AsterSettingsGroup("阅读模式") {
-                        AsterSettingsChoice(ReaderLayoutMode.entries.map { AsterChoice(it.label, readerModeIcon(it)) },
-                            ReaderLayoutMode.entries.indexOf(uiState.readerLayoutMode), { viewModel.setReaderLayoutMode(ReaderLayoutMode.entries[it]) })
-                    }
-                    AsterSettingsGroup("画面适配") {
-                        AsterSettingsChoice(listOf(AsterChoice("适合屏幕", Icons.Outlined.FitScreen), AsterChoice("原始比例", Icons.Outlined.AspectRatio)),
-                            if (uiState.fitModeLabel == "适合屏幕") 0 else 1, { viewModel.setFitModeLabel(if (it == 0) "适合屏幕" else "原始比例") })
-                    }
-                    AsterSettingsGroup("翻页") {
-                        AsterSwitchRow("音量键翻页", checked = uiState.volumeKeyPageTurn, onCheckedChange = viewModel::setVolumeKeyPageTurn)
-                        AsterGroupDivider()
-                        AsterSwitchRow("封面单独显示", checked = uiState.smartSpreadStitch, onCheckedChange = viewModel::setSmartSpreadStitch)
-                    }
-                }
                 "stats" -> AsterSettingsGroup {
-                    AsterSwitchRow("显示统计 Tab", checked = uiState.showStatsTab, onCheckedChange = viewModel::setShowStatsTab)
+                    AsterSwitchRow("统计入口", checked = uiState.showStatsTab, onCheckedChange = viewModel::setShowStatsTab)
                     AsterGroupDivider()
-                    AsterSwitchRow("记录阅读时长", checked = uiState.showReadingStats, onCheckedChange = viewModel::setShowReadingStats)
+                    AsterSwitchRow("阅读计时", checked = uiState.showReadingStats, onCheckedChange = viewModel::setShowReadingStats)
                     if (uiState.showReadingStats) {
                         AsterGroupDivider()
                         AsterSettingsRow("查看统计", onClick = { viewModel.pushSubScreen(SubScreen.ReadingStats) })
@@ -180,38 +158,25 @@ fun SettingsScreen(
                     }
                 }
                 "storage" -> AsterSettingsGroup {
-                    AsterSettingsRow("清理可再生缓存", onClick = { confirmation = "cache" })
+                    AsterSettingsRow("清理缓存", onClick = { confirmation = "cache" })
                     AsterGroupDivider()
                     AsterSettingsRow("重建封面", onClick = viewModel::rebuildLibraryCovers)
                 }
                 "backup" -> AsterSettingsGroup {
-                    AsterSettingsRow("加密导出公开清单", leadingIcon = Icons.Outlined.Lock,
+                    AsterSettingsRow("加密导出", leadingIcon = Icons.Outlined.Lock,
                         onClick = { viewModel.chooseEncryptedBackupTarget(true) })
                     AsterGroupDivider()
-                    AsterSettingsRow("恢复加密清单", leadingIcon = Icons.Outlined.LockOpen,
+                    AsterSettingsRow("加密恢复", leadingIcon = Icons.Outlined.LockOpen,
                         onClick = { viewModel.chooseEncryptedBackupTarget(false) })
                     AsterGroupDivider()
-                    AsterSettingsRow("导出公开书库清单", onClick = { confirmation = "export" })
+                    AsterSettingsRow("导出清单", onClick = { confirmation = "export" })
                     AsterGroupDivider()
-                    AsterSettingsRow("合并恢复书库清单", onClick = { confirmation = "restore" })
+                    AsterSettingsRow("恢复清单", onClick = { confirmation = "restore" })
                 }
-                "diagnostics" -> AsterSettingsGroup {
-                    SettingsValueRow("Android", android.os.Build.VERSION.RELEASE)
-                    AsterGroupDivider()
-                    SettingsValueRow("数据库版本", "2")
-                    AsterGroupDivider()
-                    SettingsValueRow("公开作品", booksCount.toString())
-                    AsterGroupDivider()
-                    SettingsValueRow("可用空间", "${context.filesDir.usableSpace / 1_048_576} MB")
-                    AsterGroupDivider()
-                    SettingsValueRow("仓库状态", "${repositories.count { it.isHealthy }} / ${repositories.size}")
-                }
-                "about" -> AsterSettingsGroup {
-                    SettingsValueRow("Aster Reader", context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty())
-                    AsterGroupDivider()
-                    SettingsValueRow("应用包名", context.packageName)
-                }
-                else -> Text("设置页面不可用")
+                "about" -> AboutSettingsContent { navigate("licenses") }
+                "licenses" -> OpenSourceSettingsContent(viewModel, onOpen = { navigate("license:${it.id}") })
+                else -> if (section.startsWith("license:")) OpenSourceSettingsContent(viewModel, section.removePrefix("license:"))
+                    else Text("设置页面不可用")
             }
         }
     }
@@ -219,9 +184,9 @@ fun SettingsScreen(
         onDismissRequest = { confirmation = null },
         title = { Text(when (confirmation) { "cache" -> "清理缓存"; "export" -> "导出书库清单"; "restore" -> "合并恢复"; else -> "确认移除" }) },
         text = { Text(when (confirmation) {
-            "cache" -> "清理封面与阅读副本。原文件和阅读记录将保留。"
-            "export" -> "导出公开作品的进度、书架和批注。不包含隐藏作品、漫画文件和安全凭据。"
-            "restore" -> "恢复前会验证文件。保留本机来源；按阅读时间合并进度；重复批注只保留一份。"
+            "cache" -> "仅清理可再生缓存。保留原文件和阅读记录。"
+            "export" -> "导出公开书架、进度和批注。不含漫画、隐藏作品或凭据。"
+            "restore" -> "验证后合并。保留本机来源，按时间合并进度，重复批注去重。"
             else -> if (confirmation?.startsWith("tag:") == true) "从所有公开作品中移除标签「${confirmation?.removePrefix("tag:")}」。作品和阅读记录将保留。"
                 else "移除分类或仓库关联，保留原文件和作品阅读记录。"
         }) },
@@ -257,15 +222,4 @@ fun SettingsScreen(
                 TextButton(onClick = { editTag = null }) { Text("取消") }
             }
         })
-}
-
-@Composable
-private fun SettingsValueRow(title: String, value: String) {
-    Row(Modifier.fillMaxWidth().heightIn(min = AsterLayout.SettingsRowHeight).padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-        Text(value, Modifier.widthIn(max = 180.dp), style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
 }

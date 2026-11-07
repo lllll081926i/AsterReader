@@ -1,4 +1,7 @@
 package com.example.ui.screens
+import com.asterreader.core.designsystem.AsterHeaderRow
+import com.asterreader.core.designsystem.AsterHeaderTitleStyle
+import com.asterreader.core.designsystem.asterHeaderAction
 
 
 import androidx.compose.material3.BadgedBox
@@ -272,7 +275,7 @@ fun LibraryHomeScreen(
                     }
                 }
 
-                Row(
+                AsterHeaderRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = AsterLayout.MainHeaderHeight)
@@ -287,7 +290,7 @@ fun LibraryHomeScreen(
                     ) {
                         Text(
                             text = "馆藏",
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            style = AsterHeaderTitleStyle.copy(fontWeight = FontWeight.Bold),
                             color = colorScheme.onSurface,
                             maxLines = 1,
                             softWrap = false
@@ -310,7 +313,7 @@ fun LibraryHomeScreen(
                         IconButton(
                             onClick = { viewModel.cycleLibraryLayoutMode() },
                             modifier = Modifier
-                                .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                                .asterHeaderAction()
                                 .testTag("library_layout_cycle_btn")
                         ) {
                             Icon(
@@ -330,7 +333,7 @@ fun LibraryHomeScreen(
                             IconButton(
                                 onClick = { showOverflowMenu = true },
                                 modifier = Modifier
-                                    .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                                    .asterHeaderAction()
                                     .testTag("scope_overflow_menu_btn")
                             ) {
                                 Icon(
@@ -388,7 +391,7 @@ fun LibraryHomeScreen(
                         IconButton(
                             onClick = { viewModel.pushSubScreen(SubScreen.Settings) },
                             modifier = Modifier
-                                .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                                .asterHeaderAction()
                                 .testTag("header_settings_btn")
                         ) {
                             Icon(
@@ -1798,12 +1801,12 @@ fun SearchAndFilterScreen(
                 color = asterColors.surfaceContainer,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = AsterLayout.TouchTarget)
+                    .heightIn(min = AsterLayout.HeaderHeight)
             ) {
-                Row(
+                AsterHeaderRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = AsterLayout.TouchTarget)
+                        .heightIn(min = AsterLayout.HeaderHeight)
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1850,7 +1853,7 @@ fun SearchAndFilterScreen(
                         IconButton(
                             onClick = { viewModel.updateSearchQuery("") },
                             modifier = Modifier
-                                .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                                .asterHeaderAction()
                                 .testTag("search_clear_btn")
                         ) {
                             Icon(

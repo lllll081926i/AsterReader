@@ -1,4 +1,7 @@
 package com.example.ui.screens
+import com.asterreader.core.designsystem.AsterHeaderRow
+import com.asterreader.core.designsystem.AsterHeaderTitleStyle
+import com.asterreader.core.designsystem.asterHeaderAction
 
 import android.app.Activity
 import android.app.KeyguardManager
@@ -112,7 +115,7 @@ fun OnboardingScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
+        AsterHeaderRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 560.dp)
@@ -121,7 +124,7 @@ fun OnboardingScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "Aster Reader",
                     style = MaterialTheme.typography.titleMedium.copy(

@@ -28,16 +28,39 @@ object AsterSettingsColors {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AsterSettingsChoice(options: List<AsterChoice>, selectedIndex: Int, onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier) {
+    modifier: Modifier = Modifier, compact: Boolean = false) {
     val colors = MaterialTheme.colorScheme
     val fontScale = LocalDensity.current.fontScale
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        if (options.size in 2..3 && maxWidth >= 104.dp * fontScale * options.size) {
+        if (compact && options.size == 4 && maxWidth >= 300.dp * fontScale) {
+            Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {
+                options.indices.chunked(2).forEach { indices ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {
+                        indices.forEach { index ->
+                            val selected = index == selectedIndex
+                            val option = options[index]
+                            Row(Modifier.weight(1f)
+                                .background(if (selected) colors.primaryContainer else AsterSettingsColors.container,
+                                    MaterialTheme.shapes.small)
+                                .selectable(selected, role = Role.RadioButton, onClick = { onSelect(index) })
+                                .heightIn(min = AsterLayout.TouchTarget).padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(if (selected) Icons.Outlined.Check else option.icon, null,
+                                    Modifier.size(AsterLayout.HeaderIconSize), colors.primary)
+                                Text(option.label, style = MaterialTheme.typography.labelLarge,
+                                    color = if (selected) colors.onPrimaryContainer else colors.onSurface)
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (options.size in 2..3 && maxWidth >= 104.dp * fontScale * options.size) {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 options.forEachIndexed { index, option ->
                     SegmentedButton(selected = selectedIndex == index, onClick = { onSelect(index) },
                         shape = SegmentedButtonDefaults.itemShape(index, options.size),
-                        modifier = Modifier.weight(1f).heightIn(min = AsterLayout.SettingsRowHeight),
+                        modifier = Modifier.weight(1f).heightIn(min = if (compact) AsterLayout.TouchTarget else AsterLayout.SettingsRowHeight),
                         colors = SegmentedButtonDefaults.colors(
                             activeContainerColor = colors.primaryContainer, activeContentColor = colors.onPrimaryContainer,
                             activeBorderColor = colors.primary, inactiveContainerColor = AsterSettingsColors.container,
@@ -53,7 +76,8 @@ fun AsterSettingsChoice(options: List<AsterChoice>, selectedIndex: Int, onSelect
                 Row(Modifier.fillMaxWidth()
                     .background(if (selected) colors.primaryContainer else AsterSettingsColors.container)
                     .selectable(selected, role = Role.RadioButton, onClick = { onSelect(index) })
-                    .heightIn(min = AsterLayout.SettingsRowHeight).padding(horizontal = 16.dp, vertical = 10.dp),
+                    .heightIn(min = if (compact) AsterLayout.TouchTarget else AsterLayout.SettingsRowHeight)
+                    .padding(horizontal = 16.dp, vertical = if (compact) 4.dp else 10.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Icon(option.icon, null, Modifier.size(20.dp), if (selected) colors.onPrimaryContainer else colors.primary)
                     Text(option.label, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,

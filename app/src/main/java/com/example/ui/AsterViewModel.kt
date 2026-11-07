@@ -187,6 +187,20 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     // AndroidViewModel.application 是 private，这里保留主构造参数供备份导出/导入使用
     private val appContext: Application = application
     private val repository = LibraryRepository(application)
+    private val aboutRepository = com.example.data.local.AboutRepository(application)
+    private val _openSource = MutableStateFlow(com.example.data.local.OpenSourceState())
+    val openSource: StateFlow<com.example.data.local.OpenSourceState> = _openSource.asStateFlow()
+
+    fun loadOpenSourceNotices() {
+        if (_openSource.value.loading || _openSource.value.entries.isNotEmpty()) return
+        _openSource.value = com.example.data.local.OpenSourceState(loading = true)
+        viewModelScope.launch {
+            try {
+                _openSource.value = com.example.data.local.OpenSourceState(entries = aboutRepository.notices())
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { _openSource.value = com.example.data.local.OpenSourceState(error = "许可信息加载失败") }
+        }
+    }
     private val preferences = ReaderPreferences(application)
     private val pinAttempts = application.getSharedPreferences("pin_attempts", 0)
     private val annotationMutex = Mutex()
@@ -319,6 +333,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
         // 丢掉指向已删除作品的子页面，避免恢复出一排「作品不可用」
         val valid = restored.filterNot { screen ->
+            if (screen is SubScreen.SettingsSection && screen.section in setOf("reading", "diagnostics")) return@filterNot true
             val bookId = when (screen) {
                 is SubScreen.PublicationDetail -> screen.bookId
                 is SubScreen.Reader -> screen.bookId

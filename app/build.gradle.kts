@@ -1,3 +1,12 @@
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.tasks.*
+import java.nio.ByteBuffer
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
+
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
 
 plugins {
@@ -88,6 +97,8 @@ secrets {
 
 googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
 
+
+
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
@@ -157,4 +168,102 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   // "ksp"(libs.androidx.room.compiler)
   // "ksp"(libs.moshi.kotlin.codegen)
+}
+
+abstract class AsterNoticesTask : DefaultTask() {
+    @get:Input abstract val coordinates: ListProperty<String>
+    @get:InputFiles @get:PathSensitive(PathSensitivity.NONE)
+    abstract val pomFiles: ConfigurableFileCollection
+    @get:InputFiles @get:PathSensitive(PathSensitivity.NONE)
+    abstract val fonts: ConfigurableFileCollection
+    @get:InputFiles @get:PathSensitive(PathSensitivity.NONE)
+    abstract val fontLicenses: ConfigurableFileCollection
+    @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction fun generate() {
+        val factory = DocumentBuilderFactory.newInstance().apply {
+            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+            setFeature("http://xml.org/sax/features/external-general-entities", false)
+            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+        }
+        fun Element.child(tag: String): String = (0 until childNodes.length)
+            .mapNotNull { childNodes.item(it) as? Element }.firstOrNull { it.tagName == tag }?.textContent?.trim().orEmpty()
+        fun safeUrl(value: String): String = value.replaceFirst("http://", "https://")
+            .takeIf { it.startsWith("https://") && !it.contains('$') }.orEmpty()
+        val indexedPoms = pomFiles.files.associateBy { file ->
+            val version = file.parentFile.parentFile
+            "${version.parentFile.parentFile.name}:${version.parentFile.name}:${version.name}"
+        }
+        fun licenseRoot(coordinate: String, visited: Set<String> = emptySet()): Element? {
+            if (coordinate in visited) return null
+            val file = indexedPoms[coordinate] ?: return null
+            val root = factory.newDocumentBuilder().parse(file).documentElement
+            if (root.getElementsByTagName("license").length > 0) return root
+            val parent = root.getElementsByTagName("parent").item(0) as? Element ?: return root
+            return licenseRoot("${parent.child("groupId")}:${parent.child("artifactId")}:${parent.child("version")}", visited + coordinate) ?: root
+        }
+        val entries = coordinates.get().map { coordinate ->
+            val pom = requireNotNull(indexedPoms[coordinate]) { "缺少依赖许可元数据：$coordinate" }
+            val root = factory.newDocumentBuilder().parse(pom).documentElement
+            val licenses = (licenseRoot(coordinate) ?: root).getElementsByTagName("license")
+            val names = (0 until licenses.length).map { (licenses.item(it) as Element).child("name") }.filter(String::isNotBlank)
+            val licenseUrl = (0 until licenses.length).map { safeUrl((licenses.item(it) as Element).child("url")) }.firstOrNull(String::isNotBlank)
+            val parts = coordinate.split(':')
+            val metadataUrl = (if (parts[0].startsWith("androidx.") || parts[0].startsWith("com.android."))
+                "https://dl.google.com/dl/android/maven2/" else "https://repo.maven.apache.org/maven2/") +
+                "${parts[0].replace('.', '/')}/${parts[1]}/${parts[2]}/${parts[1]}-${parts[2]}.pom"
+            mapOf("id" to coordinate, "name" to "${parts[0]}:${parts[1]}", "version" to parts[2],
+                "license" to names.joinToString(" / ").ifBlank { "许可见来源" },
+                "url" to (licenseUrl ?: safeUrl(root.child("url")).ifBlank { metadataUrl }), "notice" to "")
+        }.toMutableList()
+        fonts.files.sortedBy { it.name }.forEach { font ->
+            val bytes = font.readBytes()
+            val buffer = ByteBuffer.wrap(bytes)
+            fun short(offset: Int) = buffer.getShort(offset).toInt() and 0xffff
+            val tableCount = short(4)
+            val table = (0 until tableCount).map { 12 + it * 16 }.first { buffer.getInt(it) == 0x6e616d65 }
+            val offset = buffer.getInt(table + 8)
+            val strings = offset + short(offset + 4)
+            val names = mutableMapOf<Int, String>()
+            repeat(short(offset + 2)) { index ->
+                val record = offset + 6 + index * 12
+                val platform = short(record)
+                val language = short(record + 4)
+                if (platform == 0 || platform == 3 && language == 0x409) {
+                    val id = short(record + 6)
+                    val start = strings + short(record + 10)
+                    val value = String(bytes, start, short(record + 8), Charsets.UTF_16BE)
+                    names.putIfAbsent(id, value)
+                }
+            }
+            val licenseFile = fontLicenses.files.firstOrNull { it.name == "${font.nameWithoutExtension}.OFL.txt" }
+            val fullLicense = requireNotNull(licenseFile) { "缺少字体许可全文：${font.name}" }.readText()
+            require(fullLicense.contains(names[0].orEmpty()) && fullLicense.contains("SIL OPEN FONT LICENSE"))
+            val notice = fullLicense
+            require(notice.isNotBlank()) { "字体缺少许可元数据：${font.name}" }
+            entries += mapOf("id" to "font:${font.name}", "name" to names[1].orEmpty().ifBlank { font.name },
+                "version" to names[5].orEmpty(), "license" to if (notice.contains("SIL Open Font", true)) "SIL Open Font License" else "字体许可",
+                "url" to safeUrl(names[14].orEmpty()), "notice" to notice)
+        }
+        val destination = outputDirectory.file("open_source_notices.json").get().asFile
+        destination.parentFile.mkdirs()
+        destination.writeText(groovy.json.JsonOutput.toJson(entries.sortedBy { it.getValue("name").lowercase() }), Charsets.UTF_8)
+    }
+}
+
+val mavenCache = gradle.gradleUserHomeDir.resolve("caches/modules-2/files-2.1")
+androidComponents.onVariants { variant ->
+    val runtime = configurations.named("${variant.name}RuntimeClasspath")
+    val modules = runtime.map { configuration ->
+        configuration.incoming.resolutionResult.allComponents.mapNotNull { it.id as? ModuleComponentIdentifier }
+            .map { "${it.group}:${it.module}:${it.version}" }.distinct().sorted()
+    }
+    val task = tasks.register<AsterNoticesTask>("generate${variant.name.replaceFirstChar(Char::uppercase)}Notices") {
+        coordinates.set(modules)
+        pomFiles.from(fileTree(mavenCache) { include("**/*.pom") })
+        fonts.from(fileTree("src/main/res/font") { include("*.ttf", "*.otf") })
+        fontLicenses.from(fileTree("src/main/licenses") { include("*.OFL.txt") })
+        outputDirectory.set(layout.buildDirectory.dir("generated/notices/${variant.name}"))
+    }
+    variant.sources.assets?.addGeneratedSourceDirectory(task, AsterNoticesTask::outputDirectory)
 }
