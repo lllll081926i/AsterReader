@@ -21,6 +21,7 @@ object AsterLayout {
     val NavigationRailBreakpoint = 600.dp
     val SupportingPaneBreakpoint = 960.dp
     val SearchContentMaxWidth = 840.dp
+    val SettingsContentMaxWidth = 840.dp
     val CollectionContentMaxWidth = 1200.dp
     val AuthPanelMaxWidth = 420.dp
     val AuthKeypadMaxWidth = 320.dp

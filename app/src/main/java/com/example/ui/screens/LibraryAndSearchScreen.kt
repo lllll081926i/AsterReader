@@ -386,6 +386,14 @@ fun LibraryHomeScreen(
                                         showRepoWizardDialog = true
                                     }
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("WebDAV") },
+                                    leadingIcon = { Icon(Icons.Outlined.Dns, null) },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        viewModel.pushSubScreen(SubScreen.SettingsSection("webdav"))
+                                    }
+                                )
                             }
                         }
 

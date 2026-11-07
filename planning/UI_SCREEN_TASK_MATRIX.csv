@@ -29,7 +29,7 @@ I-03,仓库创建向导,P0,授权、路径规则、扫描方式,UI-W1,待设备�
 I-04,扫描预览,P0,分类调整、冲突,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-05,扫描任务列表/详情,P0,运行、暂停/取消、失败,UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-06,本地仓库管理,P0,正常、权限丢失、目录离线,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-I-07,远程仓库(WebDAV),P1,凭据、测试连接、同步,UI-W7,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+I-07,远程仓库(WebDAV),P1,凭据、测试连接、目录浏览与读取,UI-W7,实施中；协议与阅读回归核验中；不含同步,引用 docs/51_WEBDAV_SOURCE.md
 V-01,应用认证门禁,P0,系统认证、应用密码、取消,UI-W2,已实现紧凑完整弹出验证面板；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-02,安全设置 / 应用锁,P0,开关、超时、策略,UI-W2,已实现分层安全设置与截图；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-03,保险库首次建立,P0,风险告知、密钥/恢复配置,UI-W2,已实现独立口令与设备槽；API31及35界面回归；无独立恢复槽,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md

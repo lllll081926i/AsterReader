@@ -41,6 +41,7 @@ import java.io.OutputStream
 import java.util.Locale
 import java.util.UUID
 import java.util.regex.Pattern
+import com.example.data.remote.WebDavRepository
 
 /** 一次扫描的结果：新增、更新、失败、失联。 */
 data class ScanReport(
@@ -67,7 +68,8 @@ data class ScanReport(
 /** 所有文档访问都在数据层执行，来源始终保留为 SAF URI。 */
 class LibraryRepository(
     private val context: Context,
-    private val dao: AsterDao = AsterDatabase.getDatabase(context).asterDao()
+    private val dao: AsterDao = AsterDatabase.getDatabase(context).asterDao(),
+    private val remoteSource: WebDavRepository = WebDavRepository.get(context)
 ) {
     private val resolver = context.contentResolver
     private val localCopyMutex = kotlinx.coroutines.sync.Mutex()
@@ -244,7 +246,7 @@ class LibraryRepository(
             }
         }
         val linked = findDocumentSource(uri)
-        if (persist && uri.scheme == "content") {
+        if (persist && uri.scheme == "content" && !WebDavRepository.isRemote(uri)) {
             try {
                 resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             } catch (_: SecurityException) {
@@ -257,7 +259,7 @@ class LibraryRepository(
         require(existing == null || !existing.isVaultEncrypted) { "该文件不受当前版本支持，无法重新扫描" }
         val info = queryDocument(uri)
         if (replaceId == null && existing != null && existing.sourceStatus == "AVAILABLE" && info.modifiedAt > 0 && existing.sizeBytes == info.size &&
-            existing.sourceModifiedAt == info.modifiedAt) {
+            existing.sourceModifiedAt == info.modifiedAt && existing.contentFingerprint == info.fingerprint) {
             if (repositoryId.isNotBlank() && existing.repositoryId != repositoryId) {
                 dao.attachSourceRepository(existing.id, repositoryId, repositoryName)
                 return@withContext existing.copy(repositoryId = repositoryId, repositoryName = repositoryName)
@@ -301,12 +303,12 @@ class LibraryRepository(
 
         val book = BookEntity(
             id = id,
-            title = info.name.substringBeforeLast('.', info.name),
+            title = existing?.title ?: info.name.substringBeforeLast('.', info.name),
             author = existing?.author.orEmpty(),
             series = existing?.series?.ifBlank { seriesName } ?: seriesName,
             format = format,
             coverUrl = coverPath,
-            currentPage = existing?.currentPage ?: 1,
+            currentPage = (existing?.currentPage ?: 1).coerceIn(1, pageCount),
             totalPages = pageCount,
             progressPercent = existing?.progressPercent ?: 0,
             currentChapterTitle = existing?.currentChapterTitle ?: "第 1 页",
@@ -322,6 +324,7 @@ class LibraryRepository(
             sizeBytes = info.size,
             addedAt = existing?.addedAt ?: now,
             sourceModifiedAt = info.modifiedAt,
+            contentFingerprint = info.fingerprint,
             repositoryId = repositoryId,
             sourceStatus = "AVAILABLE",
             coverPage = selectedCover.coerceIn(1, pageCount),
@@ -372,7 +375,7 @@ class LibraryRepository(
         require(replaceId == null || linked == null || linked.id == replaceId) { "此来源已关联另一部漫画" }
         val existing = if (replaceId != null) dao.getBookById(replaceId) ?: error("作品已被移除") else linked
         if (replaceId == null && existing != null && !refreshExisting) return@withContext existing
-        val signature = images.joinToString("|") { "${it.name}:${it.size}:${it.modifiedAt}" }
+        val signature = images.joinToString("|") { "${it.name}:${it.size}:${it.modifiedAt}" + if (it.fingerprint.isBlank()) "" else ":${it.fingerprint}" }
         if (replaceId == null && existing != null && existing.sourceStatus == "AVAILABLE" &&
             existing.contentFingerprint == signature && dao.getComicPages(existing.id).size == images.size) return@withContext existing
         val id = existing?.id ?: UUID.randomUUID().toString()
@@ -385,12 +388,12 @@ class LibraryRepository(
         val totalSize = images.sumOf { it.size }
         val book = BookEntity(
             id = id,
-            title = name,
+            title = existing?.title ?: name,
             author = existing?.author.orEmpty(),
             series = existing?.series?.ifBlank { seriesName } ?: seriesName,
             format = "IMAGE_DIR",
             coverUrl = coverPath,
-            currentPage = existing?.currentPage ?: 1,
+            currentPage = (existing?.currentPage ?: 1).coerceIn(1, images.size),
             totalPages = images.size,
             progressPercent = existing?.progressPercent ?: 0,
             currentChapterTitle = existing?.currentChapterTitle ?: "第 1 页",
@@ -433,7 +436,9 @@ class LibraryRepository(
         require(rule in SUPPORTED_SCAN_RULES) { "当前仅支持每个文件作为作品，请重新添加仓库" }
         require(DocumentsContract.isTreeUri(uri)) { "请选择仓库目录" }
         try {
-            resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            if (!WebDavRepository.isRemote(uri)) {
+                resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
         } catch (_: SecurityException) { error("此目录不支持长期授权，请选择其他本地目录") }
         val repoId = UUID.nameUUIDFromBytes(uri.toString().toByteArray()).toString()
         val repoName = name.ifBlank { "本地目录" }
@@ -484,7 +489,8 @@ class LibraryRepository(
                             val after = importDocument(child.uri, repoName, repoId, persist = false, refreshExisting = true)
                             when {
                                 before == null -> imported++
-                                after.totalPages != before.totalPages || after.sourceModifiedAt != before.sourceModifiedAt -> updated++
+                                after.totalPages != before.totalPages || after.sourceModifiedAt != before.sourceModifiedAt ||
+                                    after.contentFingerprint != before.contentFingerprint -> updated++
                                 else -> unchanged++
                             }
                             if (after.isVaultProtected || after.isVaultEncrypted) hidden++
@@ -551,7 +557,7 @@ class LibraryRepository(
     } else if (book.format == "IMAGE_DIR") {
         "${book.id}:${book.filePath}:${book.contentFingerprint}"
     } else {
-        "${book.id}:${book.filePath}:${book.sizeBytes}:${book.sourceModifiedAt}"
+        "${book.id}:${book.filePath}:${book.sizeBytes}:${book.sourceModifiedAt}:${book.contentFingerprint}"
     }
 
     /** 归档必须落到本地文件才能随机读；这里复用缓存副本，避免每次打开都整本复制。 */
@@ -631,6 +637,7 @@ class LibraryRepository(
         if (fileVault.records.value.isNotEmpty()) {
             purgeDeletedMetadata()
             File(context.cacheDir, "read").listFiles()?.forEach { it.delete() }
+            WebDavRepository.get(context).clearCache()
             fileVault.committedIds().forEach { File(context.cacheDir, "covers/$it.jpg").delete() }
             fileVault.records.value.values.forEach { cleanupManagedVaultOriginal(it) }
         }
@@ -873,7 +880,8 @@ class LibraryRepository(
         closeReadSession()
         localCopyMutex.withLock {
             val files = listOf("covers", "read").flatMap { File(context.cacheDir, it).listFiles()?.toList().orEmpty() }
-            files.filter { it.isFile }.sumOf { file -> val size = file.length(); if (file.delete()) size else 0L }
+            files.filter { it.isFile }.sumOf { file -> val size = file.length(); if (file.delete()) size else 0L } +
+                WebDavRepository.get(context).clearCache()
         }
     }
 
@@ -922,7 +930,7 @@ class LibraryRepository(
     // 内部工具
     // ------------------------------------------------------------------
 
-    private data class DocumentInfo(val name: String, val size: Long, val modifiedAt: Long, val mimeType: String)
+    private data class DocumentInfo(val name: String, val size: Long, val modifiedAt: Long, val mimeType: String, val fingerprint: String = "")
 
     private data class ChildEntry(
         val documentId: String,
@@ -930,14 +938,15 @@ class LibraryRepository(
         val mimeType: String,
         val size: Long,
         val modifiedAt: Long,
-        val uriString: String
+        val uriString: String,
+        val fingerprint: String = ""
     ) {
         val isDirectory: Boolean get() = mimeType == DocumentsContract.Document.MIME_TYPE_DIR
         val extension: String get() = name.substringAfterLast('.', "").uppercase(Locale.ROOT)
         val uri: Uri get() = Uri.parse(uriString)
     }
 
-    private data class ImagePage(val uri: Uri, val name: String, val size: Long, val modifiedAt: Long)
+    private data class ImagePage(val uri: Uri, val name: String, val size: Long, val modifiedAt: Long, val fingerprint: String = "")
 
     /** SAF 的单文档 URI 与目录授权 URI 可以指向同一 documentId。 */
     private suspend fun findDocumentSource(uri: Uri): BookEntity? {
@@ -1015,7 +1024,8 @@ class LibraryRepository(
     }
 
     private fun queryWithOptionalModified(uri: Uri, columns: Array<String>, signal: android.os.CancellationSignal? = null): android.database.Cursor? =
-        try { resolver.query(uri, columns, null, null, null, signal) }
+        try { if (WebDavRepository.isRemote(uri)) resolver.query(uri, columns, null as android.os.Bundle?, signal)
+            else resolver.query(uri, columns, null, null, null, signal) }
         catch (_: IllegalArgumentException) {
             resolver.query(uri, columns.filter { it != DocumentsContract.Document.COLUMN_LAST_MODIFIED }.toTypedArray(), null, null, null, signal)
         }
@@ -1029,7 +1039,8 @@ class LibraryRepository(
         }
         return queryWithOptionalModified(
             uri,
-            arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE, DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+            arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE, DocumentsContract.Document.COLUMN_LAST_MODIFIED) +
+                if (WebDavRepository.isRemote(uri)) arrayOf("webdav_etag") else emptyArray(),
         )?.use { cursor ->
             check(cursor.moveToFirst()) { "文档不可访问" }
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -1040,18 +1051,26 @@ class LibraryRepository(
                     else uri.lastPathSegment.orEmpty().substringAfterLast('/').substringAfterLast(':').ifBlank { "未命名" },
                 size = if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else 0L,
                 modifiedAt = if (modifiedIndex >= 0 && !cursor.isNull(modifiedIndex)) cursor.getLong(modifiedIndex) else 0L,
-                mimeType = resolver.getType(uri).orEmpty()
+                mimeType = resolver.getType(uri).orEmpty(),
+                fingerprint = cursor.getColumnIndex("webdav_etag").takeIf { it >= 0 }?.let { cursor.getString(it) }.orEmpty()
             )
         } ?: error("无法读取文档信息")
     }
 
     private fun documentDisplayName(uri: Uri): String? =
-        resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        queryWithOptionalModified(uri, arrayOf(OpenableColumns.DISPLAY_NAME))?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
         }
 
     private suspend fun queryChildren(treeUri: Uri, parentId: String, limit: Int = MAX_SCAN_ITEMS): List<ChildEntry> =
-        kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+        if (WebDavRepository.isRemote(treeUri)) {
+            val (id, path) = WebDavRepository.decodeId(parentId)
+            val entries = remoteSource.list(id, path)
+            check(entries.size <= limit) { "单次扫描项数超限，请缩小目录" }
+            entries.map { entry -> ChildEntry(WebDavRepository.documentId(id, entry.path), entry.name,
+                if (entry.directory) DocumentsContract.Document.MIME_TYPE_DIR else entry.mime, entry.size.coerceAtLeast(0), entry.modifiedAt,
+                DocumentsContract.buildDocumentUriUsingTree(treeUri, WebDavRepository.documentId(id, entry.path)).toString(), entry.etag) }
+        } else kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
             val signal = android.os.CancellationSignal()
             continuation.invokeOnCancellation { signal.cancel() }
             try {
@@ -1107,7 +1126,7 @@ class LibraryRepository(
         return queryChildren(treeUri, folderId)
             .filter { !it.isDirectory && resolveFormat(it.name, it.mimeType, it.uri) == "IMAGE" }
             .sortedWith { a, b -> naturalCompare(a.name, b.name) }
-            .map { ImagePage(it.uri, it.name, it.size, it.modifiedAt) }
+            .map { ImagePage(it.uri, it.name, it.size, it.modifiedAt, it.fingerprint) }
     }
 
     private fun readPdf(file: File): Pair<Int, List<Pair<String, Int>>> {
@@ -1267,12 +1286,28 @@ class LibraryRepository(
      */
     private suspend fun localCopy(book: BookEntity): File = localCopyMutex.withLock { localCopyLocked(book) }
 
+    suspend fun invalidateRemoteReadCopies(connectionId: String) = withContext(Dispatchers.IO) {
+        closeReadSession()
+        localCopyMutex.withLock {
+            dao.getAllBooks().filter { book ->
+                val uri = Uri.parse(book.filePath)
+                WebDavRepository.isRemote(uri) && runCatching {
+                    WebDavRepository.decodeId(DocumentsContract.getDocumentId(uri)).first == connectionId
+                }.getOrDefault(false)
+            }.forEach { book -> File(context.cacheDir, "read/${localCopyName(book)}").delete() }
+        }
+    }
+
+    private fun localCopyName(book: BookEntity): String {
+        val identity = "${book.id}:${book.filePath}:${book.sizeBytes}:${book.sourceModifiedAt}:${book.contentFingerprint}"
+        return java.security.MessageDigest.getInstance("SHA-256").digest(identity.toByteArray())
+            .joinToString("") { "%02x".format(it) } + ".arc"
+    }
+
     /** 调用者必须持有 localCopyMutex，防止加密提交与明文缓存重建并发。 */
     private suspend fun localCopyLocked(book: BookEntity): File {
         val dir = File(context.cacheDir, "read").apply { mkdirs() }
-        val identity = "${book.id}:${book.filePath}:${book.sizeBytes}:${book.sourceModifiedAt}:${book.contentFingerprint}"
-        val name = java.security.MessageDigest.getInstance("SHA-256").digest(identity.toByteArray())
-            .joinToString("") { "%02x".format(it) } + ".arc"
+        val name = localCopyName(book)
         val target = File(dir, name)
         if (book.sourceModifiedAt > 0 && book.sizeBytes > 0 && target.isFile && target.length() > 0) {
             target.setLastModified(System.currentTimeMillis())
@@ -1308,7 +1343,9 @@ class LibraryRepository(
     private suspend fun copyInto(uri: Uri, target: File) {
         require(uri.scheme == "content" || uri.scheme == "file") { "源文件不可访问，请重新导入" }
         try {
-            val sourceStream: InputStream? = if (uri.scheme == "file") {
+            val sourceStream: InputStream? = if (WebDavRepository.isRemote(uri)) {
+                ParcelFileDescriptor.AutoCloseInputStream(remoteSource.openDescriptor(DocumentsContract.getDocumentId(uri)))
+            } else if (uri.scheme == "file") {
                 runCatching { FileInputStream(File(uri.path.orEmpty())) }.getOrNull()
             } else {
                 resolver.openInputStream(uri)

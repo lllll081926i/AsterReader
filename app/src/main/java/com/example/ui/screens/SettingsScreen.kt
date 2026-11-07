@@ -40,6 +40,10 @@ fun SettingsScreen(
     onBack: (() -> Unit)? = null,
     section: String? = null
 ) {
+    if (section == "webdav") {
+        WebDavScreen(onBack = { onBack?.invoke() }, onOpenBook = viewModel::openBookReader)
+        return
+    }
     if (onBack != null) BackHandler(onBack = onBack)
     val shelves by viewModel.allShelves.collectAsStateWithLifecycle()
     val books by viewModel.allBooks.collectAsStateWithLifecycle()
@@ -123,6 +127,8 @@ fun SettingsScreen(
                         AsterGroupDivider()
                         AsterSettingsRow("添加仓库", leadingIcon = Icons.Outlined.CreateNewFolder,
                             onClick = { viewModel.addRepositoryAndScan("本地书库", com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE) })
+                        AsterGroupDivider()
+                        AsterSettingsRow("WebDAV", leadingIcon = Icons.Outlined.Cloud, onClick = { navigate("webdav") })
                     }
                     if (repositories.isNotEmpty()) AsterSettingsGroup("已添加") {
                         repositories.forEachIndexed { index, repo ->

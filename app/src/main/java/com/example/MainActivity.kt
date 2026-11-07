@@ -111,7 +111,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-            val fileVaultPage = (uiState.activeSubScreen as? SubScreen.SettingsSection)?.section?.startsWith("file") == true
+            val fileVaultPage = (uiState.activeSubScreen as? SubScreen.SettingsSection)?.section?.let {
+                it.startsWith("file") || it == "webdav"
+            } == true
             LaunchedEffect(uiState.flagSecureEnabled, uiState.hideRecentsPreview, uiState.isAppLockedNow, uiState.fileVaultOpen, fileVaultPage) {
                 if (uiState.flagSecureEnabled || uiState.hideRecentsPreview || uiState.isAppLockedNow || uiState.fileVaultOpen || fileVaultPage)
                     window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)

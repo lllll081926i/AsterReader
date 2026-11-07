@@ -51,7 +51,9 @@ fun AboutSettingsContent(onOpenLicenses: () -> Unit) {
         AboutValue("图片", "单图 · 图片文件夹")
     }
     AsterSettingsGroup("隐私") {
-        AboutValue("文件", "本地保存，保留原文件")
+        AboutValue("文件", "本地或 WebDAV，保留原文件")
+        AsterGroupDivider()
+        AboutValue("联网", "仅按需读取，不上传漫画与阅读记录")
         AsterGroupDivider()
         AboutValue("隐藏", "应用内访问锁，不加密原文件")
         AsterGroupDivider()
