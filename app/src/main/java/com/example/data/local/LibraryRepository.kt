@@ -346,8 +346,8 @@ class LibraryRepository(
                     enumerated += children.size
                     check(enumerated <= MAX_SCAN_ITEMS) { "单次扫描最多处理 $MAX_SCAN_ITEMS 项，请缩小授权范围" }
                     children.filter { it.isDirectory }.forEach { queue.add(it.documentId) }
-                    val archives = children.filter { !it.isDirectory && it.extension in ARCHIVE_EXTENSIONS }
-                    val images = children.filter { !it.isDirectory && it.extension in IMAGE_EXTENSIONS }
+                    val archives = children.filter { !it.isDirectory && detectFormat(it.name, it.mimeType) in ARCHIVE_EXTENSIONS }
+                    val images = children.filter { !it.isDirectory && detectFormat(it.name, it.mimeType) == "IMAGE" }
                     for (child in archives) {
                         currentCoroutineContext().ensureActive()
                         seen.add(child.uriString)
@@ -604,15 +604,18 @@ class LibraryRepository(
     private data class ImagePage(val uri: Uri, val name: String, val size: Long, val modifiedAt: Long)
 
     private fun detectFormat(name: String, mimeType: String): String {
-        val extension = name.substringAfterLast('.', "").uppercase(Locale.ROOT)
+        val extension = name.trim().substringAfterLast('.', "").uppercase(Locale.ROOT)
         if (extension in ARCHIVE_EXTENSIONS || extension == "PDF") return extension
         if (extension in IMAGE_EXTENSIONS) return "IMAGE"
-        return when (mimeType) {
+        return when (mimeType.substringBefore(';').trim().lowercase(Locale.ROOT)) {
             "application/pdf" -> "PDF"
-            "application/vnd.comicbook+zip", "application/zip" -> "CBZ"
+            "application/vnd.comicbook+zip", "application/zip", "application/x-zip-compressed" -> "CBZ"
             "application/vnd.comicbook-rar", "application/vnd.rar", "application/x-rar-compressed" -> "CBR"
             "application/x-7z-compressed" -> "CB7"
             "application/x-tar" -> "CBT"
+            "application/epub+zip" -> "EPUB"
+            "image/jpeg", "image/png", "image/webp", "image/bmp", "image/gif",
+            "image/avif", "image/heic", "image/heif" -> "IMAGE"
             else -> extension
         }
     }
@@ -700,7 +703,7 @@ class LibraryRepository(
     private suspend fun listImages(treeUri: Uri, folderUri: Uri): List<ImagePage> {
         val folderId = DocumentsContract.getDocumentId(folderUri)
         return queryChildren(treeUri, folderId)
-            .filter { !it.isDirectory && it.extension in IMAGE_EXTENSIONS }
+            .filter { !it.isDirectory && detectFormat(it.name, it.mimeType) == "IMAGE" }
             .sortedWith { a, b -> naturalCompare(a.name, b.name) }
             .map { ImagePage(it.uri, it.name, it.size, it.modifiedAt) }
     }
@@ -950,7 +953,7 @@ class LibraryRepository(
         /** 真正可读的容器：ZIP/CBZ、TAR/CBT、7Z/CB7、RAR/CBR、EPUB、PDF、单图、散图目录。 */
         val READABLE_FORMATS = setOf("CBZ", "ZIP", "CBR", "RAR", "CB7", "7Z", "CBT", "TAR", "PDF", "EPUB", "IMAGE", "IMAGE_DIR")
         private val ARCHIVE_EXTENSIONS = setOf("CBZ", "ZIP", "CBR", "RAR", "CB7", "7Z", "CBT", "TAR", "EPUB", "PDF")
-        val IMAGE_EXTENSIONS = setOf("JPG", "JPEG", "PNG", "WEBP", "BMP", "GIF", "AVIF", "HEIC", "HEIF")
+        val IMAGE_EXTENSIONS = setOf("JPG", "JPEG", "JPE", "JFIF", "PNG", "WEBP", "BMP", "GIF", "AVIF", "HEIC", "HEIF")
 
         fun formatSize(bytes: Long): String =
             if (bytes <= 0) "大小未知" else String.format(Locale.ROOT, "%.2f MB", bytes / 1048576.0)

@@ -8,13 +8,11 @@ val AsterShapes = com.asterreader.core.designsystem.AsterShapes
 @Composable
 fun AsterReaderTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
-) = com.asterreader.core.designsystem.AsterReaderTheme(darkTheme, dynamicColor, content)
+) = com.asterreader.core.designsystem.AsterReaderTheme(darkTheme, content)
 
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
-) = AsterReaderTheme(darkTheme, dynamicColor, content)
+) = AsterReaderTheme(darkTheme, content)

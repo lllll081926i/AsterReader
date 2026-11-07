@@ -253,10 +253,13 @@ fun SettingsScreen(
 @Composable
 private fun SettingsRadioRow(title: String, selected: Boolean, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = AsterLayout.SettingsRowHeight)
+        .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
         .selectableSetting(selected, onClick).padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-        RadioButton(selected, onClick = null)
+        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
+            color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface)
+        RadioButton(selected, onClick = null,
+            colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.onSecondaryContainer))
     }
 }
 

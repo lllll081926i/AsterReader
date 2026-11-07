@@ -41,6 +41,7 @@ class LibraryRepositoryTest {
     private lateinit var db: AsterDatabase
     private lateinit var repository: LibraryRepository
     private val files = mutableMapOf<String, File>()
+    private val mimeTypes = mutableMapOf<String, String>()
     private val opened = java.util.concurrent.atomic.AtomicInteger()
     private var onOpen: (() -> Unit)? = null
 
@@ -51,13 +52,13 @@ class LibraryRepositoryTest {
         repository = LibraryRepository(app, db.asterDao())
         val provider = object : ContentProvider() {
             override fun onCreate() = true
-            override fun getType(uri: Uri) = "application/octet-stream"
+            override fun getType(uri: Uri) = mimeTypes[uri.lastPathSegment] ?: "application/octet-stream"
             override fun query(uri: Uri, projection: Array<out String>?, selection: String?, args: Array<out String>?, sort: String?): Cursor {
                 if (uri.lastPathSegment == "children") {
                     return MatrixCursor(arrayOf(android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                         android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE,
                         android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME)).apply {
-                        files.forEach { (name, _) -> addRow(arrayOf(name, "application/octet-stream", name)) }
+                        files.forEach { (name, _) -> addRow(arrayOf(name, mimeTypes[name] ?: "application/octet-stream", name)) }
                     }
                 }
                 val file = files.getValue(uri.lastPathSegment!!)
@@ -112,12 +113,12 @@ class LibraryRepositoryTest {
         return Uri.parse("content://audit.documents/$name")
     }
 
-    private fun comicBytes(count: Int = 2): ByteArray {
+    private fun comicBytes(count: Int = 2, charset: java.nio.charset.Charset = Charsets.UTF_8): ByteArray {
         val bytes = java.io.ByteArrayOutputStream()
         val png = java.util.Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
-        ZipOutputStream(bytes).use { zip ->
+        ZipOutputStream(bytes, charset).use { zip ->
             for (number in 1..count) {
-                zip.putNextEntry(ZipEntry("$number.png")); zip.write(png); zip.closeEntry()
+                zip.putNextEntry(ZipEntry("漫画/$number.png")); zip.write(png); zip.closeEntry()
             }
         }
         return bytes.toByteArray()
@@ -213,6 +214,28 @@ class LibraryRepositoryTest {
         val cover = File(imported.coverUrl)
         assertTrue("封面文件不存在：${imported.coverUrl}", cover.exists() && cover.length() > 0)
         assertEquals(1, android.graphics.BitmapFactory.decodeFile(cover.absolutePath)?.width)
+    }
+
+    @Test fun directoryScanFindsZipByExtensionAndMimeAndBuildsCovers() = runBlocking {
+        document("中文旧编码.ZIP", comicBytes(charset = java.nio.charset.Charset.forName("GB18030")))
+        document("无扩展漫画", comicBytes(3))
+        mimeTypes["无扩展漫画"] = "application/x-zip-compressed"
+        document("普通.zip", comicBytes())
+        document("非漫画.zip", java.io.ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(ZipEntry("说明.txt")); zip.write("只有文本".toByteArray()); zip.closeEntry()
+            }
+        }.toByteArray())
+        val report = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "ZIP仓库", LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(3, report.imported)
+        assertEquals(1, report.failed)
+        val books = repository.observeAllBooks().first()
+        assertEquals(3, books.size)
+        for (book in books) {
+            assertTrue(book.coverUrl.isNotBlank())
+            assertNotNull(android.graphics.BitmapFactory.decodeFile(book.coverUrl))
+            assertTrue(repository.renderPage(book.id, 1).width > 0)
+        }
     }
 
     @Test

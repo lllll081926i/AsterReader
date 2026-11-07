@@ -1,6 +1,16 @@
 package com.example.ui.screens
 
 import com.asterreader.core.designsystem.AsterLayout
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import com.example.ui.components.AsterPairedActions
 
 import androidx.compose.foundation.layout.heightIn
 
@@ -178,10 +188,10 @@ fun LibraryHomeScreen(
     }.collectAsState(initial = emptyList())
 
     val gridColumns = when (uiState.libraryLayoutMode) {
-        LibraryLayoutMode.GRID_2 -> if (isExpandedTablet) GridCells.Adaptive(minSize = 170.dp) else GridCells.Fixed(2)
-        LibraryLayoutMode.GRID_3 -> if (isExpandedTablet) GridCells.Adaptive(minSize = 135.dp) else GridCells.Fixed(3)
+        LibraryLayoutMode.GRID_2 -> GridCells.Adaptive(minSize = 148.dp)
+        LibraryLayoutMode.GRID_3 -> GridCells.Adaptive(minSize = 100.dp)
         LibraryLayoutMode.LIST -> GridCells.Fixed(1)
-        LibraryLayoutMode.GALLERY -> if (isExpandedTablet) GridCells.Adaptive(minSize = 260.dp) else GridCells.Fixed(1)
+        LibraryLayoutMode.GALLERY -> GridCells.Adaptive(minSize = 260.dp)
     }
 
     Row(
@@ -270,7 +280,7 @@ fun LibraryHomeScreen(
                         if (uiState.libraryLayoutMode == LibraryLayoutMode.GRID_3) 10.dp else 12.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(
-                        if (uiState.libraryLayoutMode == LibraryLayoutMode.LIST) 10.dp else 14.dp
+                        if (uiState.libraryLayoutMode == LibraryLayoutMode.LIST) 10.dp else 8.dp
                     ),
                     modifier = Modifier
                         .fillMaxSize()
@@ -281,7 +291,7 @@ fun LibraryHomeScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight),
+                                .heightIn(min = com.asterreader.core.designsystem.AsterLayout.MainHeaderHeight),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -308,7 +318,7 @@ fun LibraryHomeScreen(
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                horizontalArrangement = Arrangement.spacedBy(0.dp)
                             ) {
                                 // 切换视图。
                                 IconButton(
@@ -326,7 +336,7 @@ fun LibraryHomeScreen(
                                         },
                                         contentDescription = "切换视图",
                                         tint = colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(AsterLayout.HeaderIconSize)
                                     )
                                 }
 
@@ -341,7 +351,7 @@ fun LibraryHomeScreen(
                                             imageVector = Icons.Filled.MoreVert,
                                             contentDescription = "更多选项",
                                             tint = colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(AsterLayout.HeaderIconSize)
                                         )
                                     }
                                     DropdownMenu(
@@ -399,7 +409,7 @@ fun LibraryHomeScreen(
                                         imageVector = Icons.Outlined.Settings,
                                         contentDescription = "设置",
                                         tint = colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(AsterLayout.HeaderIconSize)
                                     )
                                 }
                             }
@@ -572,7 +582,7 @@ fun LibraryHomeScreen(
                                     description = "当前筛选条件下没有书卷，换个条件或查看全部。",
                                     actionLabel = "显示全部",
                                     onAction = { viewModel.setLibraryQuickStatusFilter("全部格式") },
-                                    showActionIcon = false
+                                    actionIcon = Icons.Outlined.RestartAlt
                                 )
                             }
                         }
@@ -1730,8 +1740,9 @@ fun SearchAndFilterScreen(
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
 
-    var showFilterSheet by remember { mutableStateOf(openFilterInitially) }
-    var searchScopeTab by remember(initialScope) { mutableStateOf(initialScope) } // 全部, 漫画, 书签札记
+    var showFilterSheet by rememberSaveable { mutableStateOf(openFilterInitially) }
+    var searchScopeTab by rememberSaveable(initialScope) { mutableStateOf(initialScope) } // 全部, 漫画, 书签札记
+    val keyboard = LocalSoftwareKeyboardController.current
 
     val request = com.example.ui.LibrarySearchRequest(uiState.searchQuery, searchScopeTab,
         uiState.sortOption, uiState.searchStatusFilter, uiState.searchFormatFilters,
@@ -1771,9 +1782,10 @@ fun SearchAndFilterScreen(
         // Top Search Input Bar
         Column(
             modifier = Modifier
+                .widthIn(max = AsterLayout.SearchContentMaxWidth)
                 .fillMaxWidth()
-                .widthIn(max = 720.dp)
                 .align(Alignment.CenterHorizontally)
+                .testTag("search_content_header")
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -1782,11 +1794,12 @@ fun SearchAndFilterScreen(
                 color = asterColors.surfaceContainer,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .heightIn(min = AsterLayout.TouchTarget)
             ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .heightIn(min = AsterLayout.TouchTarget)
                         .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1803,11 +1816,17 @@ fun SearchAndFilterScreen(
                         value = uiState.searchQuery,
                         onValueChange = { viewModel.updateSearchQuery(it) },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = {
+                            viewModel.commitSearchHistory(uiState.searchQuery)
+                            keyboard?.hide()
+                        }),
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = colorScheme.onSurface),
                         cursorBrush = SolidColor(colorScheme.primary),
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 4.dp)
+                            .semantics { contentDescription = "搜索书名、作者、系列、标签或批注" }
                             .testTag("search_query_input"),
                         decorationBox = { innerTextField ->
                             if (uiState.searchQuery.isEmpty()) {
@@ -1864,8 +1883,8 @@ fun SearchAndFilterScreen(
         // Scope Switcher Tabs + Active Filter Bar
         Row(
             modifier = Modifier
+                .widthIn(max = AsterLayout.SearchContentMaxWidth)
                 .fillMaxWidth()
-                .widthIn(max = 720.dp)
                 .align(Alignment.CenterHorizontally)
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -1876,12 +1895,12 @@ fun SearchAndFilterScreen(
                 val isSelected = searchScopeTab == tab
                 Surface(
                     shape = CircleShape,
-                    color = if (isSelected) colorScheme.primary else asterColors.surfaceContainer,
-                    contentColor = if (isSelected) colorScheme.onPrimary else colorScheme.onSurfaceVariant,
+                    color = if (isSelected) colorScheme.secondaryContainer else asterColors.surfaceContainer,
+                    contentColor = if (isSelected) colorScheme.onSecondaryContainer else colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                         .clip(CircleShape)
-                        .clickable { searchScopeTab = tab }
+                        .selectable(isSelected, role = Role.Tab, onClick = { searchScopeTab = tab })
                 ) {
                     Box(
                         modifier = Modifier.padding(horizontal = 14.dp),
@@ -1979,9 +1998,10 @@ fun SearchAndFilterScreen(
 
         LazyColumn(
             modifier = Modifier
+                .widthIn(max = AsterLayout.SearchContentMaxWidth)
                 .fillMaxSize()
-                .widthIn(max = 720.dp)
-                .align(Alignment.CenterHorizontally),
+                .align(Alignment.CenterHorizontally)
+                .testTag("search_results"),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -2013,17 +2033,10 @@ fun SearchAndFilterScreen(
                                         softWrap = false
                                     )
                                 }
-                                Text(
-                                    text = "清空",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = colorScheme.primary,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    modifier = Modifier
-                                        .clip(CircleShape)
-                                        .clickable { viewModel.clearSearchHistory() }
-                                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                                )
+                                IconButton(onClick = viewModel::clearSearchHistory,
+                                    modifier = Modifier.size(AsterLayout.TouchTarget)) {
+                                    Icon(Icons.Outlined.DeleteOutline, "清空搜索历史", Modifier.size(AsterLayout.HeaderIconSize))
+                                }
                             }
 
                             FlowRow(
@@ -2124,7 +2137,7 @@ fun SearchAndFilterScreen(
                 } else if (matchingBooks.isEmpty()) {
                     item {
                         AsterEmptyState(
-                            title = "未找到匹配的作品",
+                            title = if (uiState.searchQuery.isBlank() && uiState.activeFilterCount == 0) "搜索书库" else "未找到匹配的作品",
                             description = if (uiState.searchQuery.isBlank()) "输入书名、作者或标签开始搜索。"
                             else "换个关键词，或放宽筛选条件试试。",
                             compact = true,
@@ -2132,7 +2145,7 @@ fun SearchAndFilterScreen(
                             onAction = if (uiState.activeFilterCount > 0) {
                                 { viewModel.resetAllSearchFilters() }
                             } else null,
-                            showActionIcon = false
+                            actionIcon = Icons.Outlined.RestartAlt
                         )
                     }
                 } else {
@@ -2341,36 +2354,13 @@ fun SearchAndFilterScreen(
                     color = asterColors.surfaceContainer.copy(alpha = 0.65f),
                     border = BorderStroke(0.5.dp, colorScheme.outlineVariant.copy(alpha = 0.3f))
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedButton(
-                            onClick = { viewModel.resetAllSearchFilters() },
-                            shape = CircleShape,
-                            modifier = Modifier.height(46.dp)
-                        ) {
-                            Icon(Icons.Outlined.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("重置", maxLines = 1, softWrap = false)
-                        }
-
-                        Button(
-                            onClick = { showFilterSheet = false },
-                            shape = CircleShape,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(46.dp)
-                                .testTag("apply_filter_sheet_btn")
-                        ) {
-                            Icon(Icons.Outlined.FilterAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("查看 ${matchingBooks.size} 部", maxLines = 1, softWrap = false)
-                        }
-                    }
+                    AsterPairedActions(
+                        leftLabel = "重置", leftIcon = Icons.Outlined.RestartAlt,
+                        onLeft = viewModel::resetAllSearchFilters,
+                        rightLabel = "查看 ${matchingBooks.size} 部", rightIcon = Icons.Outlined.FilterAlt,
+                        onRight = { showFilterSheet = false }, primaryOnRight = true,
+                        modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("apply_filter_sheet_btn")
+                    )
                 }
             }
         }

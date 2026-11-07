@@ -56,7 +56,6 @@ class AsterViewModelFeatureTest {
     fun testInitialEmptyLibraryState() = runBlocking {
         val uiState = viewModel.uiState.value
         assertEquals(MainNavDestination.LIBRARY, uiState.currentTab)
-        assertTrue(uiState.useDynamicColor) // 确保默认开启原生 Monet 动态取色
         assertTrue(uiState.subScreenStack.isEmpty())
         assertNull(uiState.activeSubScreen)
     }

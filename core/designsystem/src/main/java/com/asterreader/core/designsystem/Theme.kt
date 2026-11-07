@@ -95,12 +95,11 @@ object AsterThemeTokens {
 @Composable
 fun AsterReaderTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             runCatching { if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context) }
                 .getOrElse { if (darkTheme) AsterDarkColorScheme else AsterLightColorScheme }
         }
@@ -108,9 +107,7 @@ fun AsterReaderTheme(
         else -> AsterLightColorScheme
     }
 
-    val isMonetActive = dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-
-    val extendedColors = if (isMonetActive) {
+    val extendedColors =
         AsterExtendedColors(
             surfaceContainerLowest = colorScheme.surfaceContainerLowest,
             surfaceContainerLow = colorScheme.surfaceContainerLow,
@@ -125,37 +122,6 @@ fun AsterReaderTheme(
             vaultSecureTint = colorScheme.primary,
             isDark = darkTheme
         )
-    } else if (darkTheme) {
-        AsterExtendedColors(
-            surfaceContainerLowest = AsterSurfaceContainerLowestDark,
-            surfaceContainerLow = AsterSurfaceContainerLowDark,
-            surfaceContainer = AsterSurfaceContainerDark,
-            surfaceContainerHigh = AsterSurfaceContainerHighDark,
-            surfaceContainerHighest = AsterSurfaceContainerHighestDark,
-            surfaceDim = AsterSurfaceDimDark,
-            surfaceBright = AsterSurfaceBrightDark,
-            primaryFixed = AsterPrimaryFixed,
-            primaryFixedDim = AsterPrimaryFixedDim,
-            onPrimaryFixed = AsterOnPrimaryFixed,
-            vaultSecureTint = AsterPrimaryDark,
-            isDark = true
-        )
-    } else {
-        AsterExtendedColors(
-            surfaceContainerLowest = AsterSurfaceContainerLowestLight,
-            surfaceContainerLow = AsterSurfaceContainerLowLight,
-            surfaceContainer = AsterSurfaceContainerLight,
-            surfaceContainerHigh = AsterSurfaceContainerHighLight,
-            surfaceContainerHighest = AsterSurfaceContainerHighestLight,
-            surfaceDim = AsterSurfaceDimLight,
-            surfaceBright = AsterSurfaceBrightLight,
-            primaryFixed = AsterPrimaryFixed,
-            primaryFixedDim = AsterPrimaryFixedDim,
-            onPrimaryFixed = AsterOnPrimaryFixed,
-            vaultSecureTint = AsterVaultSecureTint,
-            isDark = false
-        )
-    }
 
     CompositionLocalProvider(LocalAsterColors provides extendedColors) {
         MaterialTheme(

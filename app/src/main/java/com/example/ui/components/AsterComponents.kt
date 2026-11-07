@@ -92,8 +92,6 @@ enum class MainNavDestination(
 fun AppleFloatingBottomDock(
     currentDestination: MainNavDestination,
     onSelectDestination: (MainNavDestination) -> Unit,
-    libraryCount: Int,
-    isVaultUnlocked: Boolean,
     isExpandedTablet: Boolean,
     lastReadTitle: String? = null,
     onQuickResumeRead: (() -> Unit)? = null,
@@ -111,7 +109,9 @@ fun AppleFloatingBottomDock(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(bottom = 14.dp, start = 16.dp, end = 16.dp),
+            .padding(bottom = com.asterreader.core.designsystem.AsterLayout.FloatingDockBottomGap,
+                start = com.asterreader.core.designsystem.AsterLayout.PagePadding,
+                end = com.asterreader.core.designsystem.AsterLayout.PagePadding),
         contentAlignment = Alignment.Center
     ) {
         Surface(
@@ -123,7 +123,8 @@ fun AppleFloatingBottomDock(
                 width = 0.8.dp,
                 color = colorScheme.outlineVariant.copy(alpha = 0.45f)
             ),
-            modifier = Modifier.testTag("apple_floating_bottom_dock")
+            modifier = Modifier.heightIn(min = com.asterreader.core.designsystem.AsterLayout.MainNavigationHeight)
+                .testTag("apple_floating_bottom_dock")
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
@@ -151,18 +152,19 @@ fun AppleFloatingBottomDock(
                     Column(
                         modifier = Modifier
                             .widthIn(min = 68.dp)
+                            .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                             .clip(androidx.compose.foundation.shape.CircleShape)
                             .background(pillBg)
                             .asterBounceClick { onSelectDestination(dest) }
                             .padding(horizontal = 18.dp, vertical = 6.dp)
-                            .semantics { this.selected = selected }
+                            .semantics(mergeDescendants = true) { this.selected = selected; role = Role.Tab }
                             .testTag("nav_dock_${dest.route}"),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Icon(
                             imageVector = if (selected) dest.filledIcon else dest.outlinedIcon,
-                            contentDescription = dest.label,
+                            contentDescription = null,
                             tint = iconTint,
                             modifier = Modifier.size(20.dp)
                         )

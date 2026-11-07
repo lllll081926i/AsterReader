@@ -109,7 +109,6 @@ data class AsterUiState(
 
     // Theme & Appearance (Monet Dynamic Color 为全局默认)
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val useDynamicColor: Boolean = true,
     val reduceMotion: Boolean = false,
     val libraryLayoutMode: LibraryLayoutMode = LibraryLayoutMode.GRID_2,
     val shelvesViewMode: ShelvesViewMode = ShelvesViewMode.COLLAGE_GRID,

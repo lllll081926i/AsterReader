@@ -155,9 +155,9 @@ fun ShelvesScreen(
     var showShelfOrderDialog by remember { mutableStateOf(false) }
 
     val shelvesGridColumns = when (uiState.shelvesViewMode) {
-        ShelvesViewMode.COLLAGE_GRID -> if (isExpandedTablet) GridCells.Adaptive(minSize = 175.dp) else GridCells.Fixed(2)
-        ShelvesViewMode.COMPACT_GRID -> if (isExpandedTablet) GridCells.Adaptive(minSize = 120.dp) else GridCells.Fixed(3)
-        ShelvesViewMode.HORIZONTAL_LIST, ShelvesViewMode.BOOKSHELF_ROW -> if (isExpandedTablet) GridCells.Adaptive(minSize = 340.dp) else GridCells.Fixed(1)
+        ShelvesViewMode.COLLAGE_GRID -> GridCells.Adaptive(minSize = 148.dp)
+        ShelvesViewMode.COMPACT_GRID -> GridCells.Adaptive(minSize = 100.dp)
+        ShelvesViewMode.HORIZONTAL_LIST, ShelvesViewMode.BOOKSHELF_ROW -> GridCells.Adaptive(minSize = 340.dp)
     }
 
     Column(
@@ -171,7 +171,7 @@ fun ShelvesScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = com.asterreader.core.designsystem.AsterLayout.HeaderHeight)
+                .heightIn(min = com.asterreader.core.designsystem.AsterLayout.MainHeaderHeight)
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -185,14 +185,14 @@ fun ShelvesScreen(
             )
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // 排序入口。
                 Surface(
                     onClick = { showShelfOrderDialog = true },
                     shape = androidx.compose.foundation.shape.CircleShape,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    color = androidx.compose.ui.graphics.Color.Transparent,
                     modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -200,7 +200,7 @@ fun ShelvesScreen(
                             imageVector = Icons.Outlined.SwapVert,
                             contentDescription = "排序与删除",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize)
                         )
                     }
                 }
@@ -209,7 +209,7 @@ fun ShelvesScreen(
                 Surface(
                     onClick = { showCreateDialog = true },
                     shape = androidx.compose.foundation.shape.CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = androidx.compose.ui.graphics.Color.Transparent,
                     modifier = Modifier
                         .size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                         .testTag("create_shelf_button")
@@ -218,8 +218,8 @@ fun ShelvesScreen(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "新建",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(20.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize)
                         )
                     }
                 }
@@ -235,7 +235,7 @@ fun ShelvesScreen(
                         imageVector = Icons.Outlined.Settings,
                         contentDescription = "设置",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize)
                     )
                 }
             }
@@ -243,7 +243,7 @@ fun ShelvesScreen(
 
         LazyVerticalGrid(
             columns = shelvesGridColumns,
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxSize()

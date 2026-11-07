@@ -32,6 +32,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.LockOpen
+import com.example.ui.components.AsterPairedActions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -429,10 +432,8 @@ fun SystemSecurityAuthPromptSheet(
             )
 
             Spacer(Modifier.height(18.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = onDismiss) { Text("取消") }
-                FilledTonalButton(
-                    onClick = {
+            AsterPairedActions(leftLabel = "取消", leftIcon = Icons.Outlined.Close, onLeft = onDismiss,
+                rightLabel = "解锁", rightIcon = Icons.Outlined.LockOpen, onRight = {
                         checkingPin = true
                         viewModel.beginUnlockAttempt()
                         scope.launch {
@@ -446,10 +447,7 @@ fun SystemSecurityAuthPromptSheet(
                             } finally { checkingPin = false }
                         }
                     },
-                    enabled = pin.isNotEmpty() && remainingSeconds == 0L && !checkingPin,
-                    shape = CircleShape
-                ) { Text("解锁") }
-            }
+                primaryOnRight = true, rightEnabled = pin.isNotEmpty() && remainingSeconds == 0L && !checkingPin)
             Spacer(Modifier.height(8.dp))
         }
     }

@@ -18,6 +18,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.CreateNewFolder
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,7 +54,9 @@ fun AsterEmptyState(
     secondaryLabel: String? = null,
     onSecondaryAction: (() -> Unit)? = null,
     compact: Boolean = false,
-    showActionIcon: Boolean = true
+    showActionIcon: Boolean = true,
+    actionIcon: ImageVector = Icons.Outlined.Description,
+    secondaryIcon: ImageVector = Icons.Outlined.CreateNewFolder
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val asterColors = LocalAsterColors.current
@@ -90,19 +95,15 @@ fun AsterEmptyState(
         )
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(20.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Button(onClick = onAction, shape = CircleShape) {
+            if (secondaryLabel != null && onSecondaryAction != null) {
+                AsterPairedActions(actionLabel, actionIcon, onAction, secondaryLabel, secondaryIcon, onSecondaryAction)
+            } else {
+                Button(onClick = onAction, shape = CircleShape, modifier = Modifier.heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)) {
                     if (showActionIcon) {
-                        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(actionIcon, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.size(6.dp))
                     }
                     Text(actionLabel)
-                }
-                if (secondaryLabel != null && onSecondaryAction != null) {
-                    OutlinedButton(onClick = onSecondaryAction, shape = CircleShape) {
-                        Text(secondaryLabel)
-                    }
                 }
             }
         }

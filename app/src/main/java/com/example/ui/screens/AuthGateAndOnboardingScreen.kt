@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -34,6 +35,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.LocalLibrary
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
@@ -306,8 +309,10 @@ fun OnboardingScreen(
                     shape = CircleShape,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .heightIn(min = 48.dp)
                 ) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text("开始使用", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
                 }
                 OutlinedButton(
@@ -315,8 +320,10 @@ fun OnboardingScreen(
                     shape = CircleShape,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(46.dp)
+                        .heightIn(min = 48.dp)
                 ) {
+                    Icon(Icons.Outlined.Description, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text("支持格式", maxLines = 1, softWrap = false)
                 }
             } else if (step == 1) {
@@ -325,8 +332,10 @@ fun OnboardingScreen(
                     shape = CircleShape,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .heightIn(min = 48.dp)
                 ) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text("下一步", maxLines = 1, softWrap = false)
                 }
             } else {
@@ -335,8 +344,10 @@ fun OnboardingScreen(
                     shape = CircleShape,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .heightIn(min = 48.dp)
                 ) {
+                    Icon(Icons.Outlined.LocalLibrary, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text("进入书库", maxLines = 1, softWrap = false)
                 }
                 OutlinedButton(
@@ -347,8 +358,10 @@ fun OnboardingScreen(
                     shape = CircleShape,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(46.dp)
+                        .heightIn(min = 48.dp)
                 ) {
+                    Icon(Icons.Filled.Lock, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text("安全设置", maxLines = 1, softWrap = false)
                 }
             }

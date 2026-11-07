@@ -1,6 +1,7 @@
 package com.example
 
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.background
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.layout.onSizeChanged
@@ -123,8 +124,7 @@ class MainActivity : ComponentActivity() {
             }
 
             AsterReaderTheme(
-                darkTheme = darkTheme,
-                dynamicColor = uiState.useDynamicColor
+                darkTheme = darkTheme
             ) {
                 CompositionLocalProvider(LocalAsterReduceMotion provides (uiState.reduceMotion || !android.animation.ValueAnimator.areAnimatorsEnabled())) {
                     AsterReaderAppRoot(viewModel = viewModel, uiState = uiState)
@@ -337,10 +337,9 @@ fun AsterReaderAppRoot(
         }
     }
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        // 严格界定平板横屏/展开模式：不仅要求宽度 >= 720dp，还要求处于横屏比例（宽 > 高）
-        // 杜绝竖屏大手机或折叠屏竖屏时被误判为平板双栏导致布局异常
-        val isExpandedTablet = maxWidth >= 720.dp
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        val useNavigationRail = maxWidth >= com.asterreader.core.designsystem.AsterLayout.NavigationRailBreakpoint
+        val isExpandedTablet = maxWidth >= com.asterreader.core.designsystem.AsterLayout.SupportingPaneBreakpoint
         val activeSub = uiState.activeSubScreen
         val showAppleBottomDock = activeSub == null && !uiState.isBatchSelectionMode
         var navigationWidth by remember { mutableIntStateOf(0) }
@@ -350,8 +349,8 @@ fun AsterReaderAppRoot(
         Box(modifier = Modifier.fillMaxSize()) {
             AnimatedContent(
                 modifier = Modifier.padding(
-                    start = if (showAppleBottomDock && isExpandedTablet) with(density) { navigationWidth.toDp() } else 0.dp,
-                    bottom = if (showAppleBottomDock && !isExpandedTablet) with(density) { navigationHeight.toDp() } else 0.dp),
+                    start = if (showAppleBottomDock && useNavigationRail) with(density) { navigationWidth.toDp() } else 0.dp,
+                    bottom = if (showAppleBottomDock && !useNavigationRail) with(density) { navigationHeight.toDp() } else 0.dp),
                 targetState = Triple(activeSub, uiState.currentTab, uiState.subScreenStack.size),
                 transitionSpec = {
                     val (targetSub, targetTab) = targetState
@@ -583,16 +582,16 @@ fun AsterReaderAppRoot(
                 visible = showAppleBottomDock,
                 enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically { it } + fadeIn(),
                 exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else slideOutVertically { it } + fadeOut(),
-                modifier = Modifier.align(if (isExpandedTablet) Alignment.CenterStart else Alignment.BottomCenter)
+                modifier = Modifier.align(if (useNavigationRail) Alignment.CenterStart else Alignment.BottomCenter)
             ) {
-                AsterMainNavigation(isExpandedTablet, uiState.currentTab, viewModel::selectMainTab,
+                AsterMainNavigation(useNavigationRail, uiState.currentTab, viewModel::selectMainTab,
                     Modifier.onSizeChanged { navigationWidth = it.width; navigationHeight = it.height })
             }
 
             androidx.compose.material3.SnackbarHost(
                 hostState = snackbarHost,
                 modifier = Modifier.align(Alignment.BottomCenter)
-                    .then(if (showAppleBottomDock && !isExpandedTablet)
+                    .then(if (showAppleBottomDock && !useNavigationRail)
                         Modifier.padding(bottom = with(density) { navigationHeight.toDp() })
                         else Modifier.navigationBarsPadding())
                     .padding(horizontal = 12.dp)

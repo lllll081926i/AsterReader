@@ -27,7 +27,7 @@ internal interface ComicArchive : Closeable {
 
 internal object ComicArchives {
 
-    private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "bmp", "gif", "avif", "heic", "heif")
+    private val IMAGE_EXTENSIONS = LibraryRepository.IMAGE_EXTENSIONS.map { it.lowercase(Locale.ROOT) }.toSet()
 
     fun isImageEntry(name: String): Boolean {
         val normalized = name.replace('\\', '/')
@@ -55,6 +55,13 @@ internal object ComicArchives {
     }
 }
 
+/** 旧中文 ZIP 常用 GBK 文件名；先按 UTF-8 校验，再兼容 GB18030。 */
+private fun openComicZip(file: File): ZipFile = try {
+    ZipFile(file)
+} catch (_: java.util.zip.ZipException) {
+    ZipFile(file, java.nio.charset.Charset.forName("GB18030"))
+}
+
 /**
  * EPUB 阅读顺序来自 OPF spine，而不是文件名：
  * META-INF/container.xml → OPF → manifest(id→href) → spine(idref…) →
@@ -62,7 +69,7 @@ internal object ComicArchives {
  * 解析失败时由 [ComicArchives.open] 退化为普通 ZIP。
  */
 private class EpubComicArchive(file: File) : ComicArchive {
-    private val zip = ZipFile(file)
+    private val zip = openComicZip(file)
     private val entries: List<ZipEntry> = resolveSpinePages(zip)
         .mapNotNull { name -> zip.getEntry(name) }
         .ifEmpty {
@@ -174,7 +181,7 @@ private class EpubComicArchive(file: File) : ComicArchive {
 }
 
 private class ZipComicArchive(file: File) : ComicArchive {
-    private val zip = ZipFile(file)
+    private val zip = openComicZip(file)
     private val entries: List<ZipEntry> = ComicArchives.sortedImageNames(
         zip.entries().asSequence().map { it.name }.toList()
     ).mapNotNull { name -> zip.getEntry(name) }
