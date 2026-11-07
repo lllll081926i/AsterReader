@@ -30,7 +30,7 @@ jobs:
           java-version: '17'
       - name: 安装固定 Android SDK
         run: |
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-37' 'build-tools;37.0.0'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-37.0' 'build-tools;37.0.0'
       - name: 检查版本标签
         if: startsWith(github.ref, 'refs/tags/')
         env:

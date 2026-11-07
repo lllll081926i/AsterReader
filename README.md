@@ -46,6 +46,8 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 
 Release 构建读取 `KEYSTORE_PATH`、`STORE_PASSWORD` 和 `KEY_PASSWORD`，别名为 `upload`。缺少有效签名配置时不能生成正式发布包。
 
+本机已配置仓库外的长期签名。使用 PowerShell 7 执行 `./scripts/Release-Signing.ps1 -Action Build`，无需手工填写口令。GitHub 发包工作流使用同一签名，手动运行保存构建产物，版本标签仅创建草稿 Release。密钥保管、证书指纹与操作说明见 [本地签名与 GitHub 发包](docs/50_RELEASE_SIGNING.md)。
+
 ## 书库清单备份
 
 系统备份关闭。通过“设置 → 备份”导出或合并恢复 JSON 清单，也可使用口令加密清单。清单包含公开作品的元数据、进度、书架、批注、页索引和单本配置，不包含漫画文件、隐藏作品或安全凭据。逐作品完整密文导出位于作品详情菜单，与清单导出分开。
