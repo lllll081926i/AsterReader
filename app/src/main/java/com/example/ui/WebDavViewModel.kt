@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.LibraryRepository
@@ -87,11 +88,12 @@ class WebDavViewModel(application: Application) : AndroidViewModel(application) 
         val connection = state.connection ?: return
         operation {
             _state.update { it.copy(progress = "正在扫描") }
-            val report = library.scanRepository(WebDavRepository.treeUri(connection.id, state.path), connection.name, LibraryRepository.DEFAULT_SCAN_RULE) { processed, discovered ->
+            val folderName = if (state.path.isEmpty()) connection.name else Uri.decode(state.path.trimEnd('/').substringAfterLast('/'))
+            val report = library.scanRepository(WebDavRepository.treeUri(connection.id, state.path), folderName, LibraryRepository.DEFAULT_SCAN_RULE) { processed, discovered ->
                 _state.update { it.copy(progress = "已处理 $processed / $discovered") }
             }
             val cached = state.entries.filter { !it.directory && remote.cached(connection.id, it) }.mapTo(mutableSetOf()) { it.path }
-            _state.update { it.copy(message = report.summary(), cachedPaths = cached) }
+            _state.update { it.copy(message = "已加入书架 · ${report.summary()}", cachedPaths = cached) }
         }
     }
 

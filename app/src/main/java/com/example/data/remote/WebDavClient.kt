@@ -32,7 +32,7 @@ internal data class DavAccount(val id: String, val name: String, val address: St
     val password: String, val allowHttp: Boolean = false)
 
 data class DavEntry(val path: String, val name: String, val directory: Boolean, val size: Long = -1,
-    val modifiedAt: Long = 0, val etag: String = "", val mime: String = "application/octet-stream")
+    val modifiedAt: Long = 0, val etag: String = "", val mime: String = "application/octet-stream", val revision: String = etag)
 
 /** 只读协议边界：不接受跨源 href、根目录逃逸或自动重定向。 */
 internal class WebDavClient(private val client: OkHttpClient = OkHttpClient.Builder()
@@ -131,6 +131,7 @@ internal class WebDavClient(private val client: OkHttpClient = OkHttpClient.Buil
                                     val path = if (successfulCollection) relative.trimEnd('/') + "/" else relative
                                     entries[path] = DavEntry(path, name, successfulCollection, successful["getcontentlength"]?.toLongOrNull() ?: -1,
                                         modified, successful["getetag"].orEmpty(), successful["getcontenttype"]?.substringBefore(';') ?: "application/octet-stream")
+                                    require(entries.size <= MAX_ENTRIES) { "目录条目过多，请缩小范围" }
                                 }
                             }
                         }

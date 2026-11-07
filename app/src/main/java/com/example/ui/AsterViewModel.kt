@@ -25,7 +25,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.conflate
-import kotlinx.coroutines.flow.transform
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import com.example.data.local.BookEntity
@@ -191,7 +194,7 @@ data class AsterUiState(
 class AsterViewModel(application: Application) : AndroidViewModel(application) {
     // AndroidViewModel.application 是 private，这里保留主构造参数供备份导出/导入使用
     private val appContext: Application = application
-    private val repository = LibraryRepository(application)
+    private val repository by lazy { LibraryRepository(application) }
     private val aboutRepository = com.example.data.local.AboutRepository(application)
     private val _openSource = MutableStateFlow(com.example.data.local.OpenSourceState())
     val openSource: StateFlow<com.example.data.local.OpenSourceState> = _openSource.asStateFlow()
@@ -207,7 +210,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     private val preferences = ReaderPreferences(application)
-    private val pinAttempts = application.getSharedPreferences("pin_attempts", 0)
+    private val pinAttempts by lazy { application.getSharedPreferences("pin_attempts", 0) }
     private val annotationMutex = Mutex()
     private val progressMutex = Mutex()
 
@@ -242,7 +245,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private var pendingAuthenticationDeadline = 0L
     private var pinSetupJob: kotlinx.coroutines.Job? = null
     private var authenticationExpiry: kotlinx.coroutines.Job? = null
-    private var pinFailures = pinAttempts.getInt("failures", 0)
+    private var pinFailures = 0
     private val pinVerificationMutex = Mutex()
     private var pendingExternalUri: Uri? = null
     private var encryptedBackupTarget: Uri? = null
@@ -252,6 +255,15 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private var fileVaultPickerDeadline = 0L
     private var fileVaultPickerExpiry: kotlinx.coroutines.Job? = null
 
+    private val booksLoaded = MutableStateFlow(false)
+    private val shelvesLoaded = MutableStateFlow(false)
+    private val libraryRetry = MutableStateFlow(0L)
+    private val _libraryLoadFailed = MutableStateFlow(false)
+    val libraryLoadFailed = _libraryLoadFailed.asStateFlow()
+    fun retryLibraryLoad() { _libraryLoadFailed.value = false; libraryRetry.value++ }
+    val mainContentReady = combine(booksLoaded, shelvesLoaded) { books, shelves -> books && shelves }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     val allBooks: StateFlow<List<BookEntity>> = uiState
         .distinctUntilChangedBy { Triple(it.settingsLoaded, it.isAppLockedNow, it.isVaultUnlocked) }
         .flatMapLatest { state ->
@@ -260,22 +272,36 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 state.isVaultUnlocked -> repository.observeAllBooks()
                 else -> repository.observePublicBooks()
             }
-        }.conflate().transform { books ->
-            emit(books)
-            // 只在数据变化后合并短时突发，空闲时不启动周期计时器。
-            kotlinx.coroutines.delay(150)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
+        }.retryWhen { cause, _ ->
+            if (cause is CancellationException) throw cause
+            booksLoaded.value = false
+            val revision = libraryRetry.value
+            _libraryLoadFailed.value = true
+            libraryRetry.first { it > revision }
+            true
+        }.onEach { booksLoaded.value = uiState.value.settingsLoaded && !uiState.value.isAppLockedNow }
+        .conflate().onCompletion { booksLoaded.value = false }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
 
     val allShelves: StateFlow<List<ShelfEntity>> = uiState
-        .distinctUntilChangedBy { it.isAppLockedNow to it.isVaultUnlocked }
+        .distinctUntilChangedBy { Triple(it.settingsLoaded, it.isAppLockedNow, it.isVaultUnlocked) }
         .flatMapLatest { state ->
-            if (state.isAppLockedNow) flowOf(emptyList())
+            if (!state.settingsLoaded || state.isAppLockedNow) flowOf(emptyList())
             else repository.observeAllShelves().map { shelves ->
                 shelves.map { shelf -> if (shelf.isProtected && !state.isVaultUnlocked)
                     shelf.copy(name = "已隐藏书架", subtitle = "验证身份后可见", coverUrlsCsv = "", itemCountDisplay = 0)
                 else shelf }
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
+        }.retryWhen { cause, _ ->
+            if (cause is CancellationException) throw cause
+            shelvesLoaded.value = false
+            val revision = libraryRetry.value
+            _libraryLoadFailed.value = true
+            libraryRetry.first { it > revision }
+            true
+        }.onEach { shelvesLoaded.value = uiState.value.settingsLoaded && !uiState.value.isAppLockedNow }
+        .onCompletion { shelvesLoaded.value = false }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
 
     val allAnnotations: StateFlow<List<AnnotationEntity>> = uiState
         .distinctUntilChangedBy { it.isAppLockedNow to it.isVaultUnlocked }
@@ -306,10 +332,16 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch(operationErrors) {
-            try { _uiState.value = preferences.load().copy(
+            try {
+                pinFailures = withContext(Dispatchers.IO) { pinAttempts.getInt("failures", 0) }
+                _uiState.value = preferences.load().copy(
+                settingsLoaded = false,
                 pinLockedUntilMs = withContext(Dispatchers.IO) { pinAttempts.getLong("lockedUntil", 0L) },
                 fileVaultConfigured = withContext(Dispatchers.IO) { repository.fileVault.configured }
-            ) }
+                )
+                restoreNavSession()
+                _uiState.update { it.copy(settingsLoaded = true) }
+            }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) {
                 _uiState.update { it.copy(settingsLoaded = true, isAppLockEnabled = true,
@@ -330,7 +362,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 catch (_: Exception) { showSnackbar("设置保存失败，请检查可用空间后重试") }
             }
         }
-        viewModelScope.launch(operationErrors) { restoreNavSession() }
     }
 
     /**
@@ -338,7 +369,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
      * 应用锁开启时不恢复（先验证身份，避免绕过锁直接看到阅读内容）。
      */
     private suspend fun restoreNavSession() {
-        uiState.filter { it.settingsLoaded }.first()
         if (navigationRevision.get() != 0L) return
         if (_uiState.value.isAppLockEnabled) return
         val session = runCatching { preferences.loadSession() }.getOrNull() ?: return

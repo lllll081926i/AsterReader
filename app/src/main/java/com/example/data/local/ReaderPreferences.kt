@@ -80,7 +80,7 @@ object PinCredentials {
 }
 
 class ReaderPreferences(context: Context) {
-    private val preferences = context.getSharedPreferences("reader_settings", Context.MODE_PRIVATE)
+    private val preferences by lazy { context.getSharedPreferences("reader_settings", Context.MODE_PRIVATE) }
 
     suspend fun load(): AsterUiState = withContext(Dispatchers.IO) {
         val appLock = preferences.getBoolean("appLock", false)

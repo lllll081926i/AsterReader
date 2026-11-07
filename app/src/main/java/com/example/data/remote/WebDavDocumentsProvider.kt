@@ -61,7 +61,7 @@ class WebDavDocumentsProvider internal constructor(private val suppliedRepositor
             Document.COLUMN_SIZE -> entry.size.takeIf { it >= 0 }
             Document.COLUMN_LAST_MODIFIED -> entry.modifiedAt
             Document.COLUMN_FLAGS -> 0
-            "webdav_etag" -> entry.etag
+            "webdav_etag" -> entry.revision
             else -> null
         }) } }
     }

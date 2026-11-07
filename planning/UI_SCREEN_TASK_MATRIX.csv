@@ -1,5 +1,5 @@
 Screen ID,页面,优先级,核心状态,开发波次,当前状态,规范来源
-O-00,启动 Bootstrap / 安全遮盖,P0,正常、锁定、数据库失败,UI-W0/UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+O-00,启动 Bootstrap / 安全遮盖,P0,正常、锁定、数据库失败,UI-W0/UI-W1,已修复导航延迟恢复与导航测量跳动；257 项回归及 API35 首屏通过；API31/37 设备待验收,引用 docs/52_STARTUP_AND_CLOUD_SHELVES.md
 O-01,欢迎与本地优先说明,P0,首次、返回,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 O-02,添加内容引导,P0,未授权、选择来源,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 O-03,首次安全引导,P0,跳过、设置完成,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
@@ -29,7 +29,7 @@ I-03,仓库创建向导,P0,授权、路径规则、扫描方式,UI-W1,待设备�
 I-04,扫描预览,P0,分类调整、冲突,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-05,扫描任务列表/详情,P0,运行、暂停/取消、失败,UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-06,本地仓库管理,P0,正常、权限丢失、目录离线,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-I-07,远程仓库(WebDAV),P1,凭据、测试连接、目录浏览与读取,UI-W7,实施中；协议与阅读回归核验中；不含同步,引用 docs/51_WEBDAV_SOURCE.md
+I-07,远程仓库(WebDAV),P1,凭据、测试连接、目录浏览与读取,UI-W7,已实现服务商预设与多连接目录书架；协议与 API35 设备通过；真实服务及 API31/37 待验收；不含同步,引用 docs/51_WEBDAV_SOURCE.md
 V-01,应用认证门禁,P0,系统认证、应用密码、取消,UI-W2,已实现紧凑完整弹出验证面板；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-02,安全设置 / 应用锁,P0,开关、超时、策略,UI-W2,已实现分层安全设置与截图；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-03,保险库首次建立,P0,风险告知、密钥/恢复配置,UI-W2,已实现独立口令与设备槽；API31及35界面回归；无独立恢复槽,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md

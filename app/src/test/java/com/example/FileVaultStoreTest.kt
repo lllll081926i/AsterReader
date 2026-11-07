@@ -190,8 +190,8 @@ class FileVaultStoreTest {
             val model = com.example.ui.AsterViewModel(app)
             models.put("加密流程", model)
             kotlinx.coroutines.withTimeout(10000) { model.uiState.first { it.settingsLoaded } }
-            val repository = com.example.ui.AsterViewModel::class.java.getDeclaredField("repository").let {
-                it.isAccessible = true; it.get(model) as com.example.data.local.LibraryRepository
+            val repository = com.example.ui.AsterViewModel::class.java.getDeclaredMethod("getRepository").let {
+                it.isAccessible = true; it.invoke(model) as com.example.data.local.LibraryRepository
             }.apply { fileVault = store }
             val source = temporary.newFile("first.zip")
             java.util.zip.ZipOutputStream(source.outputStream()).use { zip ->

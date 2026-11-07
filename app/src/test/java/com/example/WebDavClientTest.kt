@@ -87,7 +87,7 @@ class WebDavClientTest {
     }
 
     @Test fun rejectsOverBudgetDirectory() = runBlocking {
-        payload = listing(*(0..WebDavClient.MAX_ENTRIES + 1).map { response("/dav/$it.cbz") }.toTypedArray())
+        payload = listing(*(0..WebDavClient.MAX_ENTRIES).map { response("/dav/$it.cbz") }.toTypedArray())
         assertTrue(runCatching { client.list(account, "") }.isFailure)
     }
 

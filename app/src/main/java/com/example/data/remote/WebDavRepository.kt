@@ -17,7 +17,8 @@ import java.util.UUID
 data class DavConnection(val id: String, val name: String, val address: String, val username: String, val allowHttp: Boolean)
 
 class WebDavRepository internal constructor(private val context: Context,
-    private val accounts: WebDavAccounts = WebDavAccounts(context), private val client: WebDavClient = WebDavClient()) {
+    private val accounts: WebDavAccounts = WebDavAccounts(context), suppliedClient: WebDavClient? = null) {
+    private val client by lazy { suppliedClient ?: WebDavClient() }
     private val cacheMutex = Mutex()
     private val directory get() = File(context.cacheDir, "webdav").apply { mkdirs() }
     private val entries = object : LinkedHashMap<String, DavEntry>(128, 0.75f, true) {
@@ -57,7 +58,10 @@ class WebDavRepository internal constructor(private val context: Context,
     }
 
     suspend fun list(id: String, path: String): List<DavEntry> = withContext(Dispatchers.IO) {
-        val result = client.list(account(id), path)
+        val result = client.list(account(id), path).map { entry ->
+            if (!entry.directory && entry.etag.isBlank() && entry.modifiedAt <= 0)
+                entry.copy(revision = "refresh:${UUID.randomUUID()}") else entry
+        }
         synchronized(entries) { result.forEach { entries[documentId(id, it.path)] = it } }
         result
     }
@@ -117,7 +121,7 @@ class WebDavRepository internal constructor(private val context: Context,
     }
 
     private fun cacheFile(id: String, entry: DavEntry): File {
-        val revision = "${entry.path}:${entry.etag}:${entry.size}:${entry.modifiedAt}"
+        val revision = "${entry.path}:${entry.revision}:${entry.size}:${entry.modifiedAt}"
         val digest = MessageDigest.getInstance("SHA-256").digest(revision.toByteArray()).joinToString("") { "%02x".format(it) }
         return File(directory, cachePrefix(id, entry.path) + digest)
     }

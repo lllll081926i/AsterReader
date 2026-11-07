@@ -12,6 +12,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.ui.theme.LocalAsterColors
 import kotlin.math.cos
@@ -369,23 +373,20 @@ fun AsterBookCover(
     if (coverUrl.isNotBlank()) {
         // 兼容历史数据：裸文件路径补全 file:// 前缀，否则 Coil 无法识别
         val model = if (coverUrl.contains("://")) coverUrl else "file://$coverUrl"
-        SubcomposeAsyncImage(
-            model = ImageRequest.Builder(context)
+        val protectedCover = coverUrl.startsWith("vault-cover://")
+        val request = remember(context, model, protectedCover) { ImageRequest.Builder(context)
                 .data(model)
-                .crossfade(!coverUrl.startsWith("vault-cover://"))
-                .diskCachePolicy(if (coverUrl.startsWith("vault-cover://")) coil.request.CachePolicy.DISABLED else coil.request.CachePolicy.ENABLED)
-                .memoryCachePolicy(if (coverUrl.startsWith("vault-cover://")) coil.request.CachePolicy.DISABLED else coil.request.CachePolicy.ENABLED)
-                .build(),
-            contentDescription = title,
-            contentScale = ContentScale.Crop,
-            modifier = modifier,
-            loading = {
-                VectorBookCoverFallback(title = title, format = format, modifier = Modifier.fillMaxSize())
-            },
-            error = {
-                VectorBookCoverFallback(title = title, format = format, modifier = Modifier.fillMaxSize())
-            }
-        )
+                .crossfade(false)
+                .diskCachePolicy(if (protectedCover) coil.request.CachePolicy.DISABLED else coil.request.CachePolicy.ENABLED)
+                .memoryCachePolicy(if (protectedCover) coil.request.CachePolicy.DISABLED else coil.request.CachePolicy.ENABLED)
+                .build() }
+        var hasImage by remember(model) { mutableStateOf(false) }
+        Box(modifier) {
+            if (!hasImage) VectorBookCoverFallback(title = title, format = format, modifier = Modifier.fillMaxSize())
+            AsyncImage(model = request, contentDescription = title, contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(), onLoading = { hasImage = false },
+                onError = { hasImage = false }, onSuccess = { hasImage = true })
+        }
     } else {
         VectorBookCoverFallback(title = title, format = format, modifier = modifier)
     }

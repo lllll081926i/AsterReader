@@ -2,10 +2,9 @@ package com.example
 
 import androidx.compose.runtime.remember
 import androidx.compose.foundation.background
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import com.example.ui.components.AsterNavigationLayout
 import com.example.ui.components.AsterMainNavigation
 
 import android.os.Bundle
@@ -53,6 +52,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -107,6 +107,15 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenOffReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else registerReceiver(screenOffReceiver, filter)
         enableEdgeToEdge()
+        window.decorView.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                val state = viewModel.uiState.value
+                if (!state.settingsLoaded || !state.isAppLockedNow &&
+                    !viewModel.mainContentReady.value && !viewModel.libraryLoadFailed.value) return false
+                window.decorView.viewTreeObserver.removeOnPreDrawListener(this)
+                return true
+            }
+        })
         if (savedInstanceState == null) consumeOpenIntent(intent)
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -273,11 +282,24 @@ fun AsterReaderAppRoot(
         }
     }
 
-    if (!uiState.settingsLoaded || uiState.isAppLockedNow || uiState.showQuickAuthSheet) {
+    val allBooks by viewModel.allBooks.collectAsStateWithLifecycle()
+    val allShelves by viewModel.allShelves.collectAsStateWithLifecycle()
+    val mainContentReady by viewModel.mainContentReady.collectAsStateWithLifecycle()
+    val libraryLoadFailed by viewModel.libraryLoadFailed.collectAsStateWithLifecycle()
+    if (!uiState.settingsLoaded || (!uiState.isAppLockedNow && (!mainContentReady || libraryLoadFailed)) || uiState.isAppLockedNow || uiState.showQuickAuthSheet) {
         val colorScheme = MaterialTheme.colorScheme
         Surface(modifier = Modifier.fillMaxSize(), color = colorScheme.surface) {
             when {
-                !uiState.settingsLoaded -> Box(
+                uiState.settingsLoaded && !uiState.isAppLockedNow && libraryLoadFailed -> Column(
+                    Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center) {
+                    Text("书库读取失败，请重试", style = MaterialTheme.typography.bodyMedium)
+                    Button(onClick = viewModel::retryLibraryLoad) {
+                        Icon(Icons.Default.Refresh, null)
+                        Text("重试")
+                    }
+                }
+                !uiState.settingsLoaded || (!uiState.isAppLockedNow && !mainContentReady) -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
@@ -305,7 +327,7 @@ fun AsterReaderAppRoot(
                             color = colorScheme.primary
                         )
                         Text(
-                            text = "正在整理书库…",
+                            text = "正在准备书库",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
@@ -323,10 +345,16 @@ fun AsterReaderAppRoot(
         }
         return
     }
-    val allBooks by viewModel.allBooks.collectAsStateWithLifecycle()
-    val allShelves by viewModel.allShelves.collectAsStateWithLifecycle()
-    val allAnnotations by viewModel.allAnnotations.collectAsStateWithLifecycle()
-    val allRepositories by viewModel.allRepositories.collectAsStateWithLifecycle()
+    val needsAnnotations = uiState.activeSubScreen is SubScreen.Search ||
+        uiState.activeSubScreen == null && uiState.currentTab in setOf(MainNavDestination.SEARCH, MainNavDestination.STATS)
+    val allAnnotations = if (needsAnnotations) {
+        val notes by viewModel.allAnnotations.collectAsStateWithLifecycle()
+        notes
+    } else emptyList()
+    val allRepositories = if (uiState.activeSubScreen == SubScreen.Settings || uiState.activeSubScreen is SubScreen.SettingsSection) {
+        val repositories by viewModel.allRepositories.collectAsStateWithLifecycle()
+        repositories
+    } else emptyList()
     val pendingRemoval by viewModel.pendingRemoval.collectAsStateWithLifecycle()
     if (pendingRemoval.isNotEmpty()) androidx.compose.material3.AlertDialog(
         onDismissRequest = viewModel::cancelBookRemoval,
@@ -361,15 +389,9 @@ fun AsterReaderAppRoot(
         val isExpandedTablet = maxWidth >= com.asterreader.core.designsystem.AsterLayout.SupportingPaneBreakpoint
         val activeSub = uiState.activeSubScreen
         val showAppleBottomDock = activeSub == null && !uiState.isBatchSelectionMode
-        var navigationWidth by remember { mutableIntStateOf(0) }
-        var navigationHeight by remember { mutableIntStateOf(0) }
-        val density = LocalDensity.current
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        AsterNavigationLayout(reserveNavigation = showAppleBottomDock, useRail = useNavigationRail, content = {
             AnimatedContent(
-                modifier = Modifier.padding(
-                    start = if (showAppleBottomDock && useNavigationRail) with(density) { navigationWidth.toDp() } else 0.dp,
-                    bottom = if (showAppleBottomDock && !useNavigationRail) with(density) { navigationHeight.toDp() } else 0.dp),
                 targetState = Triple(activeSub, uiState.currentTab, uiState.subScreenStack.size),
                 transitionSpec = {
                     val (targetSub, targetTab) = targetState
@@ -598,25 +620,24 @@ fun AsterReaderAppRoot(
                 }
             }
 
+        }, navigation = {
             // Compact Apple-style Floating Bottom Dock (Icon on Top, Title Below: 书库 / 书架 / 搜索)
             AnimatedVisibility(
                 visible = showAppleBottomDock,
                 enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically { it } + fadeIn(),
                 exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else slideOutVertically { it } + fadeOut(),
-                modifier = Modifier.align(if (useNavigationRail) Alignment.CenterStart else Alignment.BottomCenter)
             ) {
                 AsterMainNavigation(useNavigationRail, uiState.currentTab, viewModel::selectMainTab,
-                    Modifier.onSizeChanged { navigationWidth = it.width; navigationHeight = it.height }, showStatsTab = uiState.showStatsTab)
+                    showStatsTab = uiState.showStatsTab)
             }
 
-            androidx.compose.material3.SnackbarHost(
+        }, overlay = {
+            Box(Modifier.fillMaxSize()) { androidx.compose.material3.SnackbarHost(
                 hostState = snackbarHost,
                 modifier = Modifier.align(Alignment.BottomCenter)
-                    .then(if (showAppleBottomDock && !useNavigationRail)
-                        Modifier.padding(bottom = with(density) { navigationHeight.toDp() })
-                        else Modifier.navigationBarsPadding())
+                    .then(if (showAppleBottomDock) Modifier else Modifier.navigationBarsPadding())
                     .padding(horizontal = 12.dp)
-            )
-        }
+            ) }
+        })
     }
 }

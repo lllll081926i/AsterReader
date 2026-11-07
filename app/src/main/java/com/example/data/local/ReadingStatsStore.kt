@@ -13,7 +13,7 @@ import java.time.format.DateTimeFormatter
  * 只记录「在阅读器里停留的时间」，不做任何内容或行为采集。
  */
 class ReadingStatsStore(context: Context) {
-    private val preferences = context.getSharedPreferences("reading_stats", Context.MODE_PRIVATE)
+    private val preferences by lazy { context.getSharedPreferences("reading_stats", Context.MODE_PRIVATE) }
 
     data class Summary(
         val todayMinutes: Int = 0,

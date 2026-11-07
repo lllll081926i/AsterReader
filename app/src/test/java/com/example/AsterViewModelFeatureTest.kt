@@ -60,6 +60,16 @@ class AsterViewModelFeatureTest {
         assertNull(uiState.activeSubScreen)
     }
 
+    @Test fun firstReadyStateAlreadyContainsRestoredNavigation() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        com.example.data.local.ReaderPreferences(app).saveSession(
+            tab = MainNavDestination.SHELVES.name, stackEncoding = "", searchQuery = "")
+        val restored = AsterViewModel(app)
+        store.put("启动恢复", restored)
+        val firstReady = withTimeout(5000) { restored.uiState.first { it.settingsLoaded } }
+        assertEquals(MainNavDestination.SHELVES, firstReady.currentTab)
+    }
+
     @Test fun disablingAppLockRequiresFreshAuthenticationAndCancellationKeepsProtection() = runBlocking {
         viewModel.setCustomPin("4321")
         withTimeout(5000) { viewModel.uiState.first { it.hasCustomPin } }

@@ -253,6 +253,7 @@ open class SettingsConsistencyTest {
             rootView = androidx.compose.ui.platform.LocalView.current.rootView
             AsterReaderTheme { com.example.AsterReaderAppRoot(model, AsterUiState(settingsLoaded = true, isAppLockedNow = false)) }
         }
+        awaitLibraryReady()
         capture("library-empty")
         compose.onNodeWithTag("nav_dock_library").assertIsDisplayed()
         compose.onNodeWithTag("nav_dock_search").assertIsDisplayed()
@@ -311,12 +312,21 @@ open class SettingsConsistencyTest {
             rootView = androidx.compose.ui.platform.LocalView.current.rootView
             AsterReaderTheme { com.example.AsterReaderAppRoot(model, AsterUiState(settingsLoaded = true, isAppLockedNow = false)) }
         }
+        awaitLibraryReady()
         compose.onNodeWithTag("main_navigation_rail").assertIsDisplayed()
         compose.onNodeWithTag("nav_dock_library").assertIsDisplayed()
         compose.onNodeWithTag("nav_dock_shelves").assertIsDisplayed()
         compose.onNodeWithTag("nav_dock_search").assertIsDisplayed().performClick()
         compose.runOnIdle { check(model.uiState.value.currentTab == com.example.ui.components.MainNavDestination.SEARCH) }
         capture("tablet-medium-navigation")
+    }
+
+    private fun awaitLibraryReady() {
+        compose.waitUntil(10000) {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            model.mainContentReady.value
+        }
+        compose.waitForIdle()
     }
 
     @Test @Config(qualifiers = "w1280dp-h800dp-xhdpi")

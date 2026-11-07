@@ -63,8 +63,8 @@ fun WebDavScreen(onBack: () -> Unit, onOpenBook: (String) -> Unit = {}, viewMode
                     AsterSettingsGroup {
                         AsterSettingsRow(connection.name, leadingIcon = Icons.Outlined.Cloud, onClick = { viewModel.browse(connection) })
                         WebDavActions {
-                            OutlinedButton(onClick = { viewModel.edit(connection) }, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.Edit, null); Text("编辑") }
-                            OutlinedButton(onClick = { removing = connection }, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.LinkOff, null); Text("移除") }
+                            OutlinedButton(onClick = { viewModel.edit(connection) }, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.Edit, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("编辑") }
+                            OutlinedButton(onClick = { removing = connection }, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.LinkOff, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("移除") }
                         }
                     }
                 }
@@ -73,8 +73,8 @@ fun WebDavScreen(onBack: () -> Unit, onOpenBook: (String) -> Unit = {}, viewMode
                     Column(verticalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
                         Text(if (state.path.isBlank()) "根目录" else android.net.Uri.decode(state.path.trimEnd('/')), style = MaterialTheme.typography.bodySmall)
                         WebDavActions {
-                            OutlinedButton(onClick = viewModel::retry, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.Refresh, null); Text("刷新") }
-                            Button(onClick = viewModel::scan, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.FolderOpen, null); Text("扫描此目录") }
+                            OutlinedButton(onClick = viewModel::retry, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.Refresh, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("刷新") }
+                            Button(onClick = viewModel::scan, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.FolderOpen, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("加入书架") }
                         }
                     }
                 }
@@ -91,8 +91,8 @@ fun WebDavScreen(onBack: () -> Unit, onOpenBook: (String) -> Unit = {}, viewMode
     }
     removing?.let { connection -> AlertDialog(onDismissRequest = { removing = null }, title = { Text("移除连接") },
         text = { Text("移除连接和下载缓存。云端文件与书库阅读记录保留。") },
-        confirmButton = { TextButton(onClick = { removing = null; viewModel.remove(connection) }) { Icon(Icons.Outlined.LinkOff, null); Text("移除") } },
-        dismissButton = { TextButton(onClick = { removing = null }) { Icon(Icons.Outlined.Close, null); Text("取消") } }) }
+        confirmButton = { TextButton(onClick = { removing = null; viewModel.remove(connection) }) { Icon(Icons.Outlined.LinkOff, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("移除") } },
+        dismissButton = { TextButton(onClick = { removing = null }) { Icon(Icons.Outlined.Close, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("取消") } }) }
 }
 
 @Composable
@@ -150,9 +150,9 @@ private fun WebDavConnectionEditor(connection: DavConnection?, busy: Boolean, vi
         if (http) Text("HTTP 会明文传输账号和漫画。", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         WebDavActions {
             OutlinedButton(onClick = { viewModel.save(name, address, username, password.toCharArray(), http, false, keepPassword) },
-                enabled = !busy && name.isNotBlank() && address.isNotBlank(), modifier = it) { Icon(Icons.Outlined.Wifi, null); Text("测试") }
+                enabled = !busy && name.isNotBlank() && address.isNotBlank(), modifier = it) { Icon(Icons.Outlined.Wifi, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("测试") }
             Button(onClick = { viewModel.save(name, address, username, password.toCharArray(), http, true, keepPassword); password = ""; showPassword = false },
-                enabled = !busy && name.isNotBlank() && address.isNotBlank(), modifier = it) { Icon(Icons.Outlined.Save, null); Text("保存") }
+                enabled = !busy && name.isNotBlank() && address.isNotBlank(), modifier = it) { Icon(Icons.Outlined.Save, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("保存") }
         }
     }
 }

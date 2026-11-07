@@ -37,6 +37,7 @@ class WebDavRepositoryTest {
     private lateinit var library: LibraryRepository
     private var etag = "v1"
     private var brokenLength = false
+    private var missingRevision = false
     private val gets = AtomicInteger()
     private val key = SecretKeySpec(ByteArray(32) { it.toByte() }, "AES")
     private val comic by lazy {
@@ -60,7 +61,7 @@ class WebDavRepositoryTest {
         server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/dav/") { exchange ->
             val bytes = if (exchange.requestMethod == "PROPFIND") {
-                """<d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/book.cbz</d:href><d:propstat><d:prop><d:getcontentlength>${comic.size + if (brokenLength) 1 else 0}</d:getcontentlength><d:getetag>"$etag"</d:getetag><d:getlastmodified>Sun, 01 Nov 2026 10:00:00 GMT</d:getlastmodified></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>""".toByteArray()
+                """<d:multistatus xmlns:d="DAV:"><d:response><d:href>/dav/book.cbz</d:href><d:propstat><d:prop><d:getcontentlength>${comic.size + if (brokenLength) 1 else 0}</d:getcontentlength>${if (missingRevision) "" else "<d:getetag>\"$etag\"</d:getetag><d:getlastmodified>Sun, 01 Nov 2026 10:00:00 GMT</d:getlastmodified>"}</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response></d:multistatus>""".toByteArray()
             } else { gets.incrementAndGet(); comic }
             exchange.sendResponseHeaders(if (exchange.requestMethod == "PROPFIND") 207 else 200, bytes.size.toLong())
             exchange.responseBody.use { it.write(bytes) }
@@ -107,6 +108,9 @@ class WebDavRepositoryTest {
         val tree = WebDavRepository.treeUri(connection.id)
         assertEquals(1, library.scanRepository(tree, connection.name, LibraryRepository.DEFAULT_SCAN_RULE).imported)
         val first = db.asterDao().getAllBooks().single()
+        val shelf = db.asterDao().getAllShelves().single()
+        assertTrue(first.shelfIdsCsv.split(',').contains(shelf.id))
+        library.renameShelf(shelf.id, "我的云端漫画")
         library.saveReadingPosition(first.id, 2, null, null)
         library.updateMetadata(first.id, "自定义标题", "作者", "", "", "标签")
         etag = "v2"
@@ -117,6 +121,34 @@ class WebDavRepositoryTest {
         assertNotEquals(first.contentFingerprint, second.contentFingerprint)
         assertEquals(1, secondReport.updated)
         assertEquals(2, gets.get())
+        assertEquals(shelf.id, db.asterDao().getAllShelves().single().id)
+        assertEquals("我的云端漫画", db.asterDao().getAllShelves().single().name)
+    }
+
+    @Test fun multipleConnectionsKeepSeparateShelvesAndBooks() = runBlocking {
+        val first = connect()
+        val second = connect()
+        library.scanRepository(WebDavRepository.treeUri(first.id), "漫画", LibraryRepository.DEFAULT_SCAN_RULE)
+        library.scanRepository(WebDavRepository.treeUri(second.id), "漫画", LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(2, repository.connections().size)
+        val shelves = db.asterDao().getAllShelves()
+        assertEquals(setOf("漫画", "漫画 (2)"), shelves.map { it.name }.toSet())
+        assertEquals(2, db.asterDao().getAllBooks().size)
+        assertEquals(2, db.asterDao().getAllBooks().map { it.shelfIdsCsv }.toSet().size)
+        repository.remove(first.id)
+        assertEquals(2, db.asterDao().getAllShelves().size)
+        assertEquals(2, db.asterDao().getAllBooks().size)
+    }
+
+    @Test fun hiddenComicIsReportedButNotAddedToPublicCloudShelf() = runBlocking {
+        val connection = connect()
+        val entry = repository.list(connection.id, "").single()
+        val book = library.importDocument(WebDavRepository.documentUri(connection.id, entry.path), persist = false)
+        db.asterDao().setBookHidden(book.id, true)
+        val report = library.scanRepository(WebDavRepository.treeUri(connection.id), "云端目录", LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(1, report.hidden)
+        val shelf = db.asterDao().getAllShelves().single()
+        assertFalse(db.asterDao().getBookById(book.id)!!.shelfIdsCsv.split(',').contains(shelf.id))
     }
 
     @Test fun interruptedDownloadsLeaveNoCommittedCacheAndRemovalPreservesBooks() = runBlocking {
@@ -169,5 +201,20 @@ class WebDavRepositoryTest {
         assertEquals("fixture-password", accounts.read().single().password)
         repository.save(connection.id, "改名", connection.address, "", CharArray(0), true, true, keepPassword = false)
         assertEquals("", accounts.read().single().password)
+    }
+
+    @Test fun explicitRefreshDoesNotReuseUnversionedServerContentForever() = runBlocking {
+        missingRevision = true
+        val connection = connect()
+        val first = repository.list(connection.id, "").single()
+        val id = WebDavRepository.documentId(connection.id, first.path)
+        repository.open(id)
+        repository.open(id)
+        assertEquals(1, gets.get())
+        val refreshed = repository.list(connection.id, "").single()
+        assertTrue(refreshed.etag.isEmpty())
+        assertNotEquals(first.revision, refreshed.revision)
+        repository.open(id)
+        assertEquals(2, gets.get())
     }
 }

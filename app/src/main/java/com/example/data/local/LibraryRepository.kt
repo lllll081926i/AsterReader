@@ -543,6 +543,10 @@ class LibraryRepository(
         val missing = dao.reconcileSources(repoId, seen)
         dao.insertRepository(RepositoryEntity(repoId, repoName, uri.toString(), "SMARTPHONE",
             dao.getRepositoryBooks(repoId).size, "", java.time.Instant.now().toString(), rule, failed == 0 && missing == 0))
+        if (WebDavRepository.isRemote(uri)) {
+            val shelfId = UUID.nameUUIDFromBytes("webdav-shelf:$uri".toByteArray()).toString()
+            dao.attachRepositoryShelf(repoId, shelfId, repoName)
+        }
         ScanReport(imported, updated, failed, missing, unchanged, hidden, ignored, failureReasons.toList())
     }
 
@@ -637,7 +641,7 @@ class LibraryRepository(
         if (fileVault.records.value.isNotEmpty()) {
             purgeDeletedMetadata()
             File(context.cacheDir, "read").listFiles()?.forEach { it.delete() }
-            WebDavRepository.get(context).clearCache()
+            remoteSource.clearCache()
             fileVault.committedIds().forEach { File(context.cacheDir, "covers/$it.jpg").delete() }
             fileVault.records.value.values.forEach { cleanupManagedVaultOriginal(it) }
         }
@@ -881,7 +885,7 @@ class LibraryRepository(
         localCopyMutex.withLock {
             val files = listOf("covers", "read").flatMap { File(context.cacheDir, it).listFiles()?.toList().orEmpty() }
             files.filter { it.isFile }.sumOf { file -> val size = file.length(); if (file.delete()) size else 0L } +
-                WebDavRepository.get(context).clearCache()
+                remoteSource.clearCache()
         }
     }
 
@@ -1069,7 +1073,7 @@ class LibraryRepository(
             check(entries.size <= limit) { "单次扫描项数超限，请缩小目录" }
             entries.map { entry -> ChildEntry(WebDavRepository.documentId(id, entry.path), entry.name,
                 if (entry.directory) DocumentsContract.Document.MIME_TYPE_DIR else entry.mime, entry.size.coerceAtLeast(0), entry.modifiedAt,
-                DocumentsContract.buildDocumentUriUsingTree(treeUri, WebDavRepository.documentId(id, entry.path)).toString(), entry.etag) }
+                DocumentsContract.buildDocumentUriUsingTree(treeUri, WebDavRepository.documentId(id, entry.path)).toString(), entry.revision) }
         } else kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
             val signal = android.os.CancellationSignal()
             continuation.invokeOnCancellation { signal.cancel() }

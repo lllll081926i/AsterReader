@@ -191,6 +191,22 @@ interface AsterDao {
     }
 
     @Transaction
+    suspend fun attachRepositoryShelf(repositoryId: String, shelfId: String, preferredName: String) {
+        val shelves = getAllShelves()
+        if (shelves.none { it.id == shelfId }) {
+            val base = preferredName.trim().ifBlank { "云端书架" }.take(70)
+            var name = base
+            var suffix = 2
+            while (shelves.any { it.name == name }) name = "$base (${suffix++})"
+            insertShelf(ShelfEntity(shelfId, name, "WebDAV", 0, "", "",
+                sortOrder = (shelves.maxOfOrNull { it.sortOrder } ?: -1) + 1))
+        }
+        val books = getRepositoryBooks(repositoryId)
+            .filter { !it.isVaultProtected && !it.isVaultEncrypted && it.sourceStatus == "AVAILABLE" }
+        addBooksToShelf(books.map { it.id }, shelfId)
+    }
+
+    @Transaction
     suspend fun renameUniqueShelf(id: String, name: String) {
         require(name.isNotBlank() && name.length <= 80) { "书架名称无效" }
         require(getAllShelves().none { it.id != id && it.name == name }) { "书架名称已存在" }
