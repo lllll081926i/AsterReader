@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -18,16 +19,20 @@ import com.example.data.local.BookEntity
 import com.example.ui.AsterViewModel
 import com.example.ui.components.AsterSubScreenHeader
 
-/** 作品的持久配置使用独立页面，输入状态随页面保存。 */
+/** 公开作品草稿支持状态恢复，受保护作品草稿仅留在内存。 */
 @Composable
 fun PublicationPropertiesScreen(book: BookEntity, section: String, model: AsterViewModel, onBack: () -> Unit) {
-    var title by rememberSaveable(book.id) { mutableStateOf(book.title) }
-    var author by rememberSaveable(book.id) { mutableStateOf(book.author) }
-    var series by rememberSaveable(book.id) { mutableStateOf(book.series) }
-    var tags by rememberSaveable(book.id) { mutableStateOf(book.tagsCsv) }
-    var synopsis by rememberSaveable(book.id) { mutableStateOf(book.synopsis) }
-    var order by rememberSaveable(book.id) { mutableStateOf(book.seriesOrder.toString()) }
-    var cover by rememberSaveable(book.id) { mutableStateOf(book.coverPage.toString()) }
+    val draftSaver = Saver<String, String>(
+        save = { if (book.isVaultProtected || book.isVaultEncrypted) null else it },
+        restore = { it }
+    )
+    var title by rememberSaveable(book.id, stateSaver = draftSaver) { mutableStateOf(book.title) }
+    var author by rememberSaveable(book.id, stateSaver = draftSaver) { mutableStateOf(book.author) }
+    var series by rememberSaveable(book.id, stateSaver = draftSaver) { mutableStateOf(book.series) }
+    var tags by rememberSaveable(book.id, stateSaver = draftSaver) { mutableStateOf(book.tagsCsv) }
+    var synopsis by rememberSaveable(book.id, stateSaver = draftSaver) { mutableStateOf(book.synopsis) }
+    var order by rememberSaveable(book.id, stateSaver = draftSaver) { mutableStateOf(book.seriesOrder.toString()) }
+    var cover by rememberSaveable(book.id, stateSaver = draftSaver) { mutableStateOf(book.coverPage.toString()) }
     var confirmExit by remember { mutableStateOf(false) }
     val modified = when (section) {
         "metadata" -> title != book.title || author != book.author || series != book.series || tags != book.tagsCsv || synopsis != book.synopsis

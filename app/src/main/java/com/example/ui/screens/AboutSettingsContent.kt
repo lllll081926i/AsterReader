@@ -44,9 +44,9 @@ fun AboutSettingsContent(onOpenLicenses: () -> Unit) {
         AboutValue("系统", "Android 12 及以上")
     }
     AsterSettingsGroup("格式") {
-        AboutValue("漫画", "ZIP/CBZ · RAR/CBR\n7Z/CB7 · TAR/CBT")
+        AboutValue("漫画", "ZIP/CBZ · RAR4/CBR\n7Z/CB7 · TAR/CBT")
         AsterGroupDivider()
-        AboutValue("文档", "PDF · EPUB")
+        AboutValue("文档", "PDF · 图片型 EPUB")
         AsterGroupDivider()
         AboutValue("图片", "单图 · 图片文件夹")
     }
@@ -57,7 +57,9 @@ fun AboutSettingsContent(onOpenLicenses: () -> Unit) {
         AsterGroupDivider()
         AboutValue("加密", "保险库保存密文，外部原文件保留")
         AsterGroupDivider()
-        AboutValue("备份", "仅公开清单，不含漫画与隐藏作品")
+        AboutValue("清单", "仅公开记录，不含漫画与隐藏作品")
+        AsterGroupDivider()
+        AboutValue("密文导出", "逐作品导出漫画与记录，需单独保存")
     }
     AsterSettingsGroup("致谢") {
         AsterSettingsRow("开源许可", leadingIcon = Icons.Outlined.Code, onClick = onOpenLicenses)

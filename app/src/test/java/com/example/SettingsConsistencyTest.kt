@@ -400,6 +400,27 @@ open class SettingsConsistencyTest {
         compose.onNodeWithText("修改后的标题").assertIsDisplayed()
     }
 
+    @Test fun publicMetadataDraftSurvivesStateRestoration() = checkMetadataDraftRestoration(false, false)
+
+    @Test fun hiddenMetadataDraftIsExcludedFromStateRestoration() = checkMetadataDraftRestoration(true, false)
+
+    @Test fun encryptedMetadataDraftIsExcludedFromStateRestoration() = checkMetadataDraftRestoration(false, true)
+
+    private fun checkMetadataDraftRestoration(hidden: Boolean, encrypted: Boolean) {
+        val restoration = androidx.compose.ui.test.junit4.StateRestorationTester(compose)
+        val book = comicFixture("状态恢复检查").copy(isVaultProtected = hidden, isVaultEncrypted = encrypted)
+        restoration.setContent {
+            AsterReaderTheme {
+                com.example.ui.screens.PublicationPropertiesScreen(book, "metadata", model, {})
+            }
+        }
+        compose.onNodeWithText("标题").performTextReplacement("未保存草稿")
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNode(hasSetTextAction() and hasText(if (hidden || encrypted) book.title else "未保存草稿"))
+            .assertIsDisplayed()
+        if (hidden || encrypted) compose.onNodeWithText("未保存草稿").assertDoesNotExist()
+    }
+
     @Test fun mainPagesShareTheShelfHeaderHeightAndTopInset() {
         var screen by androidx.compose.runtime.mutableIntStateOf(0)
         compose.setContent {

@@ -27,7 +27,7 @@ private val sectionTitles = mapOf(
     "appearance" to "外观", "sources" to "仓库",
     "shelves" to "书架", "tags" to "标签", "storage" to "存储",
     "backup" to "备份", "stats" to "阅读统计", "about" to "关于", "licenses" to "开源许可",
-    "encryptedExport" to "加密导出", "encryptedRestore" to "加密恢复"
+    "encryptedExport" to "加密清单导出", "encryptedRestore" to "加密清单恢复"
 )
 
 @Composable
@@ -63,7 +63,7 @@ fun SettingsScreen(
             else if (section?.startsWith("license:") == true) "许可" else sectionTitles[section] ?: "设置", onBack)
         Column(Modifier.weight(1f).widthIn(max = 840.dp).fillMaxWidth()
             .align(androidx.compose.ui.Alignment.CenterHorizontally).verticalScroll(rememberScrollState())
-            .navigationBarsPadding().padding(horizontal = AsterLayout.PagePadding)
+            .navigationBarsPadding().imePadding().padding(horizontal = AsterLayout.PagePadding)
             .padding(top = 4.dp, bottom = AsterLayout.BottomSpacing),
             verticalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
             when (section) {
@@ -165,10 +165,10 @@ fun SettingsScreen(
                     AsterSettingsRow("重建封面", onClick = viewModel::rebuildLibraryCovers)
                 }
                 "backup" -> AsterSettingsGroup {
-                    AsterSettingsRow("加密导出", leadingIcon = Icons.Outlined.Lock,
+                    AsterSettingsRow("加密清单导出", leadingIcon = Icons.Outlined.Lock,
                         onClick = { viewModel.chooseEncryptedBackupTarget(true) })
                     AsterGroupDivider()
-                    AsterSettingsRow("加密恢复", leadingIcon = Icons.Outlined.LockOpen,
+                    AsterSettingsRow("加密清单恢复", leadingIcon = Icons.Outlined.LockOpen,
                         onClick = { viewModel.chooseEncryptedBackupTarget(false) })
                     AsterGroupDivider()
                     AsterSettingsRow("导出清单", onClick = { confirmation = "export" })

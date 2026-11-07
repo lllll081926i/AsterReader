@@ -514,9 +514,7 @@ fun AsterReaderAppRoot(
                             if (uiState.showReadingStats) {
                                 ReadingStatsScreen(
                                     viewModel = viewModel,
-                                    finishedBooks = allBooks.count {
-                                        it.totalPages > 0 && it.currentPage >= it.totalPages
-                                    },
+                                    finishedBooks = allBooks.count { it.statusBadge == "已读完" },
                                     totalBooks = allBooks.size,
                                     onBack = { viewModel.popSubScreen() }
                                 )
@@ -583,7 +581,7 @@ fun AsterReaderAppRoot(
                         }
 
                         MainNavDestination.STATS -> ReadingStatsScreen(viewModel,
-                            allBooks.count { it.progressPercent >= 100 }, allBooks.size)
+                            allBooks.count { it.statusBadge == "已读完" }, allBooks.size)
                         MainNavDestination.SEARCH -> {
                             SearchAndFilterScreen(
                                 uiState = uiState,

@@ -95,7 +95,10 @@ fun FileVaultContent(state: AsterUiState, model: AsterViewModel, section: String
                     }
                 }) { Icon(if (exporting) Icons.Outlined.SaveAlt else Icons.Outlined.LockOpen, null); Spacer(Modifier.width(AsterLayout.ControlSpacing));
                     Text(if (exporting) "加密导出" else if (restore) "验证并恢复" else if (changing) "修改口令" else if (creating) "建立保险库" else "解锁") }
-                if (restore || changing) TextButton(onClick = { restore = false; changing = false; target = null; password = ""; confirmation = "" }) { Text("取消") }
+                if (restore || changing) TextButton(enabled = !busy, onClick = {
+                    restore = false; changing = false; target = null
+                    password = ""; confirmation = ""; currentPassword = ""; revealGenerated = false; acknowledged = false
+                }) { Text("取消") }
             }
         }
     } else if (section == "fileEncrypt") {

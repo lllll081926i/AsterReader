@@ -198,7 +198,7 @@ private class ZipComicArchive(file: File) : ComicArchive {
 }
 
 private class SevenZComicArchive(file: File) : ComicArchive {
-    private val sevenZ = SevenZFile.builder().setFile(file).get()
+    private val sevenZ = SevenZFile.builder().setFile(file).setMaxMemoryLimitKb(65536).get()
     private val entries: List<SevenZArchiveEntry> = run {
         val all = sevenZ.entries.filter { !it.isDirectory }.map { it.name }
         val ordered = ComicArchives.sortedImageNames(all)

@@ -37,6 +37,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -255,7 +257,9 @@ private fun WeekBars(days: List<ReadingStatsStore.DailyMinutes>) {
                 }
             )
             Box(
-                modifier = Modifier.weight(1f).fillMaxSize(),
+                modifier = Modifier.weight(1f).fillMaxSize().semantics {
+                    contentDescription = "${day.day}，阅读 ${day.minutes} 分钟"
+                },
                 contentAlignment = Alignment.BottomCenter
             ) {
                 Canvas(modifier = Modifier.fillMaxWidth(0.62f).fillMaxSize()) {

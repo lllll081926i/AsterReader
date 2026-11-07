@@ -167,7 +167,7 @@ class LibraryRepository(
     suspend fun saveReadingPosition(id: String, page: Int, chapter: String?, viewport: ReaderViewport?) {
         if (!changePrivate(id) { r ->
             val next = page.coerceIn(1, r.book.totalPages)
-            val done = next == r.book.totalPages
+            val done = r.book.statusBadge == "已读完"
             val v = viewport?.sanitized(r.book.totalPages)
             r.copy(book = r.book.copy(currentPage = next, progressPercent = if (done) 100 else (next * 100 / r.book.totalPages).coerceAtMost(99),
                 statusBadge = if (done) "已读完" else "在读", currentChapterTitle = chapter ?: r.book.currentChapterTitle,

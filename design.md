@@ -136,6 +136,8 @@ UI 使用系统字体与 Material 3 Typography；漫画页面保持原图。
 
 ### 4.1 UI 层级
 
+上线审查校正：受保护作品的编辑草稿只保留在内存，不写入 SavedInstanceState；公开作品继续支持状态恢复。清单加密导出与逐作品密文导出必须使用不同标题，不以“备份”暗示清单包含漫画正文。格式文案明确 RAR4 与图片型 EPUB 的当前边界。
+
 - App/Screen Title：`headlineSmall` / `titleLarge`
 - Section Title：`titleMedium`
 - Card Primary：`titleMedium`

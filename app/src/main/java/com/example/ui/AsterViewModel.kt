@@ -218,6 +218,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private val cleanupScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
     private var scanJob: kotlinx.coroutines.Job? = null
     private var prefetchJob: kotlinx.coroutines.Job? = null
+    private val navigationRevision = java.util.concurrent.atomic.AtomicLong()
     private var backgroundAt: Long? = null
     private var backgroundLock: kotlinx.coroutines.Job? = null
     private val operationErrors = CoroutineExceptionHandler { _, _ ->
@@ -338,6 +339,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
      */
     private suspend fun restoreNavSession() {
         uiState.filter { it.settingsLoaded }.first()
+        if (navigationRevision.get() != 0L) return
         if (_uiState.value.isAppLockEnabled) return
         val session = runCatching { preferences.loadSession() }.getOrNull() ?: return
         if (System.currentTimeMillis() - session.savedAt > NAV_SESSION_WINDOW_MS) return
@@ -358,7 +360,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             bookId != null && runCatching { repository.getBookById(bookId) }.getOrNull() == null
         }
         _uiState.update { state ->
-            state.copy(
+            if (navigationRevision.get() != 0L) state else state.copy(
                 currentTab = if (valid.any { screen -> screen is SubScreen.Reader } ||
                     tab == MainNavDestination.STATS && !state.showStatsTab) MainNavDestination.LIBRARY else tab,
                 subScreenStack = valid,
@@ -369,6 +371,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     /** 记录导航快照，供进程重建后恢复。 */
     private fun recordNavSession() {
+        navigationRevision.incrementAndGet()
         val state = _uiState.value
         viewModelScope.launch {
             runCatching {

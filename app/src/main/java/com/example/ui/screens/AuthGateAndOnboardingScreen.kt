@@ -192,8 +192,8 @@ fun OnboardingScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             OnboardingBullet("本地优先", "零广告、零云端上传，专注纯粹阅读。")
-                            OnboardingBullet("专注漫画阅读", "支持 CBZ/ZIP、CBR/RAR、CB7/7Z、TAR、PDF、EPUB 与散图目录。")
-                            OnboardingBullet("隐私只锁入口", "应用 PIN / 系统生物识别、隐藏作品与防截屏，书籍文件保持原样。")
+                            OnboardingBullet("漫画阅读", "支持 ZIP/CBZ、RAR4/CBR、7Z/CB7、TAR、PDF、图片型 EPUB 与图片目录。")
+                            OnboardingBullet("隐私保护", "隐藏只限制应用内访问。文件保险库另行加密，外部原文件保留。")
                         }
                     }
                 }
