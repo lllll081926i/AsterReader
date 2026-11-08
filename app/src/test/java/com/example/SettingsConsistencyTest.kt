@@ -47,13 +47,55 @@ open class SettingsConsistencyTest {
     }
     @After fun close() { store.clear() }
 
+    @Test fun importSheetHasTwoSideBySideSourcesAndOneFilePicker() {
+        checkImportSources(dark = false, fontScale = 1f)
+    }
+
+    @Test fun importSheetKeepsBothSourcesVisibleWithLargeFontInDarkMode() {
+        checkImportSources(dark = true, fontScale = 2f)
+    }
+
+    private fun checkImportSources(dark: Boolean, fontScale: Float) {
+        var fileRequests = 0
+        val resources = ApplicationProvider.getApplicationContext<Application>().resources
+        resources.updateConfiguration(android.content.res.Configuration(resources.configuration).apply {
+            this.fontScale = fontScale
+        }, resources.displayMetrics)
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            val density = LocalDensity.current.density
+            CompositionLocalProvider(LocalDensity provides Density(density, fontScale)) {
+                AsterReaderTheme(darkTheme = dark) {
+                    com.example.ui.screens.LibraryHomeScreen(
+                        AsterUiState(settingsLoaded = true), emptyList(), emptyList(), false, model,
+                        { fileRequests++ }
+                    )
+                }
+            }
+        }
+        compose.onNodeWithTag("library_add_fab").performClick()
+        captureDialog(if (dark) "import-sources-dark-font-200" else "import-sources-light")
+        val file = compose.onNodeWithText("导入文件").assertIsDisplayed().assertHasClickAction().fetchSemanticsNode().boundsInRoot
+        val directory = compose.onNode(hasText("添加目录") and hasText("扫描文件夹中的书籍")).assertIsDisplayed()
+            .assertHasClickAction().fetchSemanticsNode().boundsInRoot
+        org.junit.Assert.assertTrue(file.right < directory.left)
+        org.junit.Assert.assertEquals(file.top, directory.top, 1f)
+        org.junit.Assert.assertEquals(file.height, directory.height, 1f)
+        compose.onNodeWithText("导入单本").assertDoesNotExist()
+        compose.onNodeWithText("导入本地文件").assertDoesNotExist()
+        captureDialog(if (dark) "import-sources-dark-font-200" else "import-sources-light")
+        compose.onNodeWithText("导入文件").performClick()
+        compose.runOnIdle { org.junit.Assert.assertEquals(1, fileRequests) }
+        compose.onNodeWithText("导入文件").assertDoesNotExist()
+    }
+
     @Test fun settingsHomeHasOnlyCategoryNavigation() {
         content()
         compose.onNodeWithText("默认阅读配置").assertDoesNotExist()
         compose.onNodeWithText("诊断与帮助").assertDoesNotExist()
         compose.onNodeWithText("外观").assertIsDisplayed()
         org.junit.Assert.assertTrue(compose.onNodeWithText("外观").fetchSemanticsNode().boundsInRoot.height >=
-            52f * compose.density.density)
+            62f * compose.density.density)
         org.junit.Assert.assertTrue(compose.onNodeWithText("外观").fetchSemanticsNode().boundsInRoot.height <
             78f * compose.density.density)
         compose.onNodeWithText("安全").performScrollTo().assertIsDisplayed()

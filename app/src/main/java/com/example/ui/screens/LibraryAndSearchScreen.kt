@@ -761,86 +761,16 @@ fun LibraryHomeScreen(
                     maxLines = 1
                 )
 
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = colorScheme.secondaryContainer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.large)
-                        .clickable {
-                            showAddContentSheet = false
-                            onTriggerSystemFilePicker()
-                        }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Icon(Icons.Outlined.Description, contentDescription = null, tint = colorScheme.primary)
-                        Column {
-                            Text(
-                                text = "导入单本",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = colorScheme.onSecondaryContainer,
-                                maxLines = 1
-                            )
-                            Text(
-                                text = "漫画压缩包 / PDF / 图片",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
-
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = asterColors.surfaceContainerLow,
-                    border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(MaterialTheme.shapes.large)
-                        .clickable {
-                            showAddContentSheet = false
-                            // 直接触发系统文件管理器选择目录，拒绝手动填写
-                            viewModel.addRepositoryAndScan("本地书库", com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE)
-                        }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Icon(Icons.Outlined.CreateNewFolder, contentDescription = null, tint = colorScheme.primary)
-                        Column {
-                            Text(
-                                text = "添加目录",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = colorScheme.onSurface,
-                                maxLines = 1
-                            )
-                            Text(
-                                text = "在文件管理器中选择书库目录",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = colorScheme.onSurfaceVariant,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
-
-                OutlinedButton(
-                    onClick = {
+                com.example.ui.components.ImportSourceActions(
+                    onImportFile = {
                         showAddContentSheet = false
                         onTriggerSystemFilePicker()
                     },
-                    shape = CircleShape,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("导入本地文件", maxLines = 1, softWrap = false)
-                }
+                    onAddDirectory = {
+                        showAddContentSheet = false
+                        viewModel.addRepositoryAndScan("本地书库", com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE)
+                    }
+                )
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }

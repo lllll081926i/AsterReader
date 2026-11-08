@@ -40,7 +40,7 @@ V-07,加密内容占位 / 认证,P0,未认证、认证失败、恢复,UI-W2,已�
 V-08,文件夹/仓库/书架保护策略,P0,继承、覆盖、批量迁移,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-09,恢复密码与应急恢复,P0,设置、验证、密钥不可用,UI-W2,已实现修改口令及独立导出恢复；无独立应急密钥槽,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md
 V-10,解密导出 / 解除保护,P0,目标目录选择、校验、删除源密文,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-T-01,设置首页,P0,各分组,UI-W6,恢复全局布局密度，保留系统字体与滚动（见 docs/57）；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+T-01,设置首页,P0,各分组,UI-W6,整体1.2倍布局，保留系统字体与滚动；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-02,外观主题与 Monet,P0,默认、亮/暗、预览,UI-W6,已统一莫奈分段与整行勾选；深浅色和大字体待设备验收；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-03,默认阅读配置与手势,P0,合入R-04,UI-W6,按用户要求移除独立页面,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-04,缓存与空间管理,P0,统计、清理、失败,UI-W6,已修复缓存清理；空间统计未完整,引用 docs/36_COMPLETE_UI_UX_SPEC.md
