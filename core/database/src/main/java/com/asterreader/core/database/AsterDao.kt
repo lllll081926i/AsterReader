@@ -38,6 +38,50 @@ interface AsterDao {
     @Update
     suspend fun updateBook(book: BookEntity)
 
+    /** 扫描只登记来源；页数为 0 表示尚未解析，不能钳制已有阅读位置。 */
+    @Transaction
+    suspend fun registerScannedSource(source: BookEntity): BookEntity {
+        val current = getBookById(source.id)
+        if (current == null) { insertBook(source); return source }
+        if (current.isVaultEncrypted) return current
+        val changed = current.filePath != source.filePath || current.sizeBytes != source.sizeBytes ||
+            current.sourceModifiedAt != source.sourceModifiedAt || current.contentFingerprint != source.contentFingerprint
+        val saved = current.copy(format = source.format, sizeBytes = source.sizeBytes,
+            fileSizeText = source.fileSizeText, sourceModifiedAt = source.sourceModifiedAt,
+            contentFingerprint = source.contentFingerprint, repositoryId = source.repositoryId,
+            repositoryName = source.repositoryName, sourceStatus = "AVAILABLE",
+            totalPages = if (changed) 0 else current.totalPages,
+            coverUrl = if (changed) "" else current.coverUrl)
+        updateBook(saved)
+        if (changed) replaceChapters(saved.id, emptyList())
+        return saved
+    }
+
+    @Transaction
+    suspend fun completeReadingIndex(source: BookEntity, count: Int, chapters: List<ChapterEntity>): BookEntity {
+        val current = getBookById(source.id) ?: error("作品已被移除")
+        check(!current.isVaultEncrypted && current.filePath == source.filePath && current.sizeBytes == source.sizeBytes &&
+            current.sourceModifiedAt == source.sourceModifiedAt && current.contentFingerprint == source.contentFingerprint) {
+            "来源已更新，请重新打开"
+        }
+        if (current.totalPages > 0) return current
+        require(count > 0) { "归档内没有可读取的图片页面" }
+        val saved = current.copy(totalPages = count, currentPage = current.currentPage.coerceIn(1, count),
+            coverPage = current.coverPage.coerceIn(1, count))
+        updateBook(saved)
+        replaceChapters(saved.id, chapters)
+        return saved
+    }
+
+    @Transaction
+    suspend fun saveReadingCover(source: BookEntity, path: String) {
+        val current = getBookById(source.id) ?: return
+        if (current.isVaultProtected || current.isVaultEncrypted || current.coverUrl.isNotBlank()) return
+        if (current.filePath == source.filePath && current.sizeBytes == source.sizeBytes &&
+            current.sourceModifiedAt == source.sourceModifiedAt && current.contentFingerprint == source.contentFingerprint &&
+            current.coverPage == source.coverPage) updateCover(source.id, path, source.coverPage)
+    }
+
     @Query("UPDATE books SET title = CASE WHEN :title = '' THEN title ELSE :title END, author = :author, series = :series, synopsis = :synopsis, tagsCsv = :tags WHERE id = :id")
     suspend fun updateMetadata(id: String, title: String, author: String, series: String, synopsis: String, tags: String)
 
@@ -291,7 +335,7 @@ interface AsterDao {
     @Transaction
     suspend fun saveReadingPosition(id: String, page: Int, chapter: String?, viewport: com.asterreader.core.model.ReaderViewport?, timestamp: Long) {
         val book = getBookById(id) ?: return
-        if (book.isVaultEncrypted) return
+        if (book.isVaultEncrypted || book.totalPages == 0) return
         val position = (viewport ?: com.asterreader.core.model.ReaderViewport(page)).copy(page = page).sanitized(book.totalPages)
         val percent = if (book.statusBadge == "已读完") 100 else
             (position.page.toLong() * 100 / book.totalPages.coerceAtLeast(1)).toInt().coerceIn(0, 99)
@@ -307,7 +351,7 @@ interface AsterDao {
     @Transaction
     suspend fun saveViewport(id: String, position: com.asterreader.core.model.ReaderViewport) {
         val book = getBookById(id) ?: return
-        if (book.isVaultEncrypted) return
+        if (book.isVaultEncrypted || book.totalPages == 0) return
         val safe = position.sanitized(book.totalPages)
         val previous = getReaderState(id) ?: ReaderStateEntity(id)
         saveReaderState(previous.copy(page = safe.page, offsetFraction = safe.offsetFraction,

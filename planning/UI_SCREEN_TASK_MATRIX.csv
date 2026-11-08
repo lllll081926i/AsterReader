@@ -12,22 +12,22 @@ S-01,书架总览,P0,仅快捷、存在自定义,UI-W1,已实现紧凑书架页�
 S-02,书架详情,P0,空、正常、锁定,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 S-03,新建/编辑书架,P0,编辑、名称重复、删除,UI-W1,1.0.0 等待保存成功再关闭；空名重名禁用且表单可滚动；待完整设备验收,引用 docs/54_FINAL_AUDIT_AND_1_0_0.md
 S-04,书架管理 / 排序,P0,正常、多选、排序,UI-W1,1.0.0 统一独立管理页并禁用边界排序；待读屏与设备验收,引用 docs/54_FINAL_AUDIT_AND_1_0_0.md
-P-01,作品详情,P0,未读、在读、读完、失联、锁定,UI-W1,已优化订阅生命周期；详情正常清晰度预读与阅读会话交接（见 docs/55）；完整状态待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+P-01,作品详情,P0,未读、在读、读完、失联、锁定,UI-W1,延迟页数配合详情预读，未知页数不显示0/0（见 docs/56）；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 P-02,目录/章节抽屉,P0,分组、展开、无目录,UI-W3,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 P-03,编辑元数据,P0,保存、冲突、取消,UI-W1,已实现独立编辑页；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 P-04,文件属性与来源,P0,单文件、目录、密文,UI-W1,1.0.0 密文属性隐藏内部 URI 并说明校验边界；完整字段待补充,引用 docs/54_FINAL_AUDIT_AND_1_0_0.md
 P-05,漫画页书签与笔记汇总,P0,有内容、空、格式受限,UI-W3,1.0.0 修正笔记文案与成功清空时机；待完整设备验收,引用 docs/54_FINAL_AUDIT_AND_1_0_0.md
 R-01,Reader Shell,P0,controls 隐藏/显示、会话失效,UI-W3,1.0.0 区分真实章节与跳页并按需创建页码目录；API31和37设备待验收,引用 docs/54_FINAL_AUDIT_AND_1_0_0.md
-R-02,漫画分页/条漫,P0,正常、缩放、解码失败,UI-W3,取消低清预览并复用详情预读（见 docs/55）；已修复末图留白与加载淡入；中央抬手即切换工具栏；修复RTL及双页点击热区；完整设备滑动验收待完成,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+R-02,漫画分页/条漫,P0,正常、缩放、解码失败,UI-W3,延迟解析与阅读复用ZIP索引；常规图片复用单流；解析失败可重试（见 docs/56）；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-03,Reader 进度/跳转,P0,拖动、预览、提交,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-R-04,漫画阅读设置,P0,独立页面及本书与默认共用配置,UI-W3,重写为Monet分组列表和按需单选；上下各0～16页预加载；本书和默认配置保持原范围；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+R-04,漫画阅读设置,P0,独立页面及本书与默认共用配置,UI-W3,整体布局放大1.5倍；保留上下0～16页与本书/默认范围（见 docs/56）；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-07,漫画页书签与笔记,P0,正常、空、错误、锁定,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-10,PDF 漫画,P0,正常、损坏、不支持、锁定,UI-W5,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-01,添加内容动作面板,P0,文件、目录、仓库,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-02,导入文件确认,P0,重复、支持/不支持格式,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-03,仓库创建向导,P0,授权、路径规则、扫描方式,UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-04,扫描预览,P0,分类调整、冲突,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-I-05,扫描任务列表/详情,P0,运行、暂停/取消、失败,UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+I-05,扫描任务列表/详情,P0,运行、暂停/取消、失败,UI-W1,扫描只登记元数据，零内容读取与取消后重试回归（见 docs/56）；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-06,本地仓库管理,P0,正常、权限丢失、目录离线,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 I-07,远程仓库(WebDAV),P1,凭据、测试连接、目录浏览与读取,UI-W7,已实现服务商预设与多连接目录书架；协议与 API35 设备通过；真实服务及 API31/37 待验收；不含同步,引用 docs/51_WEBDAV_SOURCE.md
 V-01,应用认证门禁,P0,系统认证、应用密码、取消,UI-W2,已实现紧凑完整弹出验证面板；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
@@ -40,7 +40,7 @@ V-07,加密内容占位 / 认证,P0,未认证、认证失败、恢复,UI-W2,已�
 V-08,文件夹/仓库/书架保护策略,P0,继承、覆盖、批量迁移,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 V-09,恢复密码与应急恢复,P0,设置、验证、密钥不可用,UI-W2,已实现修改口令及独立导出恢复；无独立应急密钥槽,引用 docs/46_FILE_VAULT_IMPLEMENTATION.md
 V-10,解密导出 / 解除保护,P0,目标目录选择、校验、删除源密文,UI-W2,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-T-01,设置首页,P0,各分组,UI-W6,主导航改为先淡出后淡入；返回完成即回退且不播放转场；取消保持原页；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+T-01,设置首页,P0,各分组,UI-W6,设置整体1.5倍布局，保留系统字体与滚动（见 docs/56）；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-02,外观主题与 Monet,P0,默认、亮/暗、预览,UI-W6,已统一莫奈分段与整行勾选；深浅色和大字体待设备验收；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-03,默认阅读配置与手势,P0,合入R-04,UI-W6,按用户要求移除独立页面,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 T-04,缓存与空间管理,P0,统计、清理、失败,UI-W6,已修复缓存清理；空间统计未完整,引用 docs/36_COMPLETE_UI_UX_SPEC.md

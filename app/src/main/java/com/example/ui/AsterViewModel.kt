@@ -239,7 +239,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private var persistJob: kotlinx.coroutines.Job? = null
     private val cleanupScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
     private var scanJob: kotlinx.coroutines.Job? = null
-    private var coverRefreshJob: kotlinx.coroutines.Job? = null
     private var readerPreparationJob: kotlinx.coroutines.Job? = null
     private var preparingReaderBook: String? = null
     private var preparingReaderPage: Int? = null
@@ -503,6 +502,11 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         return repository.renderPage(id, page, maxPixels)
     }
 
+    suspend fun prepareReadingIndex(bookId: String): BookEntity {
+        readerCleanupJob?.join()
+        return repository.ensureReadingIndex(bookId)
+    }
+
     suspend fun renderPageRegion(
         id: String,
         page: Int,
@@ -529,7 +533,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         if (!state.settingsLoaded || state.isAppLockedNow) return
         if (preparingReaderBook == bookId && preparingReaderPage == page && readerPreparationJob?.isActive == true) return
         readerPreparationJob?.cancel()
-        coverRefreshJob?.cancel()
         preparingReaderBook = bookId
         preparingReaderPage = page
         val cleanup = readerCleanupJob
@@ -652,7 +655,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun openBookReader(bookId: String, initialPage: Int? = null, preferDualPageOnTablet: Boolean = false) {
-        coverRefreshJob?.cancel()
         val book = allBooks.value.find { it.id == bookId }
         if (book?.isVaultEncrypted == true && !_uiState.value.fileVaultOpen) {
             pendingFileVaultBook = bookId
@@ -1754,17 +1756,11 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startScan(operation: suspend () -> String) {
         if (_uiState.value.isScanning) { showSnackbar("正在扫描，可先取消"); return }
-        coverRefreshJob?.cancel()
         _uiState.update { it.copy(isScanning = true) }
         _scanProgress.value = ScanProgress()
         scanJob = viewModelScope.launch(operationErrors) {
             try {
                 showSnackbar(operation())
-                coverRefreshJob = viewModelScope.launch {
-                    try { repository.refreshMissingCovers() }
-                    catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { /* 封面可在下次扫描时重建，不阻塞作品入库。 */ }
-                }
             }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) { showSnackbar(failure.message ?: "扫描失败，请重新授权目录") }

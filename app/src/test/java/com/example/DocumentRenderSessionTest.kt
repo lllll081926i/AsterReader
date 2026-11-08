@@ -38,18 +38,18 @@ class DocumentRenderSessionTest {
             val preview = session.render("清晰度", 1, 600_000) { source }
             val full = session.render("清晰度", 1, 2_500_000) { source }
             assertNotSame(preview, full)
-            assertEquals("升级清晰度复用尺寸，只再读取一次像素", 3, streams.get())
+            assertEquals("升级清晰度复用尺寸，只再读取一次像素", 2, streams.get())
             assertEquals(full.allocationByteCount, session.cachedBytes())
             assertFalse("缓存替换不能回收界面仍引用的预览", preview.isRecycled)
             repeat(8) {
                 assertSame(full, session.render("清晰度", 1, 600_000) { error("来源应复用") })
                 session.prefetch("清晰度", listOf(1), 600_000) { error("来源应复用") }
             }
-            assertEquals("回读和预加载都不应再次解码", 3, streams.get())
+            assertEquals("回读和预加载都不应再次解码", 2, streams.get())
             assertNotSame(full, session.render("清晰度", 2, 600_000) { source })
             session.trimMemory()
             session.render("清晰度", 1, 600_000) { source }
-            assertEquals("内存清理后重读像素仍可复用本次来源的尺寸", 6, streams.get())
+            assertEquals("内存清理后重读像素仍可复用本次来源的尺寸", 4, streams.get())
         } finally { session.close() }
     }
 
@@ -71,7 +71,7 @@ class DocumentRenderSessionTest {
                 val preview = async(start = CoroutineStart.UNDISPATCHED) { session.render("并发清晰度", 1, 600_000) { source } }
                 release.countDown()
                 assertSame(full.await(), preview.await())
-                assertEquals(2, streams.get())
+                assertEquals(1, streams.get())
             }
         } finally { release.countDown(); session.close() }
     }
@@ -127,7 +127,7 @@ class DocumentRenderSessionTest {
                 release.countDown()
                 assertSame(first.await(), second.await())
                 prefetch.await()
-                assertEquals("一次解码只打开尺寸和像素两个流", 2, streams.get())
+                assertEquals("一次解码复用尺寸与像素流", 1, streams.get())
             }
         } finally { release.countDown(); session.close() }
     }
@@ -159,7 +159,7 @@ class DocumentRenderSessionTest {
                 requests.awaitAll()
                 closing.await()
                 assertEquals(2, peak.get())
-                assertEquals(16, streams.get())
+                assertEquals(8, streams.get())
                 assertEquals(0, active.get())
                 assertEquals(0, session.cachedBytes())
             }
@@ -187,7 +187,7 @@ class DocumentRenderSessionTest {
                 release.countDown()
                 active.awaitAll()
                 closing.await()
-                assertEquals(4, streams.get())
+                assertEquals(2, streams.get())
                 assertEquals(0, session.cachedBytes())
             }
         } finally { release.countDown(); session.close() }
@@ -332,7 +332,7 @@ class DocumentRenderSessionTest {
                 }
             }
             assertEquals(1, bitmap.width)
-            assertEquals(listOf(1, 1), openedPages)
+            assertEquals(listOf(1), openedPages)
         } finally {
             session.close()
             file.delete()

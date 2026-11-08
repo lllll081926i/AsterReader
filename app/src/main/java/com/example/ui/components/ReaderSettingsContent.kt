@@ -39,6 +39,27 @@ fun ReaderSettingsContent(
     showStatus: Boolean,
     onShowStatus: (Boolean) -> Unit
 ) {
+    com.asterreader.core.designsystem.AsterSettingsScale {
+        ReaderSettingsContentBody(state, model, mode, fit, cover, rightToLeft, onMode, onFit, onCover, onRightToLeft, onReset, showStatus, onShowStatus)
+    }
+}
+
+@Composable
+private fun ReaderSettingsContentBody(
+    state: AsterUiState,
+    model: AsterViewModel,
+    mode: ReaderLayoutMode,
+    fit: String,
+    cover: Boolean,
+    rightToLeft: Boolean,
+    onMode: (ReaderLayoutMode) -> Unit,
+    onFit: (String) -> Unit,
+    onCover: (Boolean) -> Unit,
+    onRightToLeft: (Boolean) -> Unit,
+    onReset: () -> Unit,
+    showStatus: Boolean,
+    onShowStatus: (Boolean) -> Unit
+) {
     var defaults by rememberSaveable { mutableStateOf(false) }
     var picker by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedMode = if (defaults) state.readerLayoutMode else mode

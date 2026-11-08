@@ -51,9 +51,9 @@
 
 ## I/O
 
-- Scanner 使用 bounded concurrency（例如 2–4），避免同时打开几十个 archive。
-- 小文件 metadata 可并行；大 PDF/7z 限流。
-- 所有 hash 都分层：quick fingerprint -> 必要时 full hash。
+- 目录扫描只使用提供者元数据，不打开 archive、不计算内容 hash、不复制或解码。
+- ZIP 中央目录只在详情预读或阅读会话中解析一次，页面使用条目随机读取。
+- 普通图片优先复用有界缓冲流完成尺寸读取与像素解码，清晰度与位图预算保持不变。
 
 ## 缓存失效
 

@@ -61,8 +61,11 @@ class LibraryRepositoryTest {
                 if (uri.lastPathSegment == "children") {
                     return MatrixCursor(arrayOf(android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                         android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE,
-                        android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME)).apply {
-                        files.forEach { (name, _) -> addRow(arrayOf(name, mimeTypes[name] ?: "application/octet-stream", name)) }
+                        android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                        android.provider.DocumentsContract.Document.COLUMN_SIZE,
+                        android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED)).apply {
+                        files.forEach { (name, file) -> addRow(arrayOf<Any?>(name, mimeTypes[name] ?: "application/octet-stream", name,
+                            if (reportedSizes.containsKey(name)) reportedSizes[name] else file.length(), file.lastModified())) }
                     }
                 }
                 val file = files.getValue(uri.lastPathSegment!!)
@@ -113,13 +116,17 @@ class LibraryRepositoryTest {
 
     @Test fun scanAcceptsLocalSizeMetadataBeyondTwoGiB() = runBlocking {
         document("大容器.cbz", comicBytes())
-        reportedSizes["大容器.cbz"] = 3L * 1024 * 1024 * 1024
+        reportedSizes["大容器.cbz"] = 3_865_470_566L
         val report = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "大文件", LibraryRepository.DEFAULT_SCAN_RULE)
         assertEquals(1, report.imported)
         assertEquals(0, report.failed)
         val book = repository.observeAllBooks().first().single()
-        assertEquals(3L * 1024 * 1024 * 1024, book.sizeBytes)
+        assertEquals(3_865_470_566L, book.sizeBytes)
+        assertEquals(0, book.totalPages)
+        assertEquals(0, opened.get())
+        assertTrue(book.coverUrl.isBlank())
         assertTrue(repository.renderPage(book.id, 1).width > 0)
+        assertEquals(2, repository.getBookById(book.id)!!.totalPages)
     }
 
     @Test
@@ -162,6 +169,60 @@ class LibraryRepositoryTest {
         db.asterDao().updateBook(book.copy(sourceStatus = "MISSING"))
         assertFalse(repository.prepareReading(book.id, 1, unlocked = true))
         assertEquals(before, opened.get())
+    }
+
+    @Test fun scanNeverReadsFileContentsAndDefersDamagedZipFailureUntilReading() = runBlocking {
+        document("待检查.zip", byteArrayOf(1, 2, 3))
+        reportedSizes["待检查.zip"] = 3_865_470_566L
+        document("忽略.bin", byteArrayOf(1))
+        onOpen = { error("扫描不得打开文件内容") }
+        val progress = mutableListOf<Int>()
+        val report = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "只入库",
+            LibraryRepository.DEFAULT_SCAN_RULE) { processed, _ -> progress.add(processed) }
+        assertEquals(1, report.imported)
+        assertEquals(0, report.failed)
+        assertEquals(1, report.ignored)
+        assertEquals(1, progress.last())
+        assertEquals(0, opened.get())
+        val book = repository.observeAllBooks().first().single()
+        assertEquals(3_865_470_566L, book.sizeBytes)
+        assertEquals(0, book.totalPages)
+        onOpen = null
+        assertTrue(runCatching { repository.ensureReadingIndex(book.id) }.isFailure)
+        assertEquals(0, repository.getBookById(book.id)!!.totalPages)
+    }
+
+    @Test fun changedSourceDefersIndexWithoutOverwritingUserState() = runBlocking {
+        document("更新.zip", comicBytes(3))
+        val original = repository.importDocument(android.provider.DocumentsContract.buildDocumentUri("audit.documents", "更新.zip"), persist = false)
+        val saved = original.copy(currentPage = 3, progressPercent = 100, statusBadge = "已读完",
+            isFavorite = true, isVaultProtected = true, title = "自定义书名")
+        db.asterDao().updateBook(saved)
+        reportedSizes["更新.zip"] = original.sizeBytes + 1
+        val before = opened.get()
+        val report = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "更新",
+            LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(1, report.updated)
+        val pending = repository.getBookById(saved.id)!!
+        assertEquals(0, pending.totalPages)
+        assertEquals(saved.currentPage, pending.currentPage)
+        assertEquals(saved.progressPercent, pending.progressPercent)
+        assertEquals(saved.title, pending.title)
+        assertTrue(pending.isFavorite && pending.isVaultProtected)
+        assertEquals(before, opened.get())
+        assertFalse(repository.prepareReading(saved.id, 3, unlocked = false))
+        assertTrue(repository.prepareReading(saved.id, 3, unlocked = true))
+        assertEquals(3, repository.getBookById(saved.id)!!.totalPages)
+        assertEquals(3, repository.getBookById(saved.id)!!.currentPage)
+    }
+
+    @Test fun staleIndexCannotOverwriteNewlyScannedSource() = runBlocking {
+        document("更新中的.zip", comicBytes())
+        repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "更新", LibraryRepository.DEFAULT_SCAN_RULE)
+        val pending = repository.observeAllBooks().first().single()
+        db.asterDao().registerScannedSource(pending.copy(sizeBytes = pending.sizeBytes + 1))
+        assertTrue(runCatching { db.asterDao().completeReadingIndex(pending, 2, emptyList()) }.isFailure)
+        assertEquals(0, repository.getBookById(pending.id)!!.totalPages)
     }
 
     private fun document(name: String, bytes: ByteArray): Uri {
@@ -212,10 +273,9 @@ class LibraryRepositoryTest {
         document("没有后缀", flatComicBytes(false))
         document("错后缀.dat", flatComicBytes(true))
         document("伪图片.jpg", flatComicBytes(false))
-        val report = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "文件头识别", LibraryRepository.DEFAULT_SCAN_RULE)
-        assertEquals(3, report.imported)
-        assertEquals(0, report.failed)
-        assertEquals(setOf(3), repository.observeAllBooks().first().map { it.totalPages }.toSet())
+        for (name in listOf("没有后缀", "错后缀.dat", "伪图片.jpg")) {
+            assertEquals(3, repository.importDocument(Uri.parse("content://audit.documents/$name"), persist = false).totalPages)
+        }
     }
 
     @Test fun documentAndTreeUrisReuseHiddenRecordAndReportWhyItIsInvisible() = runBlocking {
@@ -339,7 +399,7 @@ class LibraryRepositoryTest {
         assertEquals(1, android.graphics.BitmapFactory.decodeFile(cover.absolutePath)?.width)
     }
 
-    @Test fun directoryScanFindsZipByExtensionAndMimeAndBuildsCovers() = runBlocking {
+    @Test fun directoryScanRegistersZipWithoutOpeningOrDecoding() = runBlocking {
         document("中文旧编码.ZIP", comicBytes(charset = java.nio.charset.Charset.forName("GB18030")))
         document("无扩展漫画", comicBytes(3))
         mimeTypes["无扩展漫画"] = "application/x-zip-compressed"
@@ -350,14 +410,24 @@ class LibraryRepositoryTest {
             }
         }.toByteArray())
         val report = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "ZIP仓库", LibraryRepository.DEFAULT_SCAN_RULE)
-        assertEquals(3, report.imported)
-        assertEquals(1, report.failed)
+        assertEquals(4, report.imported)
+        assertEquals(0, report.failed)
         val books = repository.observeAllBooks().first()
-        assertEquals(3, books.size)
+        assertEquals(4, books.size)
+        assertEquals(0, opened.get())
         for (book in books) {
-            assertTrue(book.coverUrl.isNotBlank())
-            assertNotNull(android.graphics.BitmapFactory.decodeFile(book.coverUrl))
-            assertTrue(repository.renderPage(book.id, 1).width > 0)
+            assertEquals(0, book.totalPages)
+            assertTrue(book.coverUrl.isBlank())
+            if (book.title == "非漫画") {
+                assertTrue(runCatching { repository.ensureReadingIndex(book.id) }.isFailure)
+            } else {
+                assertTrue(repository.prepareReading(book.id, 1, unlocked = false))
+                val openedAfterPreparation = opened.get()
+                assertTrue(repository.renderPage(book.id, 1).width > 0)
+                assertEquals(openedAfterPreparation, opened.get())
+                assertTrue(repository.getBookById(book.id)!!.totalPages > 0)
+                assertTrue(repository.getBookById(book.id)!!.coverUrl.isNotBlank())
+            }
         }
     }
 
@@ -424,8 +494,8 @@ class LibraryRepositoryTest {
         assertEquals(0, second.imported)
         assertEquals(0, second.updated)
         assertEquals(2, second.unchanged)
-        // 未知后缀仍需重读文件头；两部未变化的漫画不重新打开归档。
-        assertEquals(count + 1, opened.get())
+        assertEquals(0, count)
+        assertEquals(count, opened.get())
         assertEquals(2, db.asterDao().getBookCount())
     }
 
@@ -435,9 +505,10 @@ class LibraryRepositoryTest {
         document("待取消2.cbz", comicBytes())
         val entered = java.util.concurrent.CountDownLatch(1)
         val proceed = java.util.concurrent.CountDownLatch(1)
-        onOpen = { entered.countDown(); check(proceed.await(5, java.util.concurrent.TimeUnit.SECONDS)) }
         val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "取消仓库", "每个文件作为作品")
+            repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "取消仓库", "每个文件作为作品") { processed, _ ->
+                if (processed == 1) { entered.countDown(); check(proceed.await(5, java.util.concurrent.TimeUnit.SECONDS)) }
+            }
         }
         try {
             assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
@@ -449,6 +520,11 @@ class LibraryRepositoryTest {
         val repo = repository.observeAllRepositories().first().single()
         assertFalse(repo.isHealthy)
         assertEquals("扫描已取消", repo.lastScanText)
+        assertEquals(1, db.asterDao().getBookCount())
+        assertEquals(0, opened.get())
+        val retry = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "取消仓库", "每个文件作为作品")
+        assertEquals(1, retry.imported)
+        assertEquals(1, retry.unchanged)
     }
 
     @Test

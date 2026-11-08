@@ -220,12 +220,13 @@ internal class EpubXmlBudget {
 
 private class ZipComicArchive(file: File) : ComicArchive {
     private val zip = openComicZip(file)
-    private val entries: List<ZipEntry> = ComicArchives.sortedImageNames(
-        zip.entries().asSequence().map { it.name }.toList()
-    ).mapNotNull { name -> zip.getEntry(name) }
+    private val entries: List<ZipEntry> = try {
+        zip.entries().asSequence().filter { !it.isDirectory && ComicArchives.isImageEntry(it.name) }
+            .sortedWith { a, b -> LibraryRepository.naturalCompare(a.name, b.name) }.toList()
+    } catch (failure: Throwable) { zip.close(); throw failure }
 
     override val pageCount get() = entries.size
-    override val pageNames get() = entries.map { it.name }
+    override val pageNames = entries.map { it.name }
 
     override fun openPage(number: Int): InputStream {
         val entry = entries.getOrNull(number - 1) ?: throw IOException("页面不存在：$number")

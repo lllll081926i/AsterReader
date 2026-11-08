@@ -40,6 +40,21 @@ fun SettingsScreen(
     onBack: (() -> Unit)? = null,
     section: String? = null
 ) {
+    com.asterreader.core.designsystem.AsterSettingsScale {
+        SettingsScreenBody(uiState, repositories, booksCount, viewModel, onTriggerImportFile, onBack, section)
+    }
+}
+
+@Composable
+private fun SettingsScreenBody(
+    uiState: AsterUiState,
+    repositories: List<RepositoryEntity>,
+    booksCount: Int,
+    viewModel: AsterViewModel,
+    onTriggerImportFile: () -> Unit,
+    onBack: (() -> Unit)?,
+    section: String?
+) {
     if (section == "webdav") {
         WebDavScreen(onBack = { onBack?.invoke() }, onOpenBook = viewModel::openBookReader)
         return

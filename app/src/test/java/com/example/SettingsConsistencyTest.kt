@@ -52,6 +52,8 @@ open class SettingsConsistencyTest {
         compose.onNodeWithText("默认阅读配置").assertDoesNotExist()
         compose.onNodeWithText("诊断与帮助").assertDoesNotExist()
         compose.onNodeWithText("外观").assertIsDisplayed()
+        org.junit.Assert.assertTrue(compose.onNodeWithText("外观").fetchSemanticsNode().boundsInRoot.height >=
+            78f * compose.density.density)
         compose.onNodeWithText("安全").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("关于").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("关于").performClick()
@@ -194,6 +196,24 @@ open class SettingsConsistencyTest {
         compose.onNodeWithTag("nav_dock_search").assertIsDisplayed()
     }
 
+    @Test fun readerDefersUnknownPageCountAndOffersRetryForUnreadableSource() {
+        val book = comicFixture("延迟解析").copy(totalPages = 0)
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme {
+                com.example.ui.screens.ReaderScreen(book, uiState = AsterUiState(settingsLoaded = true),
+                    isExpandedTablet = false, viewModel = model, onBack = {})
+            }
+        }
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithText("无法读取漫画，请检查文件与授权").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("重试").assertIsDisplayed().performClick()
+        compose.onNodeWithText("返回").assertIsDisplayed()
+        compose.onNodeWithTag("publication_canvas").assertDoesNotExist()
+        capture("reader-index-error")
+    }
+
     @Test fun readerUsesCompactMonetControlsAndNoSideZoomButtons() {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val source = File(app.cacheDir, "布局验收.zip")
@@ -207,16 +227,25 @@ open class SettingsConsistencyTest {
         }
         image.recycle()
         val book = kotlinx.coroutines.runBlocking {
-            com.example.data.local.LibraryRepository(app).importDocument(android.net.Uri.fromFile(source), persist = false)
+            com.example.data.local.LibraryRepository(app).importDocument(android.net.Uri.parse(source.toURI().toString()), persist = false)
+        }
+        val pending = book.copy(totalPages = 0)
+        kotlinx.coroutines.runBlocking {
+            com.example.data.local.AsterDatabase.getDatabase(app).asterDao().updateBook(pending)
         }
         compose.setContent {
             rootView = androidx.compose.ui.platform.LocalView.current.rootView
             AsterReaderTheme {
-                com.example.ui.screens.ReaderScreen(book, uiState = AsterUiState(settingsLoaded = true, isAppLockedNow = false),
+                com.example.ui.screens.ReaderScreen(pending, uiState = AsterUiState(settingsLoaded = true, isAppLockedNow = false),
                     isExpandedTablet = false, viewModel = model, onBack = {})
             }
         }
-        compose.waitForIdle()
+        try {
+            compose.waitUntil(10_000) { compose.onAllNodesWithTag("publication_canvas").fetchSemanticsNodes().isNotEmpty() }
+        } catch (failure: Throwable) {
+            println(compose.onRoot().printToString())
+            throw failure
+        }
         compose.onNodeWithContentDescription("放大页面").assertDoesNotExist()
         compose.onNodeWithContentDescription("缩小页面").assertDoesNotExist()
         compose.onNodeWithText("前 10 页").assertDoesNotExist()

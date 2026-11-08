@@ -48,6 +48,13 @@ internal sealed interface PageSource {
  * - [close] 会等待在途解码结束，避免关闭归档时另一个线程还在读。
  */
 internal class DocumentRenderSession(context: Context) {
+    data class Index(val pageCount: Int, val pageNames: List<String>)
+
+    suspend fun index(key: String, prepare: suspend () -> PageSource): Index {
+        val open = ensureSource(key, prepare)
+        return try { Index(open.pageCount, open.archive?.pageNames.orEmpty()) }
+        finally { inFlight.update { it - 1 } }
+    }
     private val sourceMutex = Mutex()
     private data class PageKey(val source: String, val page: Int, val pixels: Int, val top: Int = -1, val bottom: Int = -1) {
         fun sameArea(other: PageKey) = source == other.source && page == other.page && top == other.top && bottom == other.bottom
@@ -276,18 +283,22 @@ internal class DocumentRenderSession(context: Context) {
         }
 
     private fun renderImage(open: OpenSource, number: Int, maxPixels: Int): Bitmap {
-        val original = open.imageSizes[number] ?: run {
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            openStream(open, number).use { BitmapFactory.decodeStream(LimitedStream(it), null, bounds) }
-            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "图像已损坏" }
-            (bounds.outWidth to bounds.outHeight).also { open.imageSizes[number] = it }
-        }
-        val sample = sampleFor(original.first, original.second, maxPixels)
-        return (openStream(open, number).use {
-            BitmapFactory.decodeStream(
-                LimitedStream(it), null, BitmapFactory.Options().apply { inSampleSize = sample }
-            )
-        } ?: error("图像无法解码")).also { dimensions[it] = original }
+        fun stream() = java.io.BufferedInputStream(LimitedStream(openStream(open, number)), 64 * 1024)
+        var input = stream()
+        try {
+            val original = open.imageSizes[number] ?: run {
+                // 常规图片只打开一次条目；超长文件头超出缓冲时才重新打开像素流。
+                input.mark(64 * 1024)
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeStream(input, null, bounds)
+                require(bounds.outWidth > 0 && bounds.outHeight > 0) { "图像已损坏" }
+                try { input.reset() } catch (_: IOException) { input.close(); input = stream() }
+                (bounds.outWidth to bounds.outHeight).also { open.imageSizes[number] = it }
+            }
+            return (BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
+                inSampleSize = sampleFor(original.first, original.second, maxPixels)
+            }) ?: error("图像无法解码")).also { dimensions[it] = original }
+        } finally { input.close() }
     }
 
     private fun renderRegionBitmap(

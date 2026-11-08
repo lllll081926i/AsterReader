@@ -366,7 +366,8 @@ class LibraryRepository(
         repositoryName: String,
         repositoryId: String,
         refreshExisting: Boolean = false,
-        replaceId: String? = null
+        replaceId: String? = null,
+        includeCover: Boolean = true
     ): BookEntity = withContext(Dispatchers.IO) {
         if (fileVault.configured) {
             val tag = fileVault.sourceTag(folderUri.toString())
@@ -388,7 +389,7 @@ class LibraryRepository(
         val (seriesName, volOrder) = parseSeriesAndVolume(name)
         val coverFile = File(context.cacheDir, "covers/${id}.jpg")
         val selectedCover = (existing?.coverPage ?: 1).coerceIn(1, images.size)
-        val coverPath = writeCover({ runCatching { resolver.openInputStream(images[selectedCover - 1].uri) }.getOrNull() }, coverFile)
+        val coverPath = (if (includeCover) writeCover({ runCatching { resolver.openInputStream(images[selectedCover - 1].uri) }.getOrNull() }, coverFile) else null)
             ?: existing?.coverUrl.orEmpty()
         val totalSize = images.sumOf { it.size }
         val book = BookEntity(
@@ -431,6 +432,29 @@ class LibraryRepository(
     // ------------------------------------------------------------------
     // 扫描
     // ------------------------------------------------------------------
+
+    private suspend fun registerScannedDocument(child: ChildEntry, format: String, name: String, repositoryId: String): BookEntity {
+        if (fileVault.configured) {
+            dao.getBookByUri("vault-source://${fileVault.sourceTag(child.uriString)}")?.let { shell ->
+                return fileVault.records.value[shell.id]?.book ?: shell
+            }
+        }
+        val existing = findDocumentSource(child.uri)
+        val (series, volume) = parseSeriesAndVolume(child.name)
+        val source = existing?.copy(format = format, sizeBytes = child.size,
+            fileSizeText = formatSize(child.size), sourceModifiedAt = child.modifiedAt,
+            contentFingerprint = child.fingerprint, repositoryId = repositoryId, repositoryName = name)
+            ?: BookEntity(id = UUID.randomUUID().toString(), title = child.name.substringBeforeLast('.', child.name),
+                author = "", series = series, format = format, coverUrl = "", currentPage = 1, totalPages = 0,
+                progressPercent = 0, currentChapterTitle = "第 1 页", statusBadge = "未读",
+                seriesBadge = if (volume > 1) "卷 $volume" else "", fileSizeText = formatSize(child.size),
+                filePath = child.uriString, repositoryName = name, updatedTimeText = "刚刚导入",
+                synopsis = "", tagsCsv = "", shelfIdsCsv = "", sizeBytes = child.size,
+                addedAt = System.currentTimeMillis(), sourceModifiedAt = child.modifiedAt,
+                repositoryId = repositoryId, contentFingerprint = child.fingerprint, seriesOrder = volume)
+        currentCoroutineContext().ensureActive()
+        return dao.registerScannedSource(source)
+    }
 
     suspend fun scanRepository(
         uri: Uri,
@@ -476,30 +500,24 @@ class LibraryRepository(
                     children.filter { it.isDirectory }.forEach { queue.add(it.documentId) }
                     val classified = children.filter { !it.isDirectory }.map { child ->
                         currentCoroutineContext().ensureActive()
-                        val declared = detectFormat(child.name, child.mimeType)
-                        child to if (declared in READABLE_FORMATS && declared != "IMAGE") declared else try {
-                            resolveFormat(child.name, child.mimeType, child.uri)
-                        } catch (failure: Exception) {
-                            failed++
-                            failureReasons.add(scanFailureReason(failure))
-                            "ERROR"
-                        }
+                        child to detectFormat(child.name, child.mimeType)
                     }
-                    val archives = classified.filter { it.second in ARCHIVE_EXTENSIONS }.map { it.first }
+                    val archives = classified.filter { it.second in ARCHIVE_EXTENSIONS }
                     val images = classified.filter { it.second == "IMAGE" }.map { it.first }
                     discoveredWorks += archives.size + if (images.isEmpty()) 0 else 1
                     onProgress(processed, discoveredWorks)
                     ignored += classified.count { it.second !in ARCHIVE_EXTENSIONS && it.second != "IMAGE" && it.second != "ERROR" }
-                    for (child in archives) {
+                    for ((child, format) in archives) {
                         currentCoroutineContext().ensureActive()
                         seen.add(child.uriString)
                         onProgress(processed, discoveredWorks)
                         try {
                             val before = findDocumentSource(child.uri)
-                            val after = importDocument(child.uri, repoName, repoId, persist = false, refreshExisting = true, includePdfCover = false)
+                            val after = registerScannedDocument(child, format, repoName, repoId)
                             when {
                                 before == null -> imported++
-                                after.totalPages != before.totalPages || after.sourceModifiedAt != before.sourceModifiedAt ||
+                                after.totalPages != before.totalPages || after.sizeBytes != before.sizeBytes ||
+                                    after.format != before.format || after.sourceModifiedAt != before.sourceModifiedAt ||
                                     after.contentFingerprint != before.contentFingerprint -> updated++
                                 else -> unchanged++
                             }
@@ -519,7 +537,7 @@ class LibraryRepository(
                         seen.add(parentUri)
                         try {
                             val before = dao.getBookByUri(parentUri)
-                            val after = importImageFolder(uri, Uri.parse(parentUri), repoName, repoId, refreshExisting = true)
+                            val after = importImageFolder(uri, Uri.parse(parentUri), repoName, repoId, refreshExisting = true, includeCover = false)
                             when {
                                 before == null -> imported++
                                 after.contentFingerprint != before.contentFingerprint -> updated++
@@ -565,6 +583,19 @@ class LibraryRepository(
     // ------------------------------------------------------------------
 
     private val renderSession = DocumentRenderSession(context)
+    private val readingIndexMutex = Mutex()
+
+    /** 延迟建立页数和目录，复用即将阅读的来源，不做封面或页面解码。 */
+    suspend fun ensureReadingIndex(id: String): BookEntity = withContext(Dispatchers.IO) {
+        readingIndexMutex.withLock {
+            val book = getBookById(id) ?: error("作品已被移除")
+            if (book.totalPages > 0) return@withLock book
+            check(book.sourceStatus == "AVAILABLE") { "来源不可读取，请重新授权" }
+            val index = renderSession.index(sourceKey(book)) { prepareSource(book) }
+            currentCoroutineContext().ensureActive()
+            dao.completeReadingIndex(book, index.pageCount, buildChapters(id, chapterSpans(index.pageNames)))
+        }
+    }
 
     private fun sourceKey(book: BookEntity): String = if (book.isVaultEncrypted) {
         "secure:${book.id}:${fileVault.sessionToken()}"
@@ -606,20 +637,37 @@ class LibraryRepository(
     suspend fun renderPage(id: String, page: Int, maxPixels: Int = DEFAULT_PAGE_PIXELS): Bitmap =
         withContext(Dispatchers.IO) {
             val token = fileVault.sessionToken()
-            val book = getBookById(id) ?: error("作品已被移除")
+            val book = ensureReadingIndex(id)
             require(page in 1..book.totalPages) { "页码超出范围" }
             renderSession.render(sourceKey(book), page, maxPixels) { prepareSource(book) }.also {
                 if (book.isVaultEncrypted) check(fileVault.isSessionValid(token)) { "保险库已锁定" }
+                if (!book.isVaultProtected && !book.isVaultEncrypted && book.coverUrl.isBlank() && page == book.coverPage) {
+                    currentCoroutineContext().ensureActive()
+                    val cover = runCatching { saveRenderedCover(book, it) }.getOrNull()
+                    if (cover != null) dao.saveReadingCover(book, cover)
+                }
             }
         }
+
+    private fun saveRenderedCover(book: BookEntity, bitmap: Bitmap): String {
+        val target = File(context.cacheDir, "covers/${book.id}-${sourceKey(book).hashCode()}.jpg")
+        target.parentFile?.mkdirs()
+        val scale = minOf(300f / bitmap.width, 450f / bitmap.height, 1f)
+        val thumbnail = Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt().coerceAtLeast(1),
+            (bitmap.height * scale).toInt().coerceAtLeast(1), true)
+        try { target.outputStream().use { check(thumbnail.compress(Bitmap.CompressFormat.JPEG, 86, it)) } }
+        finally { if (thumbnail !== bitmap) thumbnail.recycle() }
+        return target.absolutePath
+    }
 
     /** 详情页预读即将打开的一页，直接复用阅读会话，不生成磁盘预览副本。 */
     suspend fun prepareReading(id: String, page: Int, unlocked: Boolean): Boolean = withContext(Dispatchers.IO) {
         val book = getBookById(id) ?: return@withContext false
-        if (book.sourceStatus != "AVAILABLE" || book.totalPages < 1 ||
+        if (book.sourceStatus != "AVAILABLE" ||
             book.isVaultProtected && !unlocked || book.isVaultEncrypted && !fileVault.unlocked ||
             WebDavRepository.isRemote(Uri.parse(book.filePath))) return@withContext false
-        val target = page.coerceIn(1, book.totalPages)
+        val indexed = ensureReadingIndex(id)
+        val target = page.coerceIn(1, indexed.totalPages)
         currentCoroutineContext().ensureActive()
         renderPage(id, target, DEFAULT_PAGE_PIXELS)
         true
@@ -684,6 +732,7 @@ class LibraryRepository(
 
     @OptIn(coil.annotation.ExperimentalCoilApi::class)
     suspend fun encryptBookFile(id: String) = withContext(Dispatchers.IO) {
+        ensureReadingIndex(id)
         closeReadSession()
         localCopyMutex.withLock {
             val book = dao.getBookById(id) ?: error("作品已被移除")

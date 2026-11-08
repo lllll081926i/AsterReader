@@ -537,7 +537,7 @@ fun PublicationDetailScreen(
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                             Text(
-                                                text = "共 ${book.totalPages} 页",
+                                                text = if (book.totalPages > 0) "共 ${book.totalPages} 页" else "打开后显示页数",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = colorScheme.primary,
                                                 maxLines = 1,
@@ -681,7 +681,7 @@ fun PublicationDetailScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = "第 ${book.currentPage} / ${book.totalPages} 页",
+                                    text = if (book.totalPages > 0) "第 ${book.currentPage} / ${book.totalPages} 页" else "第 ${book.currentPage} 页",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
                                     color = colorScheme.onSurface,
                                     maxLines = 1,
@@ -690,7 +690,7 @@ fun PublicationDetailScreen(
                             }
                             val remaining = (book.totalPages - book.currentPage).coerceAtLeast(0)
                             Text(
-                                text = "已读 ${book.progressPercent}% · 剩 $remaining 页",
+                                text = if (book.totalPages > 0) "已读 ${book.progressPercent}% · 剩 $remaining 页" else "已读 ${book.progressPercent}%",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = colorScheme.primary,
                                 maxLines = 1,
@@ -1046,7 +1046,7 @@ private fun DetailMetadataColumn(
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "${book.fileSizeText} · ${book.totalPages} 页",
+                        text = if (book.totalPages > 0) "${book.fileSizeText} · ${book.totalPages} 页" else book.fileSizeText,
                         style = MaterialTheme.typography.labelMedium,
                         color = colorScheme.onSurfaceVariant,
                         maxLines = 1,

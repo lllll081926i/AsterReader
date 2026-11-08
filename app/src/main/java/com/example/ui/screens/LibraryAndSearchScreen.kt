@@ -513,7 +513,7 @@ fun LibraryHomeScreen(
                                         )
                                     }
                                     Text(
-                                        text = "${continueReadingBook.currentPage}/${continueReadingBook.totalPages}页 (${continueReadingBook.progressPercent}%)",
+                                        text = if (continueReadingBook.totalPages > 0) "${continueReadingBook.currentPage}/${continueReadingBook.totalPages}页 (${continueReadingBook.progressPercent}%)" else "第 ${continueReadingBook.currentPage} 页 (${continueReadingBook.progressPercent}%)",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontFamily = com.example.ui.theme.RobotoMonoFontFamily,
                                         color = colorScheme.primary,
@@ -966,7 +966,7 @@ private fun ContinueReadingCompactCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "第 ${book.currentPage} / ${book.totalPages} 页 · ${book.progressPercent}%",
+                    text = if (book.totalPages > 0) "第 ${book.currentPage} / ${book.totalPages} 页 · ${book.progressPercent}%" else "第 ${book.currentPage} 页 · ${book.progressPercent}%",
                     style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -1230,7 +1230,7 @@ private fun PublicationListRowCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${book.author} · 第 ${book.currentPage}/${book.totalPages} 页",
+                    text = if (book.totalPages > 0) "${book.author} · 第 ${book.currentPage}/${book.totalPages} 页" else "${book.author} · 第 ${book.currentPage} 页",
                     style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant,
                     maxLines = 1,

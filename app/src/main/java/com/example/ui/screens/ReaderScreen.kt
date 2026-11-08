@@ -119,6 +119,7 @@ import com.example.ui.AsterUiState
 import com.example.ui.AsterViewModel
 import com.example.ui.ReaderLayoutMode
 import com.example.ui.theme.RobotoMonoFontFamily
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -135,6 +136,47 @@ fun ReaderScreen(
     onBack: () -> Unit
 ) {
     BackHandler(enabled = !com.example.ui.components.LocalRootHandlesBack.current, onBack = onBack)
+    DisposableEffect(book.id) { onDispose { viewModel.releaseReaderResources(book.id) } }
+    var attempt by remember(book.id) { mutableIntStateOf(0) }
+    var indexed by remember(book.id, book.filePath, book.sizeBytes, book.sourceModifiedAt, book.contentFingerprint) {
+        mutableStateOf<Result<BookEntity>?>(null)
+    }
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(book.id, book.totalPages, book.filePath, book.sizeBytes, book.sourceModifiedAt, book.contentFingerprint, attempt, owner) {
+        if (book.totalPages == 0) owner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            indexed = null
+            indexed = try { Result.success(viewModel.prepareReadingIndex(book.id)) }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { Result.failure(IllegalStateException("无法读取漫画，请检查文件与授权")) }
+        }
+    }
+    val ready = if (book.totalPages > 0) book else indexed?.getOrNull()
+    if (ready == null) {
+        Column(Modifier.fillMaxSize().background(ComicPaper).padding(com.asterreader.core.designsystem.AsterLayout.PagePadding), verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally) {
+            if (indexed?.isFailure == true) {
+                Text("无法读取漫画，请检查文件与授权", color = StatusIcon)
+                TextButton(onClick = { attempt++ }, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = StatusIcon)) { Text("重试") }
+            } else {
+                androidx.compose.material3.CircularProgressIndicator(color = StatusIcon)
+                Text("正在打开漫画", color = StatusIcon)
+            }
+            TextButton(onClick = onBack, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = StatusIcon)) { Text("返回") }
+        }
+        return
+    }
+    ReaderContent(ready, initialPage, uiState, isExpandedTablet, viewModel, onBack)
+}
+
+@Composable
+private fun ReaderContent(
+    book: BookEntity,
+    initialPage: Int?,
+    uiState: AsterUiState,
+    isExpandedTablet: Boolean,
+    viewModel: AsterViewModel,
+    onBack: () -> Unit
+) {
     // 安全来源由 Repository 授权并提供随机读取，阅读 UI 不直接接触密钥。
 
     val context = LocalContext.current
@@ -154,7 +196,6 @@ fun ReaderScreen(
 
         onDispose {
             insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            viewModel.releaseReaderResources(book.id)
         }
     }
     val annotations by remember(book.id) {
@@ -657,6 +698,7 @@ fun ReaderScreen(
             onDismissRequest = { showModeSheet = false },
             properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
+            com.asterreader.core.designsystem.AsterSettingsScale {
             Surface(Modifier.fillMaxSize().testTag("reader_settings_page"), color = MaterialTheme.colorScheme.background) {
             Column(
                 modifier = Modifier
@@ -696,6 +738,7 @@ fun ReaderScreen(
                 }
                 Spacer(modifier = Modifier.height(14.dp))
                 }
+            }
             }
             }
         }

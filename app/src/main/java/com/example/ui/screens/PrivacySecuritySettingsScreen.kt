@@ -32,6 +32,18 @@ fun PrivacySecuritySettingsScreen(
     onBack: () -> Unit,
     section: String? = null
 ) {
+    com.asterreader.core.designsystem.AsterSettingsScale {
+        PrivacySecuritySettingsScreenBody(uiState, viewModel, onBack, section)
+    }
+}
+
+@Composable
+private fun PrivacySecuritySettingsScreenBody(
+    uiState: AsterUiState,
+    viewModel: AsterViewModel,
+    onBack: () -> Unit,
+    section: String?
+) {
     val back: () -> Unit = {
         if (section == "pin") viewModel.cancelPendingAppLockActivation()
         onBack()
