@@ -53,6 +53,8 @@ open class SettingsConsistencyTest {
         compose.onNodeWithText("诊断与帮助").assertDoesNotExist()
         compose.onNodeWithText("外观").assertIsDisplayed()
         org.junit.Assert.assertTrue(compose.onNodeWithText("外观").fetchSemanticsNode().boundsInRoot.height >=
+            52f * compose.density.density)
+        org.junit.Assert.assertTrue(compose.onNodeWithText("外观").fetchSemanticsNode().boundsInRoot.height <
             78f * compose.density.density)
         compose.onNodeWithText("安全").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("关于").performScrollTo().assertIsDisplayed()

@@ -458,7 +458,7 @@ class LibraryRepositoryTest {
     }
 
     @Test
-    fun repeatedPagesReuseSessionAndKeepLocalCopyForReopen() = runBlocking {
+    fun repeatedZipPagesReuseDirectSessionWithoutCopyingTheArchive() = runBlocking {
         val uri = document("会话缓存.cbz", comicBytes())
         val book = repository.importDocument(uri, persist = false)
         val count = opened.get()
@@ -466,16 +466,15 @@ class LibraryRepositoryTest {
         repository.renderPage(book.id, 2)
         assertSame(first, repository.renderPage(book.id, 1))
         assertEquals(count + 1, opened.get())
-        // 阅读用的本地副本落在 read/ 下，不再是需要每次重建的 document- 临时文件
+        // 可寻址 SAF 直接读取，首次阅读也不生成整包副本。
         val copyDir = java.io.File(app.cacheDir, "read")
-        assertEquals(1, copyDir.listFiles()!!.count { it.name.endsWith(".arc") })
+        assertEquals(0, copyDir.listFiles().orEmpty().count { it.name.endsWith(".arc") })
         repository.trimPageMemory()
         repository.closeReadSession()
         repository.closeReadSession()
-        // 副本保留以便再次打开时直接命中，避免整本重新复制
-        assertEquals(1, copyDir.listFiles()!!.count { it.name.endsWith(".arc") })
+        assertEquals(0, copyDir.listFiles().orEmpty().count { it.name.endsWith(".arc") })
         repository.renderPage(book.id, 1)
-        assertEquals(count + 1, opened.get())
+        assertEquals(count + 2, opened.get())
         assertTrue(files.getValue("会话缓存.cbz").exists())
         repository.closeReadSession()
     }

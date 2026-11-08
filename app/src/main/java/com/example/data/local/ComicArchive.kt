@@ -27,6 +27,9 @@ internal interface ComicArchive : Closeable {
 
 internal object ComicArchives {
 
+    /** 通道的所有权交给归档；只读中央目录，不预先逐个访问本地文件头。 */
+    fun openZip(channel: java.nio.channels.SeekableByteChannel): ComicArchive = ZipComicArchive(channel)
+
     private val IMAGE_EXTENSIONS = LibraryRepository.IMAGE_EXTENSIONS.map { it.lowercase(Locale.ROOT) }.toSet()
 
     fun isImageEntry(name: String): Boolean {
@@ -218,10 +221,18 @@ internal class EpubXmlBudget {
     }
 }
 
-private class ZipComicArchive(file: File) : ComicArchive {
-    private val zip = openComicZip(file)
-    private val entries: List<ZipEntry> = try {
-        zip.entries().asSequence().filter { !it.isDirectory && ComicArchives.isImageEntry(it.name) }
+private class ZipComicArchive(channel: java.nio.channels.SeekableByteChannel) : ComicArchive {
+    constructor(file: File) : this(FileInputStream(file).channel)
+
+    private val zip = try {
+        org.apache.commons.compress.archivers.zip.ZipFile.builder()
+            .setSeekableByteChannel(channel)
+            .setCharset(java.nio.charset.Charset.forName("GB18030"))
+            .setIgnoreLocalFileHeader(true)
+            .get()
+    } catch (failure: Throwable) { channel.close(); throw failure }
+    private val entries: List<org.apache.commons.compress.archivers.zip.ZipArchiveEntry> = try {
+        zip.entries.asSequence().filter { !it.isDirectory && ComicArchives.isImageEntry(it.name) }
             .sortedWith { a, b -> LibraryRepository.naturalCompare(a.name, b.name) }.toList()
     } catch (failure: Throwable) { zip.close(); throw failure }
 
@@ -230,7 +241,8 @@ private class ZipComicArchive(file: File) : ComicArchive {
 
     override fun openPage(number: Int): InputStream {
         val entry = entries.getOrNull(number - 1) ?: throw IOException("页面不存在：$number")
-        return zip.getInputStream(entry)
+        if (!zip.canReadEntryData(entry)) throw IOException("ZIP 图片已加密或使用了不支持的压缩方式")
+        return zip.getInputStream(entry) ?: throw IOException("无法读取 ZIP 图片")
     }
 
     override fun close() = zip.close()

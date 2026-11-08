@@ -629,9 +629,37 @@ class LibraryRepository(
             }
         }
     } else {
-        val direct = openLocalDocument(Uri.parse(book.filePath))
-        if (direct != null) PageSource.Document(direct.file, book.format, owned = false, release = direct::close)
-        else PageSource.Document(localCopy(book), book.format, owned = false)
+        val uri = Uri.parse(book.filePath)
+        val zip = if (book.format.uppercase(java.util.Locale.ROOT) in setOf("ZIP", "CBZ")) openLocalZip(uri) else null
+        if (zip != null) PageSource.Archive(zip)
+        else {
+            val direct = openLocalDocument(uri)
+            if (direct != null) PageSource.Document(direct.file, book.format, owned = false, release = direct::close)
+            else PageSource.Document(localCopy(book), book.format, owned = false)
+        }
+    }
+
+    /** SAF 直接交接可寻址通道，不依赖 proc 路径，也不复制整本 ZIP。 */
+    private fun openLocalZip(uri: Uri): ComicArchive? {
+        if (uri.scheme == "file") return ComicArchives.open(File(uri.path ?: error("源文件不可访问")), "ZIP")
+        if (uri.scheme != "content" || WebDavRepository.isRemote(uri)) return null
+        val descriptor = try { resolver.openFileDescriptor(uri, "r") }
+            catch (_: java.io.IOException) { null }
+            catch (_: UnsupportedOperationException) { null }
+            ?: return null
+        try {
+            android.system.Os.lseek(descriptor.fileDescriptor, 0, android.system.OsConstants.SEEK_CUR)
+        } catch (_: android.system.ErrnoException) {
+            descriptor.close()
+            return null
+        } catch (failure: Throwable) { descriptor.close(); throw failure }
+        val stream = ParcelFileDescriptor.AutoCloseInputStream(descriptor)
+        return try {
+            val archive = ComicArchives.openZip(stream.channel)
+            object : ComicArchive by archive {
+                override fun close() { try { archive.close() } finally { stream.close() } }
+            }
+        } catch (failure: Throwable) { stream.close(); throw failure }
     }
 
     suspend fun renderPage(id: String, page: Int, maxPixels: Int = DEFAULT_PAGE_PIXELS): Bitmap =

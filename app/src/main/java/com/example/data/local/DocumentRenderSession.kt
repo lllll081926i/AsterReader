@@ -36,6 +36,7 @@ internal sealed interface PageSource {
     class Directory(val pageCount: Int, val openPage: (Int) -> InputStream?) : PageSource
     class SecurePdf(val descriptor: ParcelFileDescriptor, val release: () -> Unit) : PageSource
     class SecureArchive(val archive: ComicArchive) : PageSource
+    class Archive(val archive: ComicArchive) : PageSource
 }
 
 /**
@@ -173,6 +174,8 @@ internal class DocumentRenderSession(context: Context) {
         var temporaryFile: File? = null
         try {
             return when (prepared) {
+                is PageSource.Archive -> OpenSource(key, "archive:$key", prepared.archive.pageCount,
+                    prepared.archive, null, null, null, concurrent = prepared.archive.concurrentReads)
                 is PageSource.SecureArchive -> OpenSource(key, "secure:$key", prepared.archive.pageCount,
                     prepared.archive, null, null, null, concurrent = false)
                 is PageSource.SecurePdf -> {
