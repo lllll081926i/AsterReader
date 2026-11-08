@@ -466,7 +466,7 @@ fun AsterReaderAppRoot(
                                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
                                     horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("作品不可用，请返回资料库检查来源或访问权限")
-                                    Button(onClick = { viewModel.popSubScreen() }) { Text("返回资料库") }
+                                    Button(onClick = { viewModel.popSubScreen() }) { Text("返回") }
                                 }
                             }
                         }
@@ -488,7 +488,7 @@ fun AsterReaderAppRoot(
                                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
                                     horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("作品不可用，请返回资料库检查来源或访问权限")
-                                    Button(onClick = { viewModel.popSubScreen() }) { Text("返回资料库") }
+                                    Button(onClick = { viewModel.popSubScreen() }) { Text("返回") }
                                 }
                             }
                         }

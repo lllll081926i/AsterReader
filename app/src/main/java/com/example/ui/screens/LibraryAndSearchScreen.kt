@@ -550,9 +550,9 @@ fun LibraryHomeScreen(
                                     shape = CircleShape,
                                     color = chipColor,
                                     modifier = Modifier
-                                        .height(34.dp)
+                                        .heightIn(min = AsterLayout.TouchTarget)
                                         .clip(CircleShape)
-                                        .asterCardInteraction(onClick = { viewModel.setLibraryQuickStatusFilter(key) })
+                                        .selectable(selected = selected, role = Role.RadioButton, onClick = { viewModel.setLibraryQuickStatusFilter(key) })
                                         .testTag("library_chip_$key")
                                 ) {
                                     Row(
@@ -863,8 +863,9 @@ fun LibraryHomeScreen(
             onDismissRequest = { showBatchShelfPicker = false },
             title = { Text("加入书架", maxLines = 1) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    shelves.forEach { shelf ->
+                androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (shelves.isEmpty()) item { Text("暂无书架，请先在书架页新建书架") }
+                    items(shelves, key = { it.id }) { shelf ->
                         Surface(
                             shape = MaterialTheme.shapes.medium,
                             color = asterColors.surfaceContainerLow,
@@ -881,7 +882,7 @@ fun LibraryHomeScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(shelf.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                                Text(shelf.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                                 Text(shelf.subtitle, style = MaterialTheme.typography.labelSmall, color = colorScheme.outline, maxLines = 1)
                             }
                         }
@@ -1263,7 +1264,7 @@ private fun PublicationListRowCard(
                 color = colorScheme.secondaryContainer,
                 contentColor = colorScheme.onSecondaryContainer,
                 modifier = Modifier
-                    .height(34.dp)
+                    .heightIn(min = AsterLayout.TouchTarget)
                     .clip(CircleShape)
                     .clickable { onReadClick() }
             ) {
@@ -2335,9 +2336,9 @@ private fun FilterSheetPill(
         color = bg,
         border = if (selected && !usePrimaryHighlight) BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.25f)) else null,
         modifier = modifier
-            .height(34.dp)
+            .heightIn(min = AsterLayout.TouchTarget)
             .clip(CircleShape)
-            .clickable { onClick() }
+            .selectable(selected = selected, role = Role.Checkbox, onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp),
@@ -2357,8 +2358,7 @@ private fun FilterSheetPill(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,
                 color = fg,
-                maxLines = 1,
-                softWrap = false
+                maxLines = 3
             )
         }
     }
@@ -2505,7 +2505,7 @@ private fun SearchBookResultCard(
                 color = colorScheme.primaryContainer,
                 contentColor = colorScheme.onPrimaryContainer,
                 modifier = Modifier
-                    .height(34.dp)
+                    .heightIn(min = AsterLayout.TouchTarget)
                     .clip(CircleShape)
                     .clickable { onQuickRead() }
             ) {

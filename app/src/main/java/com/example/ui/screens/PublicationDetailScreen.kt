@@ -832,14 +832,14 @@ fun PublicationDetailScreen(
                                 quoteText = "第 ${book.currentPage} 页定位点",
                                 noteText = newNoteInput.ifBlank { "书签标记" },
                                 colorName = "GREEN",
-                                type = if (newNoteInput.isBlank()) "BOOKMARK" else "NOTE"
+                                type = if (newNoteInput.isBlank()) "BOOKMARK" else "NOTE",
+                                onSaved = { newNoteInput = "" }
                             )
-                            newNoteInput = ""
                         },
                         shape = CircleShape,
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                     ) {
-                        Text("添加书签", maxLines = 1, softWrap = false)
+                        Text(if (newNoteInput.isBlank()) "添加书签" else "保存笔记")
                     }
                 }
 

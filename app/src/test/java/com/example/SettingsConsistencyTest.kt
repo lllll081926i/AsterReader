@@ -190,11 +190,24 @@ open class SettingsConsistencyTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("放大页面").assertDoesNotExist()
         compose.onNodeWithContentDescription("缩小页面").assertDoesNotExist()
+        compose.onNodeWithText("前 10 页").assertIsDisplayed()
+        compose.onNodeWithText("后 10 页").assertIsDisplayed()
         val pill = compose.onNodeWithTag("reader_mini_status_pill").getUnclippedBoundsInRoot()
         val bounds = compose.onRoot().getUnclippedBoundsInRoot()
         org.junit.Assert.assertTrue((bounds.right - pill.right).value <= 4f)
         org.junit.Assert.assertTrue((pill.bottom - pill.top).value < 20f)
         capture("reader-compact-monet")
+        compose.onNodeWithText("后 10 页").performClick()
+        try {
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("4 / 4 · 100%").fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (failure: Throwable) {
+            println(compose.onRoot().printToString())
+            throw failure
+        }
+        compose.onNodeWithText("4 / 4 · 100%").assertIsDisplayed()
+        compose.onNodeWithText("后 10 页").assertIsNotEnabled()
         compose.onNodeWithText("设置").performClick()
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
@@ -246,6 +259,24 @@ open class SettingsConsistencyTest {
         content(section = "shelves")
         compose.onNodeWithText("新建书架").assertIsDisplayed()
         capture("shelf-management-empty")
+    }
+
+    @Test @Config(fontScale = 2f)
+    fun shelfCreationAtDoubleFontScaleKeepsValidationAndManagementReachable() {
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme(darkTheme = true) {
+                com.example.ui.screens.ShelvesScreen(emptyList(), emptyList(), 0,
+                    AsterUiState(settingsLoaded = true), false, model)
+            }
+        }
+        compose.onNodeWithContentDescription("排序与删除").performClick()
+        compose.runOnIdle { check(model.uiState.value.activeSubScreen == com.example.ui.SubScreen.SettingsSection("shelves")) }
+        compose.onNodeWithTag("create_shelf_button").performClick()
+        compose.onNodeWithText("创建").assertIsNotEnabled()
+        compose.onNodeWithText("书架名称").performTextInput("旅行漫画")
+        compose.onNodeWithText("创建").assertIsEnabled().assertIsDisplayed()
+        captureDialog("shelf-create-dark-font-200")
     }
 
     @Test fun libraryKeepsItsFloatingIslandNavigation() {

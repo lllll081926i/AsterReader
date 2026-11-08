@@ -81,8 +81,13 @@ fun PublicationPropertiesScreen(book: BookEntity, section: String, model: AsterV
                     PropertyValue("格式", book.format)
                     PropertyValue("大小", book.fileSizeText)
                     PropertyValue("页数", book.totalPages.toString())
-                    PropertyValue("仓库", book.repositoryName)
-                    PropertyValue("来源 URI", book.filePath)
+                    if (book.isVaultEncrypted) {
+                        PropertyValue("存储", "保险库密文")
+                        PropertyValue("校验", "读取时逐块验证完整性；完整校验请前往保险库")
+                    } else {
+                        PropertyValue("仓库", book.repositoryName)
+                        PropertyValue("来源 URI", book.filePath)
+                    }
                     PropertyValue("来源状态", when (book.sourceStatus) {
                         "AVAILABLE" -> "可读取"; "MISSING" -> "已失联"; "ERROR" -> "解析失败"; else -> book.sourceStatus
                     })

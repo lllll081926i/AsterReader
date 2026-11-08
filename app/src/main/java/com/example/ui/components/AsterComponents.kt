@@ -482,7 +482,8 @@ fun AsterSettingsRow(
     trailingTextHighlight: Boolean = false,
     isDanger: Boolean = false,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val titleColor = if (isDanger) colorScheme.error else colorScheme.onSurface
@@ -490,7 +491,7 @@ fun AsterSettingsRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            .clickable(enabled = enabled) { onClick() }
             .semantics { role = Role.Button }
             .heightIn(min = com.asterreader.core.designsystem.AsterLayout.SettingsRowHeight)
             .padding(horizontal = 16.dp, vertical = 8.dp),

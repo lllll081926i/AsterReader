@@ -1,6 +1,7 @@
 package com.example
 
 import com.example.data.local.ComicArchives
+import com.example.data.local.EpubXmlBudget
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,6 +17,30 @@ import java.util.zip.ZipOutputStream
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class ComicArchiveSecurityTest {
+    @Test fun epubXmlBudgetsRejectExpansionDepthAndNodeFloods() {
+        val hostile = listOf(
+            "<root>" + "x".repeat(2 * 1024 * 1024) + "</root>",
+            "<n>".repeat(65) + "</n>".repeat(65),
+            "<root>" + "<n/>".repeat(20_001) + "</root>"
+        )
+        hostile.forEach { xml ->
+            org.junit.Assert.assertThrows(IOException::class.java) {
+                EpubXmlBudget().read(xml.byteInputStream())
+            }
+            val file = epub(mapOf("META-INF/container.xml" to xml, "page.jpg" to "image"))
+            try {
+                ComicArchives.open(file, "EPUB").use { assertEquals(listOf("page.jpg"), it.pageNames) }
+            } finally { file.delete() }
+        }
+    }
+
+    @Test fun epubXmlBudgetIsSharedAcrossDocuments() {
+        val budget = EpubXmlBudget()
+        val xml = ("<root>" + "<n/>".repeat(19_999) + "</root>").byteInputStream().readBytes()
+        repeat(5) { budget.read(xml.inputStream()) }
+        org.junit.Assert.assertThrows(IOException::class.java) { budget.read(xml.inputStream()) }
+    }
+
     private fun tar(name: String = "1.jpg", bytes: ByteArray = byteArrayOf(1, 2, 3, 4)): File {
         val file = File.createTempFile("aster-tar-", ".tar")
         org.apache.commons.compress.archivers.tar.TarArchiveOutputStream(file.outputStream()).use { output ->

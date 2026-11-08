@@ -60,6 +60,18 @@ class AsterViewModelFeatureTest {
         assertNull(uiState.activeSubScreen)
     }
 
+    @Test fun shelfSavedCallbackOnlyRunsAfterSuccessfulPersistence() = runBlocking {
+        val name = "持久化回调-${java.util.UUID.randomUUID()}"
+        val saved = java.util.concurrent.CountDownLatch(1)
+        viewModel.createCustomShelf(name, "", false, onSaved = { saved.countDown() })
+        assertTrue(saved.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        viewModel.consumeSnackbar()
+        var duplicateSaved = false
+        viewModel.createCustomShelf(name, "", false, onSaved = { duplicateSaved = true })
+        withTimeout(5000) { viewModel.snackbar.first { it != null } }
+        assertFalse(duplicateSaved)
+    }
+
     @Test fun firstReadyStateAlreadyContainsRestoredNavigation() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Application>()
         com.example.data.local.ReaderPreferences(app).saveSession(
@@ -68,6 +80,14 @@ class AsterViewModelFeatureTest {
         store.put("启动恢复", restored)
         val firstReady = withTimeout(5000) { restored.uiState.first { it.settingsLoaded } }
         assertEquals(MainNavDestination.SHELVES, firstReady.currentTab)
+    }
+
+    @Test fun initialSettingsLoadKeepsNavigationChosenDuringStartup() = runBlocking {
+        val starting = AsterViewModel(ApplicationProvider.getApplicationContext<Application>())
+        store.put("启动期间导航", starting)
+        starting.pushSubScreen(SubScreen.SettingsSection("about"))
+        val ready = withTimeout(5000) { starting.uiState.first { it.settingsLoaded } }
+        assertEquals(SubScreen.SettingsSection("about"), ready.activeSubScreen)
     }
 
     @Test fun disablingAppLockRequiresFreshAuthenticationAndCancellationKeepsProtection() = runBlocking {

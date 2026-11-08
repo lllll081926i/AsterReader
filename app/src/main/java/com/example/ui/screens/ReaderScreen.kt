@@ -168,9 +168,13 @@ fun ReaderScreen(
     // 有真实章节（按目录分组）时用真实章节；否则退化为页码目录
     val chapters: List<ChapterEntity> = remember(storedChapters, totalPages, book.id) {
         if (storedChapters.isNotEmpty()) storedChapters
-        else List(totalPages) { index ->
-            ChapterEntity("${book.id}_p$index", book.id, index + 1, "第 ${index + 1} 页",
-                index + 1, index + 1, false, false)
+        else object : AbstractList<ChapterEntity>() {
+            override val size = totalPages
+            override fun get(index: Int): ChapterEntity {
+                if (index !in indices) throw IndexOutOfBoundsException()
+                return ChapterEntity("${book.id}_p$index", book.id, index + 1, "第 ${index + 1} 页",
+                    index + 1, index + 1, false, false)
+            }
         }
     }
 
@@ -192,13 +196,16 @@ fun ReaderScreen(
         if (stateLoaded && currentPage != restored?.page) restored = null
     }
     LaunchedEffect(book.id) {
+        val pageBeforeRestore = currentPage
         restored = viewModel.loadReaderState(book.id)
         val saved = restored
         modeOverride = saved?.layoutMode?.let { name -> ReaderLayoutMode.entries.find { it.name == name } }
         fitOverride = saved?.fitMode
         coverOverride = saved?.coverSingle
         rtlOverride = saved?.rightToLeft
-        if (saved != null && initialPage == null) currentPage = saved.page.coerceIn(1, totalPages)
+        if (saved != null && initialPage == null && currentPage == pageBeforeRestore) {
+            currentPage = saved.page.coerceIn(1, totalPages)
+        }
         stateLoaded = true
     }
     var currentChapterIndex by remember(book.id, chapters) { mutableIntStateOf(0) }
@@ -218,11 +225,13 @@ fun ReaderScreen(
     var sliderPreview by remember(book.id) { mutableStateOf<Float?>(null) }
     var zoomCommand by remember(book.id) { mutableStateOf(ReaderZoomCommand()) }
     val activeChapterTitle = remember(chapters, currentPage) {
-        chapters.firstOrNull { currentPage in it.startPage..it.endPage }?.title ?: "第 $currentPage 页"
+        if (storedChapters.isEmpty()) "第 $currentPage 页"
+        else chapters.firstOrNull { currentPage in it.startPage..it.endPage }?.title ?: "第 $currentPage 页"
     }
-    LaunchedEffect(currentPage, chapters) {
-        currentChapterIndex = chapters.indexOfFirst { currentPage in it.startPage..it.endPage }.coerceAtLeast(0)
-        viewModel.updateReadingProgress(book.id, currentPage, activeChapterTitle)
+    LaunchedEffect(currentPage, chapters, stateLoaded) {
+        currentChapterIndex = if (storedChapters.isEmpty()) currentPage - 1
+        else chapters.indexOfFirst { currentPage in it.startPage..it.endPage }.coerceAtLeast(0)
+        if (stateLoaded) viewModel.updateReadingProgress(book.id, currentPage, activeChapterTitle)
     }
     LaunchedEffect(stateLoaded, modeOverride, fitOverride, coverOverride, rtlOverride) {
         if (stateLoaded) viewModel.saveReaderOptionsFor(book.id, modeOverride, fitOverride, coverOverride, rtlOverride)
@@ -449,13 +458,15 @@ fun ReaderScreen(
                         ) {
                             TextButton(
                                 onClick = {
-                                    if (currentChapterIndex > 0) {
+                                    if (storedChapters.isNotEmpty() && currentChapterIndex > 0) {
                                         currentChapterIndex--
                                         currentPage = chapters[currentChapterIndex].startPage
                                     } else {
                                         currentPage = (currentPage - 10).coerceAtLeast(1)
                                     }
                                 },
+                                modifier = Modifier.weight(1f),
+                                enabled = currentPage > 1,
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 Icon(
@@ -466,11 +477,10 @@ fun ReaderScreen(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "上一话",
+                                    text = if (storedChapters.isNotEmpty() && currentChapterIndex > 0) "上一话" else "前 10 页",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    softWrap = false
+                                    maxLines = 3
                                 )
                             }
 
@@ -480,27 +490,28 @@ fun ReaderScreen(
                                 fontFamily = RobotoMonoFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                                softWrap = false
+                                modifier = Modifier.weight(1.4f),
+                                textAlign = TextAlign.Center
                             )
 
                             TextButton(
                                 onClick = {
-                                    if (currentChapterIndex < chapters.lastIndex) {
+                                    if (storedChapters.isNotEmpty() && currentChapterIndex < chapters.lastIndex) {
                                         currentChapterIndex++
                                         currentPage = chapters[currentChapterIndex].startPage
                                     } else {
                                         currentPage = (currentPage + 10).coerceAtMost(totalPages)
                                     }
                                 },
+                                modifier = Modifier.weight(1f),
+                                enabled = currentPage < totalPages,
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "下一话",
+                                    text = if (storedChapters.isNotEmpty() && currentChapterIndex < chapters.lastIndex) "下一话" else "后 10 页",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    softWrap = false
+                                    maxLines = 3
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Icon(
@@ -705,7 +716,7 @@ fun ReaderScreen(
                     fontWeight = FontWeight.Bold
                 )
                 LazyColumn(
-                    modifier = Modifier.height(340.dp),
+                    modifier = Modifier.weight(1f, fill = false),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     itemsIndexed(chapters) { index, ch ->

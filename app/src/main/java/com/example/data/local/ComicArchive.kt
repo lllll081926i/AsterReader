@@ -70,12 +70,14 @@ private fun openComicZip(file: File): ZipFile = try {
  */
 private class EpubComicArchive(file: File) : ComicArchive {
     private val zip = openComicZip(file)
-    private val entries: List<ZipEntry> = resolveSpinePages(zip)
+    private val xmlBudget = EpubXmlBudget()
+    private val entries: List<ZipEntry> = try { resolveSpinePages(zip)
         .mapNotNull { name -> zip.getEntry(name) }
         .ifEmpty {
             ComicArchives.sortedImageNames(zip.entries().asSequence().map { it.name }.toList())
                 .mapNotNull { name -> zip.getEntry(name) }
         }
+    } catch (failure: Throwable) { zip.close(); throw failure }
 
     override val pageCount get() = entries.size
     override val pageNames get() = entries.map { it.name }
@@ -146,8 +148,9 @@ private class EpubComicArchive(file: File) : ComicArchive {
         return found
     }
 
-    private fun parse(stream: InputStream): org.w3c.dom.Document? = try {
-        stream.use {
+    private fun parse(stream: InputStream): org.w3c.dom.Document? {
+        val bytes = xmlBudget.read(stream)
+        return try {
             val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
             factory.isNamespaceAware = true
             // 完整关闭 DOCTYPE / 外部实体 / XInclude：任何一项设置失败都拒绝解析，
@@ -157,10 +160,10 @@ private class EpubComicArchive(file: File) : ComicArchive {
             factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
             factory.isXIncludeAware = false
             factory.isExpandEntityReferences = false
-            factory.newDocumentBuilder().parse(it)
+            factory.newDocumentBuilder().parse(bytes.inputStream())
+        } catch (_: Exception) {
+            null
         }
-    } catch (_: Exception) {
-        null
     }
 
     /** 解析相对路径，处理 ../ 与 URL 编码，得到 ZIP 内部条目名。 */
@@ -177,6 +180,41 @@ private class EpubComicArchive(file: File) : ComicArchive {
             }
         }
         return stack.joinToString("/")
+    }
+}
+
+/** 先限制展开字节、深度和节点，再构造 DOM；预算覆盖整本 EPUB。 */
+internal class EpubXmlBudget {
+    private var remainingBytes = 16 * 1024 * 1024
+    private var remainingNodes = 100_000
+
+    fun read(stream: InputStream): ByteArray {
+        val bytes = stream.use { input ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            val limit = minOf(2 * 1024 * 1024, remainingBytes)
+            while (true) {
+                val count = input.read(buffer, 0, minOf(buffer.size, limit - output.size() + 1))
+                if (count < 0) break
+                if (output.size() + count > limit) throw IOException("EPUB XML 展开数据超过上限")
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        }
+        remainingBytes -= bytes.size
+        val parser = org.xmlpull.v1.XmlPullParserFactory.newInstance().apply { isNamespaceAware = true }.newPullParser()
+        parser.setInput(bytes.inputStream(), null)
+        var nodes = 0
+        var event = parser.eventType
+        while (event != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            if (parser.depth > 64) throw IOException("EPUB XML 层级过深")
+            if (event == org.xmlpull.v1.XmlPullParser.DOCDECL) throw IOException("EPUB 不允许 XML 实体声明")
+            if (event == org.xmlpull.v1.XmlPullParser.START_TAG) {
+                if (++nodes > 20_000 || --remainingNodes < 0) throw IOException("EPUB XML 节点过多")
+            }
+            event = parser.nextToken()
+        }
+        return bytes
     }
 }
 

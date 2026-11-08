@@ -143,13 +143,13 @@ fun SettingsScreen(
                             editShelf = null; shelfName = ""; shelfEditor = true
                         })
                     }
-                    shelves.forEach { shelf ->
+                    shelves.forEachIndexed { index, shelf ->
                         AsterSettingsGroup(shelf.name) {
                             AsterSettingsRow("重命名", onClick = { editShelf = shelf; shelfName = shelf.name; shelfEditor = true })
                             AsterGroupDivider()
-                            AsterSettingsRow("上移", onClick = { viewModel.moveShelf(shelf, -1) })
+                            AsterSettingsRow("上移", enabled = index > 0, onClick = { viewModel.moveShelf(shelf, -1) })
                             AsterGroupDivider()
-                            AsterSettingsRow("下移", onClick = { viewModel.moveShelf(shelf, 1) })
+                            AsterSettingsRow("下移", enabled = index < shelves.lastIndex, onClick = { viewModel.moveShelf(shelf, 1) })
                             AsterGroupDivider()
                             AsterSettingsRow("删除书架", isDanger = true, onClick = { confirmation = "shelf:${shelf.id}" })
                         }
@@ -216,8 +216,8 @@ fun SettingsScreen(
         text = { OutlinedTextField(shelfName, { shelfName = it.take(80) }, singleLine = true, label = { Text("名称") }) },
         confirmButton = { TextButton(enabled = shelfName.isNotBlank() && shelves.none { it.id != editShelf?.id && it.name == shelfName.trim() }, onClick = {
             val shelf = editShelf
-            if (shelf == null) viewModel.createCustomShelf(shelfName, "", false) else viewModel.renameShelf(shelf.id, shelfName)
-            shelfEditor = false
+            if (shelf == null) viewModel.createCustomShelf(shelfName, "", false, onSaved = { shelfEditor = false })
+            else viewModel.renameShelf(shelf.id, shelfName, onSaved = { shelfEditor = false })
         }) { Text("保存") } }, dismissButton = { TextButton(onClick = { shelfEditor = false }) { Text("取消") } })
     if (editTag != null) AlertDialog(onDismissRequest = { editTag = null }, title = { Text("编辑标签") },
         text = { OutlinedTextField(tagName, { tagName = it.take(80).replace(",", "") }, singleLine = true, label = { Text("名称") }) },

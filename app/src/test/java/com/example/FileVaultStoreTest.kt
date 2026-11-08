@@ -23,6 +23,29 @@ import kotlinx.coroutines.test.resetMain
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class FileVaultStoreTest {
+    @Test @Config(sdk = [31]) fun rarStreamsMatchPlaintextAndStopAfterVaultLock() {
+        val bytes = requireNotNull(javaClass.getResourceAsStream("/rar/stored.rar")).use { it.readBytes() }
+        val original = temporary.newFile("original.rar").apply { writeBytes(bytes) }
+        val name: String
+        val expected: ByteArray
+        com.github.junrar.Archive(original).use { archive ->
+            val header = archive.fileHeaders.first { !it.isDirectory }
+            name = header.fileName
+            expected = archive.getInputStream(header).use { it.readBytes() }
+        }
+        val store = FileVaultStore.forTest(context(temporary.newFolder()), Device()) {}
+        store.open(password, true)
+        val base = record()
+        val saved = store.create(base.copy(book = base.book.copy(format = "RAR", totalPages = 1),
+            pageNames = listOf(name)), bytes.size.toLong(), { bytes.inputStream() })
+        VaultComicArchive(store, saved).use { archive ->
+            assertArrayEquals(expected, archive.openPage(1).use { it.readBytes() })
+            assertArrayEquals(expected, archive.openPage(1).use { it.readBytes() })
+            store.lock()
+            assertThrows(Exception::class.java) { archive.openPage(1).use { it.readBytes() } }
+        }
+    }
+
     @get:Rule val temporary = TemporaryFolder()
     private val password get() = "uN4-pC8_vE2-Ka7_zM9".toCharArray()
     private fun context(directory: File): Context = object : ContextWrapper(ApplicationProvider.getApplicationContext()) {

@@ -160,8 +160,12 @@ fun PublicationPageCanvas(
         }
         LaunchedEffect(list, zoomScale, panX, panY) {
             snapshotFlow {
-                val visible = list.layoutInfo.visibleItemsInfo.firstOrNull()
-                Triple(list.firstVisibleItemIndex, list.firstVisibleItemScrollOffset, visible?.size ?: 0)
+                val visibleItems = list.layoutInfo.visibleItemsInfo
+                val atLastPage = list.layoutInfo.totalItemsCount == totalPages &&
+                    visibleItems.lastOrNull()?.index == totalPages - 1 && !list.canScrollForward
+                val visible = if (atLastPage) visibleItems.lastOrNull() else visibleItems.firstOrNull()
+                Triple(visible?.index ?: list.firstVisibleItemIndex,
+                    if (atLastPage) 0 else list.firstVisibleItemScrollOffset, visible?.size ?: 0)
             }
                 .distinctUntilChanged()
                 .collect { (index, offset, size) ->
@@ -173,6 +177,8 @@ fun PublicationPageCanvas(
                     onViewportChanged(actualPage, fraction, zoomScale, panX, panY)
                 }
         }
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+        val lastPageMinHeight = maxHeight.coerceAtLeast(320.dp)
         LazyColumn(
             state = list,
             userScrollEnabled = zoomScale <= 1.01f,
@@ -191,7 +197,7 @@ fun PublicationPageCanvas(
                     onPrev = onPrevPage,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 320.dp),
+                        .heightIn(min = if (index == totalPages - 1) lastPageMinHeight else 320.dp),
                     resetToken = page,
                     zoomCommand = zoomCommand,
                     active = index + 1 == page,
@@ -203,6 +209,7 @@ fun PublicationPageCanvas(
                     onZoomChanged = { scale, x, y -> if (index + 1 == page) { zoomScale = scale; panX = x; panY = y } }
                 )
             }
+        }
         }
     } else {
         val spreads = remember(totalPages, mode, expanded, coverSingle) {

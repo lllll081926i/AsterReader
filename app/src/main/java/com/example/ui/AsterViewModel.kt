@@ -351,11 +351,17 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(operationErrors) {
             try {
                 pinFailures = withContext(Dispatchers.IO) { pinAttempts.getInt("failures", 0) }
-                _uiState.value = preferences.load().copy(
+                val loaded = preferences.load().copy(
                 settingsLoaded = false,
                 pinLockedUntilMs = withContext(Dispatchers.IO) { pinAttempts.getLong("lockedUntil", 0L) },
                 fileVaultConfigured = withContext(Dispatchers.IO) { repository.fileVault.configured }
                 )
+                _uiState.update { state ->
+                    if (navigationRevision.get() == 0L) loaded else loaded.copy(
+                        currentTab = state.currentTab, subScreenStack = state.subScreenStack,
+                        searchQuery = state.searchQuery
+                    )
+                }
                 restoreNavSession()
                 _uiState.update { it.copy(settingsLoaded = true) }
             }
@@ -1430,7 +1436,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     // ========================================================================
     // Shelves
     // ========================================================================
-    fun createCustomShelf(name: String, subtitle: String, isProtected: Boolean) {
+    fun createCustomShelf(name: String, subtitle: String, isProtected: Boolean, onSaved: () -> Unit = {}) {
         val cleanName = name.trim()
         if (cleanName.isBlank()) return
         viewModelScope.launch(operationErrors) {
@@ -1447,6 +1453,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
             showSnackbar("已新建书架「$cleanName」")
+            onSaved()
         }
     }
 
@@ -1457,9 +1464,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun renameShelf(id: String, name: String) {
+    fun renameShelf(id: String, name: String, onSaved: () -> Unit = {}) {
         if (name.isBlank()) return
-        viewModelScope.launch(operationErrors) { repository.renameShelf(id, name.trim()) }
+        viewModelScope.launch(operationErrors) { repository.renameShelf(id, name.trim()); onSaved() }
     }
 
     fun renameTag(old: String, new: String) {
@@ -1501,7 +1508,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         quoteText: String,
         noteText: String,
         colorName: String,
-        type: String
+        type: String,
+        onSaved: () -> Unit = {}
     ) {
         viewModelScope.launch(operationErrors) {
             repository.insertAnnotation(
@@ -1522,6 +1530,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 else -> "阅读笔记"
             }
             showSnackbar("已保存$label (第 $pageNumber 页)")
+            onSaved()
         }
     }
 

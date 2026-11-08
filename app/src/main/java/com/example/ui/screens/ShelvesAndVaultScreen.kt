@@ -155,7 +155,6 @@ fun ShelvesScreen(
     var newShelfPrivate by remember { mutableStateOf(false) }
 
     var activeQuickFilter by remember { mutableStateOf<String?>(null) }
-    var showShelfOrderDialog by remember { mutableStateOf(false) }
 
     val shelvesGridColumns = when (uiState.shelvesViewMode) {
         ShelvesViewMode.COLLAGE_GRID -> GridCells.Adaptive(minSize = 148.dp)
@@ -194,7 +193,7 @@ fun ShelvesScreen(
             ) {
                 // 排序入口。
                 Surface(
-                    onClick = { showShelfOrderDialog = true },
+                    onClick = { viewModel.pushSubScreen(SubScreen.SettingsSection("shelves")) },
                     shape = androidx.compose.foundation.shape.CircleShape,
                     color = androidx.compose.ui.graphics.Color.Transparent,
                     modifier = Modifier.asterHeaderAction()
@@ -505,77 +504,16 @@ fun ShelvesScreen(
         }
     }
 
-    // Shelf Order & Delete Dialog
-    if (showShelfOrderDialog) {
-        AlertDialog(
-            onDismissRequest = { showShelfOrderDialog = false },
-            title = { Text("排序与删除", fontWeight = FontWeight.Bold, maxLines = 1) },
-            text = {
-                if (shelves.isEmpty()) {
-                    Text("暂无书架", style = MaterialTheme.typography.bodyMedium)
-                } else {
-                    androidx.compose.foundation.lazy.LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.heightIn(max = 360.dp)
-                    ) {
-                        itemsIndexed(shelves) { index, shelf ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = shelf.name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                IconButton(
-                                    onClick = { viewModel.moveShelfUp(shelf) },
-                                    enabled = index > 0,
-                                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                                ) {
-                                    Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上移", modifier = Modifier.size(18.dp))
-                                }
-                                IconButton(
-                                    onClick = { viewModel.moveShelfDown(shelf) },
-                                    enabled = index < shelves.lastIndex,
-                                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                                ) {
-                                    Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "下移", modifier = Modifier.size(18.dp))
-                                }
-                                IconButton(
-                                    onClick = { viewModel.deleteCustomShelf(shelf.id) },
-                                    modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                                ) {
-                                    Icon(
-                                        Icons.Default.DeleteOutline,
-                                        contentDescription = "删除",
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showShelfOrderDialog = false }) { Text("完成", maxLines = 1, softWrap = false) }
-            }
-        )
-    }
-
     // Create Shelf Dialog
     if (showCreateDialog) {
-        AlertDialog(
+        com.asterreader.core.designsystem.AsterFormDialog(
             onDismissRequest = { showCreateDialog = false },
             title = { Text("新建书架", fontWeight = FontWeight.Bold, maxLines = 1) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = newShelfName,
-                        onValueChange = { newShelfName = it },
+                        onValueChange = { newShelfName = it.take(80) },
                         label = { Text("书架名称") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -604,7 +542,7 @@ fun ShelvesScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.weight(1f),
-                                maxLines = 1
+                                maxLines = 3
                             )
                             Switch(
                                 checked = newShelfPrivate,
@@ -616,17 +554,20 @@ fun ShelvesScreen(
             },
             confirmButton = {
                 Button(
+                    enabled = newShelfName.isNotBlank() && shelves.none { it.name == newShelfName.trim() },
                     onClick = {
                         if (newShelfName.isNotBlank()) {
                             viewModel.createCustomShelf(
                                 name = newShelfName.trim(),
                                 subtitle = newShelfSubtitle.ifBlank { "收藏" },
-                                isProtected = newShelfPrivate
+                                isProtected = newShelfPrivate,
+                                onSaved = {
+                                    newShelfName = ""
+                                    newShelfSubtitle = ""
+                                    newShelfPrivate = false
+                                    showCreateDialog = false
+                                }
                             )
-                            newShelfName = ""
-                            newShelfSubtitle = ""
-                            newShelfPrivate = false
-                            showCreateDialog = false
                         }
                     }
                 ) {
