@@ -30,6 +30,37 @@ class DocumentRenderSessionTest {
     private val png = java.util.Base64.getDecoder()
         .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
 
+    @Test fun foregroundDecodeDefersPrefetchWithoutBlockingSourceSwitch() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val entered = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val prefetched = AtomicInteger()
+        val source = PageSource.Directory(2) { page ->
+            if (page == 1) {
+                entered.complete(Unit)
+                check(release.await(10, TimeUnit.SECONDS))
+            } else prefetched.incrementAndGet()
+            png.inputStream()
+        }
+        try {
+            withTimeout(15000) {
+                val visible = async(start = CoroutineStart.UNDISPATCHED) { session.render("旧书", 1, 1000) { source } }
+                entered.await()
+                val warming = async(start = CoroutineStart.UNDISPATCHED) { session.prefetch("旧书", listOf(2), 1000) { source } }
+                assertEquals(0, prefetched.get())
+                val next = async(start = CoroutineStart.UNDISPATCHED) {
+                    session.render("新书", 1, 1000) { PageSource.Directory(1) { png.inputStream() } }
+                }
+                warming.cancelAndJoin()
+                release.countDown()
+                visible.await()
+                val bitmap = next.await()
+                session.close("旧书")
+                assertSame(bitmap, session.render("新书", 1, 1000) { error("旧书清理不能关闭新书") })
+            }
+        } finally { release.countDown(); session.close() }
+    }
+
     @Test fun renderAndPrefetchShareOneDecode() = runBlocking {
         val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
         val entered = CompletableDeferred<Unit>()

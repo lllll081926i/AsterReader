@@ -58,6 +58,7 @@ internal class DocumentRenderSession(context: Context) {
     private val inFlight = MutableStateFlow(0)
     private val pageGates = Array(32) { Mutex() }
     private val decodeSlots = Semaphore(2)
+    private val foregroundRequests = MutableStateFlow(0)
 
     suspend fun render(
         key: String,
@@ -65,11 +66,14 @@ internal class DocumentRenderSession(context: Context) {
         maxPixels: Int,
         prepare: suspend () -> PageSource
     ): Bitmap {
+        foregroundRequests.update { it + 1 }
+        try {
         val open = ensureSource(key, prepare)
         try {
         val cacheKey = "${open.fingerprint}:$page:$maxPixels"
         return cachedDecode(open, cacheKey) { renderBitmap(open, page, maxPixels) }!!
         } finally { inFlight.update { it - 1 } }
+        } finally { foregroundRequests.update { it - 1 } }
     }
 
     /**
@@ -82,23 +86,28 @@ internal class DocumentRenderSession(context: Context) {
         maxPixels: Int,
         prepare: suspend () -> PageSource
     ) {
-        if (pagesToLoad.isEmpty()) return
-        val open = ensureSource(key, prepare)
-        try {
         var prefetchedBytes = 0L
         for (page in pagesToLoad.distinct()) {
-            currentCoroutineContext().ensureActive()
-            if (page < 1 || page > open.pageCount) continue
-            val cacheKey = "${open.fingerprint}:$page:$maxPixels"
-            try {
-                val bitmap = cachedDecode(open, cacheKey) { renderBitmap(open, page, maxPixels) }
-                prefetchedBytes += bitmap?.allocationByteCount ?: 0
-                // 为正在显示的页面留出缓存，较远页不能挤掉刚预热的近页。
-                if (prefetchedBytes >= pages.maxSize() * 3L / 4) break
-            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-            catch (_: Exception) { /* 预取失败由可见页的加载状态呈现。 */ }
+            if (page < 1) continue
+            while (true) {
+                currentCoroutineContext().ensureActive()
+                // 等待时不持有来源租约，换书不会与可见页互相等待。
+                foregroundRequests.first { it == 0 }
+                val open = ensureSource(key, prepare)
+                try {
+                    if (foregroundRequests.value > 0) continue
+                    if (page > open.pageCount) break
+                    val cacheKey = "${open.fingerprint}:$page:$maxPixels"
+                    try {
+                        val bitmap = cachedDecode(open, cacheKey) { renderBitmap(open, page, maxPixels) }
+                        prefetchedBytes += bitmap?.allocationByteCount ?: 0
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                    catch (_: Exception) { /* 可见页负责显示读取错误。 */ }
+                    break
+                } finally { inFlight.update { it - 1 } }
+            }
+            if (prefetchedBytes >= pages.maxSize() * 3L / 4) break
         }
-        } finally { inFlight.update { it - 1 } }
     }
 
     /**
@@ -117,6 +126,8 @@ internal class DocumentRenderSession(context: Context) {
         maxPixels: Int,
         prepare: suspend () -> PageSource
     ): Bitmap? {
+        foregroundRequests.update { it + 1 }
+        try {
         val open = ensureSource(key, prepare)
         try {
         val top = topFraction.coerceIn(0f, 0.999f)
@@ -132,6 +143,7 @@ internal class DocumentRenderSession(context: Context) {
         catch (_: OutOfMemoryError) { pages.evictAll(); null }
         catch (_: Exception) { null }
         } finally { inFlight.update { it - 1 } }
+        } finally { foregroundRequests.update { it - 1 } }
     }
 
     private suspend fun ensureSource(key: String, prepare: suspend () -> PageSource): OpenSource {
@@ -332,8 +344,9 @@ internal class DocumentRenderSession(context: Context) {
     fun trimMemory() { pages.evictAll() }
 
     /** 关闭会话：拒绝新解码，等在途解码结束，再释放归档与临时文件；之后仍可重新打开。 */
-    suspend fun close() = withContext(Dispatchers.IO) {
+    suspend fun close(expectedKey: String? = null) = withContext(Dispatchers.IO) {
         sourceMutex.withLock {
+            if (expectedKey != null && source?.key != expectedKey) return@withLock
             withContext(kotlinx.coroutines.NonCancellable) {
                 inFlight.first { it == 0 }
                 closeLocked()

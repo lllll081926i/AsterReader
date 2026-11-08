@@ -71,3 +71,18 @@ RAR 上游依据：[VM 循环](https://github.com/junrar/junrar/security/advisor
 - [本轮 UI 证据](evidence/1.0.0-feedback/)使用测试漫画，不含用户内容。API31/API37 真机手工矩阵、TalkBack 和设备快速滑动验收未执行；3 GiB SAF 设备测试已编译，未运行。覆盖安装不等同于这些手工验收。
 - 最终正式签名构建成功：`build/user-fixes-install/AsterReader-1.0.0-fixes.apk`，版本 `1.0.0` / code `3`，签名证书与原安装一致，SHA-256 为 `9DD26748D0FA8AF6B25E594D6AE68182F49EF5BB16224D1B3C5E56ED1CB1E475`。日志：`build/user-fixes-release-build.log`。
 - API37 手机无线 ADB 覆盖安装返回 `Success`，包管理器记录更新时间为 `2026-11-08 11:54:44`。未卸载、未清数据、未启动应用；安装后 `pidof com.asterreader.app` 无输出。本轮没有推送、上传附件或发布 Release。
+
+## 2026-11-08 PDF、阅读设置与普通返回
+
+- 按最新要求移除所有应用预测性返回处理和系统预测性返回动画，使用普通 BackHandler 与短淡入；减少动效时直接切换。只组合当前页面，避免旧页面残影和返回处理重叠。重复点击同一入口不重复压栈。
+- 阅读设置重写为页面、预加载、屏幕、操作四组 Monet 列表。翻页与缩放通过单选弹窗选择，保留本书和默认作用范围、恢复默认、上下独立 0～16 页预加载。
+- PDF 单文件导入复用同一个 PdfRenderer 获取页数和封面；目录扫描只索引页数，扫描完成后后台补封面，进入阅读取消补封面任务。重新扫描不再先等待封面生成。进度按作品计数。
+- PDF 阅读先显示 60 万像素预览，再补高清页；高清失败保留预览。预取只生成预览，当前页请求优先于尚未开始的预取。预取等待不持有来源租约，避免换书互相等待；旧书异步清理按来源校验，避免关闭另一作品的会话。
+- Android PdfRenderer 的原生调用可能占用全局锁，已参考 [AOSP Android 14 PdfRenderer](https://android.googlesource.com/platform/frameworks/base/+/android-14.0.0_r1/graphics/java/android/graphics/pdf/PdfRenderer.java)。没有通过增加 PDF 并发来争用原生锁，也没有把协程超时当作能中断原生渲染。
+- 新增当前页优先、预取取消与换书、旧来源清理不关闭新来源、预览等待高清及高清失败、普通返回只回退一次和页面释放的回归。PDF 原生索引与封面测试放在 `PdfScanDeviceTest`；Windows Robolectric 无法运行真实 PdfRenderer，设备测试仅编译，未启动手机执行。
+- [设置截图](evidence/pdf-reader-settings/)来自 API31/API35 测试夹具，包含浅色、深色横屏和窄屏 200% 字体。API31/API37 手工手势、TalkBack 和用户实际大 PDF 性能尚未验收。
+- 本轮生产改动为 `app`；同步设计、引擎、格式和页面任务文档。数据库、Vault 协议和用户漫画原件均未变更。
+
+- 最终核验：`testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest` 成功；app 289 项、core:database 10 项、core:vault 9 项，共 308 项，失败、错误、跳过均为 0。Lint 为 0 错误、73 警告。日志：`build/pdf-settings-final-check.log`。
+- 正式签名 Release 构建成功，版本 `1.0.0` / code `3`，通用 APK 四种 ABI，证书与原安装一致。安装包：`build/user-fixes-install/AsterReader-1.0.0-fixes.apk`；SHA-256：`843E67D284DEAD0B4A61352E7D7DE0A558BFA89749FEB64EBA6ECBC4BBE886D1`。
+- API37 手机无线 ADB 覆盖安装返回 `Success`；更新时间 `2026-11-08 12:45:06`，安装后 `pidof com.asterreader.app` 无输出。未启动应用，未启动电脑模拟器，未清数据，未推送或发布。API31 自动化通过；API31/API37 手工矩阵与用户实际大 PDF 性能未执行。

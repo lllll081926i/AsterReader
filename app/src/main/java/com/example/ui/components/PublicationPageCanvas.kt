@@ -102,6 +102,7 @@ fun PublicationPageCanvas(
     coverSingle: Boolean = true,
     rightToLeft: Boolean = mode == ReaderLayoutMode.RTL_PAGER,
     fitMode: String = "适合屏幕",
+    previewPixels: Int = 0,
     preloadBefore: Int = 3,
     preloadAfter: Int = 6,
     initialScale: Float = 1f,
@@ -215,6 +216,7 @@ fun PublicationPageCanvas(
                     publicationId = publicationId,
                     page = index + 1,
                     load = loadPage,
+                    previewPixels = previewPixels,
                     nativeSize = nativeSize,
                     chromeRange = chromeRange,
                     loadRegion = loadRegion,
@@ -273,6 +275,7 @@ fun PublicationPageCanvas(
                             publicationId = publicationId,
                             page = number,
                             load = loadPage,
+                    previewPixels = previewPixels,
                             nativeSize = nativeSize,
                             chromeRange = chromeRange,
                             rightToLeft = rightToLeft,
@@ -326,6 +329,7 @@ private fun DocumentPage(
     publicationId: String,
     page: Int,
     load: suspend (Int, Int) -> Bitmap,
+    previewPixels: Int,
     nativeSize: (Bitmap) -> Pair<Int, Int>?,
     chromeRange: ClosedFloatingPointRange<Float>,
     rightToLeft: Boolean = false,
@@ -433,15 +437,20 @@ private fun DocumentPage(
 
     var attempt by remember { mutableIntStateOf(0) }
     val owner = LocalLifecycleOwner.current
-    val result by produceState<Result<Bitmap>?>(null, publicationId, page, attempt, maxPixels, owner) {
+    val result by produceState<Result<Bitmap>?>(null, publicationId, page, attempt, maxPixels, previewPixels, owner) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             try {
                 value = try {
+                    if (previewPixels in 1 until maxPixels) {
+                        value = Result.success(load(page, previewPixels))
+                        // 先让预览上屏，再补清晰页；快速滑过的请求可在此取消。
+                        delay(120)
+                    }
                     Result.success(load(page, maxPixels))
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
-                    Result.failure(IllegalStateException("无法读取页面"))
+                    value?.takeIf { it.isSuccess } ?: Result.failure(IllegalStateException("无法读取页面"))
                 }
                 awaitCancellation()
             } finally {

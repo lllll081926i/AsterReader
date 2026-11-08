@@ -52,6 +52,15 @@ class AsterViewModelFeatureTest {
     @After
     fun tearDown() { store.clear(); Dispatchers.resetMain() }
 
+    @Test fun repeatedPageEntryDoesNotDuplicateTheNavigationStack() {
+        repeat(3) { viewModel.pushSubScreen(SubScreen.Settings) }
+        assertEquals(listOf(SubScreen.Settings), viewModel.uiState.value.subScreenStack)
+        repeat(3) { viewModel.pushSubScreen(SubScreen.SettingsSection("appearance")) }
+        assertEquals(2, viewModel.uiState.value.subScreenStack.size)
+        assertTrue(viewModel.popSubScreen())
+        assertEquals(SubScreen.Settings, viewModel.uiState.value.activeSubScreen)
+    }
+
     @Test
     fun testInitialEmptyLibraryState() = runBlocking {
         val uiState = viewModel.uiState.value

@@ -154,7 +154,7 @@ fun ReaderScreen(
 
         onDispose {
             insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            viewModel.releaseReaderResources()
+            viewModel.releaseReaderResources(book.id)
         }
     }
     val annotations by remember(book.id) {
@@ -274,6 +274,7 @@ fun ReaderScreen(
                     coverSingle = readerCover,
                     rightToLeft = rtlOverride ?: (readerMode == ReaderLayoutMode.RTL_PAGER),
                     fitMode = readerFit,
+                    previewPixels = if (book.format == "PDF") com.example.data.local.LibraryRepository.PDF_PREVIEW_PIXELS else 0,
                     preloadBefore = uiState.preloadBefore,
                     preloadAfter = uiState.preloadAfter,
                     initialScale = if (restored?.page == currentPage && initialPage == null) restored?.scale ?: 1f else 1f,

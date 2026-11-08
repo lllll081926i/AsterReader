@@ -249,14 +249,10 @@ open class SettingsConsistencyTest {
         compose.mainClock.advanceTimeBy(1_000)
         compose.waitForIdle()
         compose.onNodeWithTag("reader_settings_page").assertIsDisplayed()
-        val firstMode = compose.onNodeWithText("滚动").getUnclippedBoundsInRoot()
-        listOf("RTL", "LTR", "双页").forEach { label ->
-            val option = compose.onNodeWithText(label).assertIsDisplayed().getUnclippedBoundsInRoot()
-            org.junit.Assert.assertEquals(firstMode.top.value, option.top.value, 0.5f)
-            org.junit.Assert.assertEquals((firstMode.right - firstMode.left).value, (option.right - option.left).value, 0.5f)
-        }
-        org.junit.Assert.assertEquals(48f, (firstMode.bottom - firstMode.top).value, 0.5f)
+        compose.onNodeWithText("翻页").assertIsDisplayed().performClick()
         compose.onNodeWithContentDescription("右向左翻页").assertIsDisplayed()
+        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithText("上下滚动").assertIsDisplayed()
         compose.onNodeWithContentDescription("恢复默认").assertIsDisplayed()
         captureDialog("reader-settings-monet")
         compose.onNodeWithText("缩放").performScrollTo().assertIsDisplayed()
@@ -276,20 +272,22 @@ open class SettingsConsistencyTest {
     @Test @Config(qualifiers = "w891dp-h411dp-xhdpi")
     fun landscapeReadingOptionsRemainReachable() {
         readerContent(fontScale = 2f, dark = true)
-        compose.onNodeWithText("双页").performScrollTo().performClick().assertIsSelected()
+        chooseReaderMode("双页")
+        compose.onNodeWithText("双页").assertIsDisplayed()
         compose.onNodeWithText("封面单页").performScrollTo().assertIsDisplayed()
         capture("reading-landscape-font-200")
     }
 
     @Test @Config(qualifiers = "w320dp-h640dp-xhdpi")
-    fun narrowReaderModeRowScrollsWithoutWrappingAtLargeFontScale() {
+    fun narrowReaderModePickerRemainsReachableAtLargeFontScale() {
         readerContent(fontScale = 2f)
-        val top = compose.onNodeWithText("滚动").getUnclippedBoundsInRoot().top
-        compose.onNodeWithText("双页").performScrollTo().performClick().assertIsSelected()
-        val last = compose.onNodeWithText("双页").getUnclippedBoundsInRoot()
-        org.junit.Assert.assertEquals(top.value, last.top.value, 0.5f)
-        org.junit.Assert.assertTrue((last.bottom - last.top).value >= 48f)
-        capture("reader-single-row-narrow-font-200")
+        compose.onNodeWithText("翻页").performScrollTo().performClick()
+        val choice = compose.onNode(hasText("双页") and isSelectable()).performScrollTo().assertIsDisplayed()
+        val bounds = choice.getUnclippedBoundsInRoot()
+        org.junit.Assert.assertTrue((bounds.bottom - bounds.top).value >= 48f)
+        choice.performClick()
+        compose.onNodeWithText("双页").assertIsDisplayed()
+        capture("reader-picker-narrow-font-200")
     }
 
     @Test fun emptyShelfManagementHasNoPlaceholderActions() {
@@ -590,12 +588,12 @@ open class SettingsConsistencyTest {
 
     @Test fun readerDefaultsDoNotOverwriteTheBookOverride() {
         readerContent()
-        compose.onNodeWithText("LTR").performScrollTo().performClick()
+        chooseReaderMode("从左向右")
         compose.onNodeWithText("默认", substring = false).performScrollTo().performClick()
-        compose.onNodeWithText("双页").performScrollTo().performClick()
+        chooseReaderMode("双页")
         compose.runOnIdle { check(model.uiState.value.readerLayoutMode == com.example.ui.ReaderLayoutMode.DUAL_PAGE) }
         compose.onNodeWithText("本书").performScrollTo().performClick()
-        compose.onNodeWithText("LTR").assertIsSelected()
+        compose.onNodeWithText("从左向右").assertIsDisplayed()
         capture("reader-book-scope")
     }
 
@@ -631,6 +629,11 @@ open class SettingsConsistencyTest {
         compose.onNodeWithText(entry.name).performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle { check(model.uiState.value.activeSubScreen == com.example.ui.SubScreen.SettingsSection("license:${entry.id}")) }
         capture("open-source-list")
+    }
+
+    private fun chooseReaderMode(label: String) {
+        compose.onNodeWithText("翻页").performScrollTo().performClick()
+        compose.onNode(hasText(label) and isSelectable()).performScrollTo().performClick()
     }
 
     private fun readerContent(fontScale: Float = 1f, dark: Boolean = false) {

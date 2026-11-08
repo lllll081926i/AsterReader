@@ -236,7 +236,8 @@ class LibraryRepository(
         persist: Boolean = true,
         refreshExisting: Boolean = false,
         coverPage: Int = 1,
-        replaceId: String? = null
+        replaceId: String? = null,
+        includePdfCover: Boolean = true
     ): BookEntity = withContext(Dispatchers.IO) {
         require(uri.scheme == "content" || uri.scheme == "file") { "请选择系统文件提供者中的文档" }
         if (fileVault.configured) {
@@ -275,8 +276,14 @@ class LibraryRepository(
         // 单次临时拷贝内完成「页数 + 章节 + 封面」，避免大文件被完整复制多次
         val scanned = when (format) {
             "PDF" -> withTemporaryCopy(uri) { file ->
-                val (count, _) = readPdf(file)
-                Triple(count, emptyList<Pair<String, Int>>(), generatePdfCover(file, selectedCover, coverFile))
+                val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+                val renderer = try { PdfRenderer(descriptor) } catch (failure: Throwable) {
+                    descriptor.close(); throw failure
+                }
+                renderer.use {
+                    Triple(it.pageCount, emptyList<Pair<String, Int>>(),
+                        if (includePdfCover) generatePdfCover(it, selectedCover, coverFile) else null)
+                }
             }
             "IMAGE" -> withTemporaryCopy(uri) { file ->
                 Triple(1, emptyList<Pair<String, Int>>(), writeCover({ file.inputStream() }, coverFile))
@@ -445,6 +452,7 @@ class LibraryRepository(
         var updated = 0
         var failed = 0
         var processed = 0
+        var discoveredWorks = 0
         var unchanged = 0
         var hidden = 0
         var ignored = 0
@@ -463,6 +471,7 @@ class LibraryRepository(
                     val parentUri = DocumentsContract.buildDocumentUriUsingTree(uri, parent).toString()
                     val children = queryChildren(uri, parent, MAX_SCAN_ITEMS - enumerated)
                     enumerated += children.size
+                    onProgress(processed, discoveredWorks)
                     check(enumerated <= MAX_SCAN_ITEMS) { "单次扫描最多处理 $MAX_SCAN_ITEMS 项，请缩小授权范围" }
                     children.filter { it.isDirectory }.forEach { queue.add(it.documentId) }
                     val classified = children.filter { !it.isDirectory }.map { child ->
@@ -478,13 +487,16 @@ class LibraryRepository(
                     }
                     val archives = classified.filter { it.second in ARCHIVE_EXTENSIONS }.map { it.first }
                     val images = classified.filter { it.second == "IMAGE" }.map { it.first }
+                    discoveredWorks += archives.size + if (images.isEmpty()) 0 else 1
+                    onProgress(processed, discoveredWorks)
                     ignored += classified.count { it.second !in ARCHIVE_EXTENSIONS && it.second != "IMAGE" && it.second != "ERROR" }
                     for (child in archives) {
                         currentCoroutineContext().ensureActive()
                         seen.add(child.uriString)
+                        onProgress(processed, discoveredWorks)
                         try {
                             val before = findDocumentSource(child.uri)
-                            val after = importDocument(child.uri, repoName, repoId, persist = false, refreshExisting = true)
+                            val after = importDocument(child.uri, repoName, repoId, persist = false, refreshExisting = true, includePdfCover = false)
                             when {
                                 before == null -> imported++
                                 after.totalPages != before.totalPages || after.sourceModifiedAt != before.sourceModifiedAt ||
@@ -500,7 +512,7 @@ class LibraryRepository(
                             failureReasons.add(scanFailureReason(failure))
                             findDocumentSource(child.uri)?.let { seen.add(it.filePath); dao.updateSourceStatus(it.id, "ERROR") }
                         }
-                        onProgress(++processed, enumerated)
+                        onProgress(++processed, discoveredWorks)
                     }
                     if (images.isNotEmpty()) {
                         currentCoroutineContext().ensureActive()
@@ -522,7 +534,7 @@ class LibraryRepository(
                             failureReasons.add(scanFailureReason(failure))
                             dao.getBookByUri(parentUri)?.let { dao.updateSourceStatus(it.id, "ERROR") }
                         }
-                        onProgress(++processed, enumerated)
+                        onProgress(++processed, discoveredWorks)
                     }
                 }
             }
@@ -606,7 +618,7 @@ class LibraryRepository(
         withContext(Dispatchers.IO) {
             val book = getBookById(id) ?: return@withContext
             if (book.isVaultEncrypted && !fileVault.unlocked) return@withContext
-            renderSession.prefetch(sourceKey(book), pages, maxPixels) { prepareSource(book) }
+            renderSession.prefetch(sourceKey(book), pages, if (book.format == "PDF") minOf(maxPixels, PDF_PREVIEW_PIXELS) else maxPixels) { prepareSource(book) }
         }
 
     /** 放大后按可见纵向条带取原始分辨率；不支持时返回 null，UI 退回整页位图。 */
@@ -627,7 +639,10 @@ class LibraryRepository(
 
     fun trimPageMemory() = renderSession.trimMemory()
 
-    suspend fun closeReadSession() = renderSession.close()
+    suspend fun closeReadSession(bookId: String? = null) {
+        val expectedKey = if (bookId == null) null else getBookById(bookId)?.let(::sourceKey) ?: return
+        renderSession.close(expectedKey)
+    }
 
     suspend fun initializeOrUnlockFileVault(password: CharArray, create: Boolean) = withContext(Dispatchers.IO) {
         val coroutine = currentCoroutineContext()
@@ -836,6 +851,7 @@ class LibraryRepository(
                 if (book.format == "IMAGE_DIR") regenerateDirectoryCover(book, target)
                 else generateCover(Uri.parse(book.filePath), book.format, book.coverPage, target)
             }.getOrNull() ?: return@forEach
+            currentCoroutineContext().ensureActive()
             dao.updateCover(book.id, path, book.coverPage)
             refreshed++
         }
@@ -1132,13 +1148,6 @@ class LibraryRepository(
             .map { ImagePage(it.uri, it.name, it.size, it.modifiedAt, it.fingerprint) }
     }
 
-    private fun readPdf(file: File): Pair<Int, List<Pair<String, Int>>> {
-        val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-        val renderer = try { PdfRenderer(descriptor) } catch (failure: Throwable) {
-            descriptor.close(); throw failure
-        }
-        return renderer.use { it.pageCount to emptyList() }
-    }
 
     /** 连续同名目录合并成一「话」，返回 (标题, 页数)；无层级时返回空表示「全本」。 */
     private fun chapterSpans(names: List<String>): List<Pair<String, Int>> {
@@ -1197,7 +1206,11 @@ class LibraryRepository(
         val renderer = try { PdfRenderer(descriptor) } catch (failure: Throwable) {
             descriptor.close(); throw failure
         }
-        return renderer.use {
+        return renderer.use { generatePdfCover(it, page, target) }
+    }
+
+    private fun generatePdfCover(renderer: PdfRenderer, page: Int, target: File): String? {
+        return renderer.let {
             val index = (page - 1).coerceIn(0, (it.pageCount - 1).coerceAtLeast(0))
             it.openPage(index).use { pdfPage ->
                 val scale = minOf(720f / pdfPage.width, 1280f / pdfPage.height, 1f)
@@ -1432,6 +1445,7 @@ class LibraryRepository(
         withContext(Dispatchers.IO) { LibraryBackup.import(dao, stream) }
 
     companion object {
+        const val PDF_PREVIEW_PIXELS = 600_000
         const val DEFAULT_PAGE_PIXELS = 2_500_000
         const val ZOOMED_PAGE_PIXELS = 6_000_000
         private const val MAX_LOCAL_COPY_BYTES = 1024L * 1024 * 1024

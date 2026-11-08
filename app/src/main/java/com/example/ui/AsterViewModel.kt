@@ -239,6 +239,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private var persistJob: kotlinx.coroutines.Job? = null
     private val cleanupScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
     private var scanJob: kotlinx.coroutines.Job? = null
+    private var coverRefreshJob: kotlinx.coroutines.Job? = null
     private var prefetchJob: kotlinx.coroutines.Job? = null
     private val navigationRevision = java.util.concurrent.atomic.AtomicLong()
     private var backgroundAt: Long? = null
@@ -556,7 +557,10 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun pushSubScreen(screen: SubScreen) {
-        _uiState.update { state -> state.copy(subScreenStack = state.subScreenStack + screen) }
+        _uiState.update { state ->
+            if (state.subScreenStack.lastOrNull() == screen) state
+            else state.copy(subScreenStack = state.subScreenStack + screen)
+        }
         recordNavSession()
     }
 
@@ -606,6 +610,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun openBookReader(bookId: String, initialPage: Int? = null, preferDualPageOnTablet: Boolean = false) {
+        coverRefreshJob?.cancel()
         val book = allBooks.value.find { it.id == bookId }
         if (book?.isVaultEncrypted == true && !_uiState.value.fileVaultOpen) {
             pendingFileVaultBook = bookId
@@ -1242,14 +1247,14 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun releaseReaderResources() {
+    fun releaseReaderResources(bookId: String? = null) {
         prefetchJob?.cancel()
         prefetchJob = null
         repository.trimPageMemory()
         cleanupScope.launch {
             try { flushReadingState() }
             catch (_: Exception) { showSnackbar("阅读进度保存失败，请检查可用空间") }
-            finally { runCatching { repository.closeReadSession() } }
+            finally { runCatching { repository.closeReadSession(bookId) } }
         }
     }
 
@@ -1697,10 +1702,18 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startScan(operation: suspend () -> String) {
         if (_uiState.value.isScanning) { showSnackbar("正在扫描，可先取消"); return }
+        coverRefreshJob?.cancel()
         _uiState.update { it.copy(isScanning = true) }
         _scanProgress.value = ScanProgress()
         scanJob = viewModelScope.launch(operationErrors) {
-            try { showSnackbar(operation()) }
+            try {
+                showSnackbar(operation())
+                coverRefreshJob = viewModelScope.launch {
+                    try { repository.refreshMissingCovers() }
+                    catch (cancelled: CancellationException) { throw cancelled }
+                    catch (_: Exception) { /* 封面可在下次扫描时重建，不阻塞作品入库。 */ }
+                }
+            }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) { showSnackbar(failure.message ?: "扫描失败，请重新授权目录") }
             finally { _uiState.update { it.copy(isScanning = false) } }
@@ -1732,10 +1745,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun rescanRepositories() {
         if (_uiState.value.isScanning) { cancelScanning(); return }
         startScan {
-            val covers = repository.refreshMissingCovers()
             val repos = repository.observeAllRepositories().first()
             if (repos.isEmpty()) {
-                return@startScan if (covers > 0) "已补全 $covers 本封面" else "尚无书库，请先选择目录"
+                return@startScan "尚无书库，请先选择目录"
             }
             var imported = 0
             var updated = 0
@@ -1765,8 +1777,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                     reasons.add("目录授权失效或读取失败")
                 }
             }
-            (if (covers > 0) "补全 $covers 本封面 · " else "") +
-                com.example.data.local.ScanReport(imported, updated, failed, missing, unchanged, hidden, ignored, reasons.toList()).summary()
+            com.example.data.local.ScanReport(imported, updated, failed, missing, unchanged, hidden, ignored, reasons.toList()).summary()
         }
     }
 

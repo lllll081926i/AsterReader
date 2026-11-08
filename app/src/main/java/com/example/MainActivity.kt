@@ -383,15 +383,10 @@ fun AsterReaderAppRoot(
         val showAppleBottomDock = activeSub == null && !uiState.isBatchSelectionMode
 
         AsterNavigationLayout(reserveNavigation = showAppleBottomDock, useRail = useNavigationRail, content = {
-            com.example.ui.components.AsterPredictiveNavigation(
+            com.example.ui.components.AsterNavigation(
                 current = com.example.ui.components.NavigationFrame(activeSub, uiState.currentTab, uiState.subScreenStack.size),
-                previous = if (uiState.subScreenStack.isNotEmpty()) {
-                    com.example.ui.components.NavigationFrame(uiState.subScreenStack.dropLast(1).lastOrNull(), uiState.currentTab,
-                        uiState.subScreenStack.size - 1)
-                } else com.example.ui.components.NavigationFrame(null, MainNavDestination.LIBRARY, 0),
                 enabled = uiState.isBatchSelectionMode || uiState.subScreenStack.isNotEmpty() ||
                     uiState.currentTab != MainNavDestination.LIBRARY,
-                selectionMode = uiState.isBatchSelectionMode,
                 onBack = { viewModel.popSubScreen() }
             ) { (subScreen, currentTab) ->
                 if (subScreen != null) {
