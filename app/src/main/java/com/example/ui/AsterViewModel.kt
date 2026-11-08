@@ -240,6 +240,10 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private val cleanupScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
     private var scanJob: kotlinx.coroutines.Job? = null
     private var coverRefreshJob: kotlinx.coroutines.Job? = null
+    private var readerPreparationJob: kotlinx.coroutines.Job? = null
+    private var preparingReaderBook: String? = null
+    private var preparingReaderPage: Int? = null
+    private var readerCleanupJob: kotlinx.coroutines.Job? = null
     private var prefetchJob: kotlinx.coroutines.Job? = null
     private val navigationRevision = java.util.concurrent.atomic.AtomicLong()
     private var backgroundAt: Long? = null
@@ -494,8 +498,10 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private fun navDec(value: String): String =
         String(java.util.Base64.getUrlDecoder().decode(value), Charsets.UTF_8)
 
-    suspend fun renderPage(id: String, page: Int, maxPixels: Int = LibraryRepository.DEFAULT_PAGE_PIXELS) =
-        repository.renderPage(id, page, maxPixels)
+    suspend fun renderPage(id: String, page: Int, maxPixels: Int = LibraryRepository.DEFAULT_PAGE_PIXELS): android.graphics.Bitmap {
+        readerCleanupJob?.join()
+        return repository.renderPage(id, page, maxPixels)
+    }
 
     suspend fun renderPageRegion(
         id: String,
@@ -512,9 +518,45 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun prefetchPages(id: String, pages: List<Int>) {
         prefetchJob?.cancel()
         prefetchJob = viewModelScope.launch {
-            try { repository.prefetchPages(id, pages) }
+            try { readerCleanupJob?.join(); repository.prefetchPages(id, pages) }
             catch (cancelled: CancellationException) { throw cancelled }
             catch (_: Exception) { /* 可见页负责显示加载错误。 */ }
+        }
+    }
+
+    fun prepareReaderFromDetail(bookId: String, page: Int) {
+        val state = _uiState.value
+        if (!state.settingsLoaded || state.isAppLockedNow) return
+        if (preparingReaderBook == bookId && preparingReaderPage == page && readerPreparationJob?.isActive == true) return
+        readerPreparationJob?.cancel()
+        coverRefreshJob?.cancel()
+        preparingReaderBook = bookId
+        preparingReaderPage = page
+        val cleanup = readerCleanupJob
+        readerPreparationJob = viewModelScope.launch {
+            try {
+                cleanup?.join()
+                val current = _uiState.value
+                if (!current.isAppLockedNow) repository.prepareReading(bookId, page, current.isVaultUnlocked)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { /* 预读失败不阻断详情，阅读页仍可正常重试。 */ }
+        }
+    }
+
+    fun leaveReaderPreparation(bookId: String) {
+        if (preparingReaderBook != bookId) return
+        val reader = _uiState.value.activeSubScreen as? SubScreen.Reader
+        // 详情切到同一本阅读时交接已有任务和缓存，不能在旧页面销毁时取消它。
+        if (reader?.bookId == bookId && !_uiState.value.isAppLockedNow) return
+        val preparation = readerPreparationJob
+        preparation?.cancel()
+        val cleanup = readerCleanupJob
+        preparingReaderBook = null
+        preparingReaderPage = null
+        readerCleanupJob = cleanupScope.launch {
+            cleanup?.join()
+            preparation?.join()
+            runCatching { repository.closeReadSession(bookId) }
         }
     }
 
@@ -617,6 +659,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             pushSubScreen(SubScreen.SettingsSection("fileVault")); return
         }
         val launchReader = {
+            if (preparingReaderBook == bookId && initialPage != null && initialPage != preparingReaderPage) {
+                readerPreparationJob?.cancel()
+            }
             pushSubScreen(SubScreen.Reader(bookId, initialPage))
         }
         if (book != null && book.isVaultProtected && !_uiState.value.isVaultUnlocked) {
@@ -1248,10 +1293,17 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun releaseReaderResources(bookId: String? = null) {
+        val preparation = readerPreparationJob
+        preparation?.cancel()
+        val cleanup = readerCleanupJob
+        preparingReaderBook = null
+        preparingReaderPage = null
         prefetchJob?.cancel()
         prefetchJob = null
         repository.trimPageMemory()
-        cleanupScope.launch {
+        readerCleanupJob = cleanupScope.launch {
+            cleanup?.join()
+            preparation?.join()
             try { flushReadingState() }
             catch (_: Exception) { showSnackbar("阅读进度保存失败，请检查可用空间") }
             finally { runCatching { repository.closeReadSession(bookId) } }

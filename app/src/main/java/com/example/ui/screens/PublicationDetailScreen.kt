@@ -77,6 +77,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.awaitCancellation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -116,6 +121,16 @@ fun PublicationDetailScreen(
     if (section != null) {
         PublicationPropertiesScreen(book, section, viewModel, onBack)
         return
+    }
+    val owner = LocalLifecycleOwner.current
+    LaunchedEffect(book.id, book.currentPage, book.filePath, book.contentFingerprint,
+        uiState.settingsLoaded, uiState.isAppLockedNow, uiState.isVaultUnlocked, uiState.fileVaultOpen, owner) {
+        owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            try {
+                viewModel.prepareReaderFromDetail(book.id, book.currentPage)
+                awaitCancellation()
+            } finally { viewModel.leaveReaderPreparation(book.id) }
+        }
     }
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme

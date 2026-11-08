@@ -613,12 +613,24 @@ class LibraryRepository(
             }
         }
 
+    /** 详情页预读即将打开的一页，直接复用阅读会话，不生成磁盘预览副本。 */
+    suspend fun prepareReading(id: String, page: Int, unlocked: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val book = getBookById(id) ?: return@withContext false
+        if (book.sourceStatus != "AVAILABLE" || book.totalPages < 1 ||
+            book.isVaultProtected && !unlocked || book.isVaultEncrypted && !fileVault.unlocked ||
+            WebDavRepository.isRemote(Uri.parse(book.filePath))) return@withContext false
+        val target = page.coerceIn(1, book.totalPages)
+        currentCoroutineContext().ensureActive()
+        renderPage(id, target, DEFAULT_PAGE_PIXELS)
+        true
+    }
+
     /** 预热相邻页。失败不影响阅读，只让翻页少一次等待。 */
     suspend fun prefetchPages(id: String, pages: List<Int>, maxPixels: Int = DEFAULT_PAGE_PIXELS) =
         withContext(Dispatchers.IO) {
             val book = getBookById(id) ?: return@withContext
             if (book.isVaultEncrypted && !fileVault.unlocked) return@withContext
-            renderSession.prefetch(sourceKey(book), pages, if (book.format == "PDF") minOf(maxPixels, PDF_PREVIEW_PIXELS) else maxPixels) { prepareSource(book) }
+            renderSession.prefetch(sourceKey(book), pages, maxPixels) { prepareSource(book) }
         }
 
     /** 放大后按可见纵向条带取原始分辨率；不支持时返回 null，UI 退回整页位图。 */
@@ -1445,7 +1457,6 @@ class LibraryRepository(
         withContext(Dispatchers.IO) { LibraryBackup.import(dao, stream) }
 
     companion object {
-        const val PDF_PREVIEW_PIXELS = 600_000
         const val DEFAULT_PAGE_PIXELS = 2_500_000
         const val ZOOMED_PAGE_PIXELS = 6_000_000
         private const val MAX_LOCAL_COPY_BYTES = 1024L * 1024 * 1024

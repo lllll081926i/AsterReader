@@ -49,8 +49,11 @@ internal sealed interface PageSource {
  */
 internal class DocumentRenderSession(context: Context) {
     private val sourceMutex = Mutex()
-    private val pages = object : LruCache<String, Bitmap>(budget(context)) {
-        override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
+    private data class PageKey(val source: String, val page: Int, val pixels: Int, val top: Int = -1, val bottom: Int = -1) {
+        fun sameArea(other: PageKey) = source == other.source && page == other.page && top == other.top && bottom == other.bottom
+    }
+    private val pages = object : LruCache<PageKey, Bitmap>(budget(context)) {
+        override fun sizeOf(key: PageKey, value: Bitmap) = value.allocationByteCount
     }
     private var source: OpenSource? = null
     private val dimensions = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Bitmap, Pair<Int, Int>>())
@@ -70,7 +73,7 @@ internal class DocumentRenderSession(context: Context) {
         try {
         val open = ensureSource(key, prepare)
         try {
-        val cacheKey = "${open.fingerprint}:$page:$maxPixels"
+        val cacheKey = PageKey(open.fingerprint, page, maxPixels)
         return cachedDecode(open, cacheKey) { renderBitmap(open, page, maxPixels) }!!
         } finally { inFlight.update { it - 1 } }
         } finally { foregroundRequests.update { it - 1 } }
@@ -97,7 +100,7 @@ internal class DocumentRenderSession(context: Context) {
                 try {
                     if (foregroundRequests.value > 0) continue
                     if (page > open.pageCount) break
-                    val cacheKey = "${open.fingerprint}:$page:$maxPixels"
+                    val cacheKey = PageKey(open.fingerprint, page, maxPixels)
                     try {
                         val bitmap = cachedDecode(open, cacheKey) { renderBitmap(open, page, maxPixels) }
                         prefetchedBytes += bitmap?.allocationByteCount ?: 0
@@ -136,7 +139,7 @@ internal class DocumentRenderSession(context: Context) {
         // 还会不断把整页位图挤出 LRU（放大反而更卡）。
         val topKey = (top * 40).roundToInt()
         val bottomKey = (bottom * 40).roundToInt()
-        val cacheKey = "${open.fingerprint}:region:$page:$topKey:$bottomKey:$maxPixels"
+        val cacheKey = PageKey(open.fingerprint, page, maxPixels, topKey, bottomKey)
         return try {
             cachedDecode(open, cacheKey) { renderRegionBitmap(open, page, top, bottom, maxPixels) }
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
@@ -215,11 +218,25 @@ internal class DocumentRenderSession(context: Context) {
         }
     }
 
-    private suspend fun cachedDecode(open: OpenSource, key: String, block: () -> Bitmap?): Bitmap? {
+    private fun cachedPage(key: PageKey): Bitmap? {
         pages.get(key)?.let { return it }
-        return pageGates[(key.hashCode() and Int.MAX_VALUE) % pageGates.size].withLock {
-            pages.get(key) ?: decode(open) {
-                block()?.also { if (it.allocationByteCount <= pages.maxSize()) pages.put(key, it) }
+        val compatible = pages.snapshot().keys.filter { it.sameArea(key) && it.pixels >= key.pixels }
+            .minByOrNull { it.pixels } ?: return null
+        return pages.get(compatible)
+    }
+
+    private suspend fun cachedDecode(open: OpenSource, key: PageKey, block: () -> Bitmap?): Bitmap? {
+        cachedPage(key)?.let { return it }
+        // 同一页的不同清晰度共用门锁，高清完成后预览直接复用，不再排队重复解码。
+        val gate = (31 * key.source.hashCode() + key.page).and(Int.MAX_VALUE) % pageGates.size
+        return pageGates[gate].withLock {
+            cachedPage(key) ?: decode(open) {
+                block()?.also { bitmap ->
+                    if (bitmap.allocationByteCount <= pages.maxSize()) {
+                        pages.snapshot().keys.filter { it.sameArea(key) && it.pixels < key.pixels }.forEach(pages::remove)
+                        pages.put(key, bitmap)
+                    }
+                }
             }
         }
     }
@@ -259,15 +276,18 @@ internal class DocumentRenderSession(context: Context) {
         }
 
     private fun renderImage(open: OpenSource, number: Int, maxPixels: Int): Bitmap {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        openStream(open, number).use { BitmapFactory.decodeStream(LimitedStream(it), null, bounds) }
-        require(bounds.outWidth > 0 && bounds.outHeight > 0) { "图像已损坏" }
-        val sample = sampleFor(bounds.outWidth, bounds.outHeight, maxPixels)
+        val original = open.imageSizes[number] ?: run {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            openStream(open, number).use { BitmapFactory.decodeStream(LimitedStream(it), null, bounds) }
+            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "图像已损坏" }
+            (bounds.outWidth to bounds.outHeight).also { open.imageSizes[number] = it }
+        }
+        val sample = sampleFor(original.first, original.second, maxPixels)
         return (openStream(open, number).use {
             BitmapFactory.decodeStream(
                 LimitedStream(it), null, BitmapFactory.Options().apply { inSampleSize = sample }
             )
-        } ?: error("图像无法解码")).also { dimensions[it] = bounds.outWidth to bounds.outHeight }
+        } ?: error("图像无法解码")).also { dimensions[it] = original }
     }
 
     private fun renderRegionBitmap(
@@ -410,6 +430,7 @@ internal class DocumentRenderSession(context: Context) {
         val secureRelease: (() -> Unit)? = null
     ) {
         val gate = Mutex()
+        val imageSizes = java.util.concurrent.ConcurrentHashMap<Int, Pair<Int, Int>>()
     }
 
     private class LimitedStream(input: InputStream) : FilterInputStream(input) {

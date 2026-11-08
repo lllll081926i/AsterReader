@@ -22,27 +22,17 @@ import org.robolectric.annotation.Config
 class ComicPageCanvasTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun pdfPreviewStaysVisibleWhileFullPageLoadsAndAfterItsFailure() {
-        val complete = kotlinx.coroutines.CompletableDeferred<Unit>()
-        val preview = Bitmap.createBitmap(4, 6, Bitmap.Config.ARGB_8888)
-        val fullRequested = java.util.concurrent.atomic.AtomicBoolean()
+    @Test fun openingPageRequestsNormalResolutionOnly() {
+        val requests = java.util.concurrent.CopyOnWriteArrayList<Int>()
+        val bitmap = Bitmap.createBitmap(4, 6, Bitmap.Config.ARGB_8888)
         compose.setContent {
-            PublicationPageCanvas("PDF预览", 1, 1, ReaderLayoutMode.LTR_PAGER, false,
-                previewPixels = 600_000,
-                loadPage = { _, pixels ->
-                    if (pixels == 600_000) preview else {
-                        fullRequested.set(true)
-                        complete.await()
-                        error("高清读取失败")
-                    }
-                }, onPageChanged = {}, onViewportChanged = { _, _, _, _, _ -> }, onToggleChrome = {})
+            PublicationPageCanvas("正常清晰度", 1, 1, ReaderLayoutMode.LTR_PAGER, false,
+                loadPage = { _, pixels -> requests.add(pixels); bitmap },
+                onPageChanged = {}, onViewportChanged = { _, _, _, _, _ -> }, onToggleChrome = {})
         }
-        compose.waitUntil { fullRequested.get() }
-        compose.onNodeWithContentDescription("第 1 页").assertExists()
-        compose.runOnIdle { complete.complete(Unit) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("第 1 页").assertExists()
-        compose.onNodeWithText("第 1 页无法读取，请检查文件").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(listOf(2_500_000), requests.toList()) }
     }
 
     @Test fun centralTapsRespondOnReleaseAndNeverScheduleAnotherToggle() {

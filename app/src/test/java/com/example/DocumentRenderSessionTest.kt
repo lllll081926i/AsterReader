@@ -30,6 +30,52 @@ class DocumentRenderSessionTest {
     private val png = java.util.Base64.getDecoder()
         .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
 
+    @Test fun higherResolutionReplacesLowerResolutionWithoutDecodingAgain() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val streams = AtomicInteger()
+        val source = PageSource.Directory(2) { streams.incrementAndGet(); png.inputStream() }
+        try {
+            val preview = session.render("清晰度", 1, 600_000) { source }
+            val full = session.render("清晰度", 1, 2_500_000) { source }
+            assertNotSame(preview, full)
+            assertEquals("升级清晰度复用尺寸，只再读取一次像素", 3, streams.get())
+            assertEquals(full.allocationByteCount, session.cachedBytes())
+            assertFalse("缓存替换不能回收界面仍引用的预览", preview.isRecycled)
+            repeat(8) {
+                assertSame(full, session.render("清晰度", 1, 600_000) { error("来源应复用") })
+                session.prefetch("清晰度", listOf(1), 600_000) { error("来源应复用") }
+            }
+            assertEquals("回读和预加载都不应再次解码", 3, streams.get())
+            assertNotSame(full, session.render("清晰度", 2, 600_000) { source })
+            session.trimMemory()
+            session.render("清晰度", 1, 600_000) { source }
+            assertEquals("内存清理后重读像素仍可复用本次来源的尺寸", 6, streams.get())
+        } finally { session.close() }
+    }
+
+    @Test fun queuedLowerResolutionReusesInFlightHigherResolution() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val entered = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val streams = AtomicInteger()
+        val source = PageSource.Directory(1) {
+            streams.incrementAndGet()
+            entered.complete(Unit)
+            check(release.await(10, TimeUnit.SECONDS))
+            png.inputStream()
+        }
+        try {
+            withTimeout(15000) {
+                val full = async(start = CoroutineStart.UNDISPATCHED) { session.render("并发清晰度", 1, 2_500_000) { source } }
+                entered.await()
+                val preview = async(start = CoroutineStart.UNDISPATCHED) { session.render("并发清晰度", 1, 600_000) { source } }
+                release.countDown()
+                assertSame(full.await(), preview.await())
+                assertEquals(2, streams.get())
+            }
+        } finally { release.countDown(); session.close() }
+    }
+
     @Test fun foregroundDecodeDefersPrefetchWithoutBlockingSourceSwitch() = runBlocking {
         val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
         val entered = CompletableDeferred<Unit>()

@@ -102,7 +102,6 @@ fun PublicationPageCanvas(
     coverSingle: Boolean = true,
     rightToLeft: Boolean = mode == ReaderLayoutMode.RTL_PAGER,
     fitMode: String = "适合屏幕",
-    previewPixels: Int = 0,
     preloadBefore: Int = 3,
     preloadAfter: Int = 6,
     initialScale: Float = 1f,
@@ -216,7 +215,6 @@ fun PublicationPageCanvas(
                     publicationId = publicationId,
                     page = index + 1,
                     load = loadPage,
-                    previewPixels = previewPixels,
                     nativeSize = nativeSize,
                     chromeRange = chromeRange,
                     loadRegion = loadRegion,
@@ -275,7 +273,6 @@ fun PublicationPageCanvas(
                             publicationId = publicationId,
                             page = number,
                             load = loadPage,
-                    previewPixels = previewPixels,
                             nativeSize = nativeSize,
                             chromeRange = chromeRange,
                             rightToLeft = rightToLeft,
@@ -329,7 +326,6 @@ private fun DocumentPage(
     publicationId: String,
     page: Int,
     load: suspend (Int, Int) -> Bitmap,
-    previewPixels: Int,
     nativeSize: (Bitmap) -> Pair<Int, Int>?,
     chromeRange: ClosedFloatingPointRange<Float>,
     rightToLeft: Boolean = false,
@@ -437,15 +433,10 @@ private fun DocumentPage(
 
     var attempt by remember { mutableIntStateOf(0) }
     val owner = LocalLifecycleOwner.current
-    val result by produceState<Result<Bitmap>?>(null, publicationId, page, attempt, maxPixels, previewPixels, owner) {
+    val result by produceState<Result<Bitmap>?>(null, publicationId, page, attempt, maxPixels, owner) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             try {
                 value = try {
-                    if (previewPixels in 1 until maxPixels) {
-                        value = Result.success(load(page, previewPixels))
-                        // 先让预览上屏，再补清晰页；快速滑过的请求可在此取消。
-                        delay(120)
-                    }
                     Result.success(load(page, maxPixels))
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -534,6 +525,7 @@ private fun DocumentPage(
             }
             displayed != null -> {
                 val bitmap = displayed!!
+                val pageImage = remember(bitmap) { bitmap.asImageBitmap() }
                 val box = viewport
                 val fitted = remember(box, bitmap.width, bitmap.height, vertical, fitMode) {
                     val original = nativeSize(bitmap)
@@ -568,6 +560,8 @@ private fun DocumentPage(
                     enabled = box.width > 0
                 )
 
+                val detailImage = remember(detail?.bitmap) { detail?.bitmap?.asImageBitmap() }
+
                 // 整页位图与高清条带叠加在同一坐标系：两者使用完全一致的
                 // graphicsLayer（缩放 / 平移 / 淡入），避免放大后错位。
                 Canvas(
@@ -583,14 +577,14 @@ private fun DocumentPage(
                     }
                 ) {
                     drawImage(
-                        image = bitmap.asImageBitmap(),
+                        image = pageImage,
                         dstOffset = IntOffset(fitted.left.roundToInt(), fitted.top.roundToInt()),
                         dstSize = IntSize(fitted.width.roundToInt(), fitted.height.roundToInt()),
                         filterQuality = androidx.compose.ui.graphics.FilterQuality.Low
                     )
                     detail?.let { band ->
                         drawImage(
-                            image = band.bitmap.asImageBitmap(),
+                            image = detailImage!!,
                             dstOffset = IntOffset(regionRect.left.roundToInt(), (regionRect.top + regionRect.height * band.top).roundToInt()),
                             dstSize = IntSize(
                                 regionRect.width.roundToInt(),

@@ -141,6 +141,29 @@ class LibraryRepositoryTest {
         assertFalse(File(app.cacheDir, "read").listFiles().orEmpty().any { it.length() == length })
     }
 
+    @Test fun detailPreparationReusesNormalResolutionAndDoesNotChangeProgress() = runBlocking {
+        val book = repository.importDocument(document("预读.cbz", comicBytes()))
+        repository.closeReadSession()
+        assertTrue(repository.prepareReading(book.id, 2, unlocked = false))
+        val afterPreparation = opened.get()
+        val cached = repository.renderPage(book.id, 2)
+        assertSame(cached, repository.renderPage(book.id, 2))
+        assertEquals(afterPreparation, opened.get())
+        assertEquals(book.currentPage, repository.getBookById(book.id)!!.currentPage)
+        assertEquals(book.progressPercent, repository.getBookById(book.id)!!.progressPercent)
+    }
+
+    @Test fun detailPreparationSkipsLockedAndUnavailableSources() = runBlocking {
+        val book = repository.importDocument(document("禁止预读.cbz", comicBytes()))
+        repository.closeReadSession()
+        val before = opened.get()
+        db.asterDao().updateBook(book.copy(isVaultProtected = true))
+        assertFalse(repository.prepareReading(book.id, 1, unlocked = false))
+        db.asterDao().updateBook(book.copy(sourceStatus = "MISSING"))
+        assertFalse(repository.prepareReading(book.id, 1, unlocked = true))
+        assertEquals(before, opened.get())
+    }
+
     private fun document(name: String, bytes: ByteArray): Uri {
         val folder = File(app.cacheDir, "fixture-${java.util.UUID.randomUUID()}").apply { mkdirs() }
         files[name] = File(folder, name).apply { writeBytes(bytes) }
