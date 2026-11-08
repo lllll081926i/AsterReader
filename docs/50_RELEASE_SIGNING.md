@@ -1,5 +1,7 @@
 # 本地签名与 GitHub 发包
 
+> 1.0.0 更新：本地与云端先构建 AAB，再以 `-Paster.splitApks=true` 构建四种 ABI 和通用 APK。最终分发文件命名为 `AsterReader-版本-ABI.apk` 与 `AsterReader-版本.aab`。`scripts/Verify-Release.py` 统一检查版本、固定证书、ABI、16 KB ZIP/64 位 ELF 对齐与离线许可。标签工作流仍先创建草稿；完成核验后由已获授权的发布操作公开。旧记录中的 `app-release.apk` 是历史单包名称。
+
 日期：2026-11-07。用户授权自行分发签名，并把同一签名注入 GitHub 发包流程。不依赖应用商店或购买证书。签名用于证明同一发布者和允许后续覆盖升级，不证明程序没有漏洞。上线审查尚未关闭的问题仍见 docs/49。
 
 ## 密钥与本地构建

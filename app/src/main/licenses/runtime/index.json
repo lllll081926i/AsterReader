@@ -1,0 +1,504 @@
+{
+  "androidx.activity:activity:1.10.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt",
+    "ada50d4c9b326e043f5c0a22.txt"
+  ],
+  "androidx.activity:activity-compose:1.10.1": [
+    "4b49fae90eae28b6baacbba9.txt",
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.activity:activity-ktx:1.10.1": [
+    "37e5c0c7dd418c95a8b063ae.txt",
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.annotation:annotation:1.9.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.annotation:annotation-experimental:1.4.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.annotation:annotation-jvm:1.9.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "565089d0073670a722dce70e.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.appcompat:appcompat-resources:1.6.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.arch.core:core-common:2.2.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.arch.core:core-runtime:2.2.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.autofill:autofill:1.0.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.collection:collection:1.4.2": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.collection:collection-jvm:1.4.2": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.collection:collection-ktx:1.4.2": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.animation:animation:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.animation:animation-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.animation:animation-core:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.animation:animation-core-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.foundation:foundation:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.foundation:foundation-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.foundation:foundation-layout:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.foundation:foundation-layout-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.material3:material3:1.3.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.material3:material3-android:1.3.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.material:material:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.material:material-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.material:material-icons-core:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.material:material-icons-core-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.material:material-icons-extended:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.material:material-icons-extended-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.material:material-ripple:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.material:material-ripple-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.runtime:runtime:1.7.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.runtime:runtime-android:1.7.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.runtime:runtime-saveable:1.7.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.runtime:runtime-saveable-android:1.7.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-geometry:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-geometry-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-graphics:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-graphics-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-test-manifest:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-text:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-text-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-tooling:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-tooling-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-tooling-data:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-tooling-data-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-tooling-preview:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-tooling-preview-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-unit:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-unit-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-util:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose.ui:ui-util-android:1.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.compose:compose-bom:2024.09.00": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.concurrent:concurrent-futures:1.1.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.core:core:1.18.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt",
+    "8a7b36f015d811f49eecea89.txt"
+  ],
+  "androidx.core:core-ktx:1.18.0": [
+    "060f7bd44b34a484124d53a3.txt",
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.core:core-viewtree:1.0.0": [
+    "18b2ff05d06d1e45afcefc8b.txt",
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.customview:customview-poolingcontainer:1.0.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.emoji2:emoji2:1.3.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.exifinterface:exifinterface:1.3.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.graphics:graphics-path:1.0.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "5f787c1dee3c56547f09ccc2.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.interpolator:interpolator:1.0.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-common:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-common-java8:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-common-jvm:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-livedata-core:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-process:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-runtime:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-runtime-android:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-runtime-compose:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-runtime-compose-android:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-runtime-ktx:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-runtime-ktx-android:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-viewmodel:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-viewmodel-android:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-viewmodel-compose-android:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.profileinstaller:profileinstaller:1.4.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt",
+    "96d28ada71267a53c2bc92c9.txt"
+  ],
+  "androidx.room:room-common:2.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.room:room-common-jvm:2.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "5ba55802bb0cb24c296c6621.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.room:room-ktx:2.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt",
+    "afca705a854b4dbedcedd8ab.txt"
+  ],
+  "androidx.room:room-runtime:2.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.room:room-runtime-android:2.7.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt",
+    "78f777d6f50a76d11352b84c.txt"
+  ],
+  "androidx.savedstate:savedstate:1.2.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.savedstate:savedstate-ktx:1.2.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.sqlite:sqlite:2.5.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.sqlite:sqlite-android:2.5.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt",
+    "d01c13a66718011ece6b15c1.txt"
+  ],
+  "androidx.sqlite:sqlite-framework:2.5.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.sqlite:sqlite-framework-android:2.5.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt",
+    "a3b96a7c0c78c58fdb973a21.txt"
+  ],
+  "androidx.startup:startup-runtime:1.1.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.tracing:tracing:1.2.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.vectordrawable:vectordrawable:1.1.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.vectordrawable:vectordrawable-animated:1.1.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "androidx.versionedparcelable:versionedparcelable:1.1.1": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "61f4c1255fc23b6465a77be2.txt"
+  ],
+  "com.github.junrar:junrar:8.1.2": [
+    "eb79d4a3734c62e7b8db07a1.txt"
+  ],
+  "com.google.accompanist:accompanist-drawablepainter:0.32.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "com.google.guava:listenablefuture:1.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "com.squareup.okhttp3:okhttp:4.12.0": [
+    "50e6751797c50dedd75ef1b8.txt",
+    "c148b8187efa5222e7b57b70.txt"
+  ],
+  "com.squareup.okio:okio:3.9.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "com.squareup.okio:okio-jvm:3.9.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "commons-codec:commons-codec:1.17.1": [
+    "0e345a6bf6cd260cca38b253.txt",
+    "15a59b9822ad8ed6dab748a4.txt",
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "commons-io:commons-io:2.16.1": [
+    "15a59b9822ad8ed6dab748a4.txt",
+    "50e6751797c50dedd75ef1b8.txt",
+    "ca741c95328d33211adce846.txt"
+  ],
+  "io.coil-kt:coil:2.7.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "io.coil-kt:coil-base:2.7.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "io.coil-kt:coil-compose:2.7.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "io.coil-kt:coil-compose-base:2.7.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.apache.commons:commons-compress:1.27.1": [
+    "1828c0a940c9e0f4668727e9.txt",
+    "20609ac334df5aa60454e8d3.txt",
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.apache.commons:commons-lang3:3.16.0": [
+    "15a59b9822ad8ed6dab748a4.txt",
+    "50e6751797c50dedd75ef1b8.txt",
+    "e708ae9ddf0e288cb110cbfa.txt"
+  ],
+  "org.bouncycastle:bcprov-jdk18on:1.86": [
+    "25dc16585cf895b18d24d472.txt",
+    "afaf5bd0b0d869dc86b71711.txt",
+    "fb998f1277183cecc1e684c8.txt"
+  ],
+  "org.jetbrains.kotlin:kotlin-stdlib:2.2.10": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.jetbrains.kotlin:kotlin-stdlib-common:2.2.10": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.10.2": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.10.2": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.jetbrains:annotations:23.0.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.jspecify:jspecify:1.0.0": [
+    "50e6751797c50dedd75ef1b8.txt"
+  ],
+  "org.slf4j:slf4j-api:2.0.17": [
+    "45a1fb0773d57ba270cffcbd.txt",
+    "8e0d2e086db1da82238c2792.txt"
+  ],
+  "org.slf4j:slf4j-nop:2.0.17": [
+    "8e0d2e086db1da82238c2792.txt"
+  ],
+  "org.tukaani:xz:1.9": [
+    "0fe7230a0c6b30427457d0a6.txt"
+  ]
+}

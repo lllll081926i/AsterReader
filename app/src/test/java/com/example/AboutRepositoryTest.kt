@@ -21,6 +21,7 @@ class AboutRepositoryTest {
         assertTrue(entries.any { it.name == "Lora" && it.notice.contains("SIL OPEN FONT LICENSE") })
         assertTrue(entries.any { it.name == "Roboto Mono" && it.notice.contains("SIL OPEN FONT LICENSE") })
         assertTrue(entries.all { it.name.isNotBlank() && it.version.isNotBlank() && it.license.isNotBlank() })
+        assertTrue(entries.all { it.notice.isNotBlank() })
         assertTrue(entries.all { it.url.isEmpty() || it.url.startsWith("https://") })
     }
 }

@@ -2,6 +2,8 @@
 
 运行能力和当前边界以 [项目说明](../README.md)、源码及验收记录为准。早期文档包含尚未完成的规划，不把静态文档检查结果视为应用上线验收。
 
+当前正式版本：[1.0.0 发布说明](releases/1.0.0.md)、[最终审查与发布核验](54_FINAL_AUDIT_AND_1_0_0.md)、[隐私说明](PRIVACY.md)。
+
 | 用途 | 入口 |
 |---|---|
 | 冻结架构与验收门禁 | [架构决策](27_FINAL_ARCHITECTURE_DECISIONS.md)、[完成定义](29_DEFINITION_OF_DONE_AND_GATES.md) |

@@ -141,7 +141,9 @@ try {
             $env:KEYSTORE_PATH = $configuration.keyPath
             $env:STORE_PASSWORD = $password
             $env:KEY_PASSWORD = $password
-            & ./gradlew.bat :app:assembleRelease :app:bundleRelease --offline --console=plain --no-configuration-cache --no-daemon
+            & ./gradlew.bat :app:bundleRelease --offline --console=plain --no-configuration-cache --no-daemon
+            if ($LASTEXITCODE -ne 0) { throw '正式 AAB 构建失败。' }
+            & ./gradlew.bat :app:assembleRelease '-Paster.splitApks=true' --offline --console=plain --no-configuration-cache --no-daemon
             if ($LASTEXITCODE -ne 0) { throw '正式签名构建失败。' }
         } finally {
             $env:KEYSTORE_PATH = $previousPath

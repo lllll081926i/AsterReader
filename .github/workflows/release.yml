@@ -1,4 +1,4 @@
-name: 签名构建与草稿发包
+name: 正式签名构建与草稿发包
 
 on:
   workflow_dispatch:
@@ -62,40 +62,15 @@ jobs:
               environment = os.environ.copy()
               environment.pop('KEYSTORE_BASE64', None)
               environment['KEYSTORE_PATH'] = str(key)
-              subprocess.run(['bash', './gradlew', ':app:assembleRelease', ':app:bundleRelease', '--console=plain', '--no-configuration-cache', '--no-daemon'], env=environment, check=True)
+              for tasks in ([':app:bundleRelease'], [':app:assembleRelease', '-Paster.splitApks=true']):
+                  subprocess.run(['bash', './gradlew', *tasks, '--console=plain', '--no-configuration-cache', '--no-daemon'], env=environment, check=True)
           PY
       - name: 校验签名与产物
         env:
           EXPECTED_CERT_SHA256: ${{ vars.ANDROID_RELEASE_CERT_SHA256 }}
         run: |
           set -euo pipefail
-          APK=app/build/outputs/apk/release/app-release.apk
-          AAB=app/build/outputs/bundle/release/app-release.aab
-          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK" > build/release-certificate.txt
-          jarsigner -verify "$AAB"
-          keytool -J-Duser.language=en -J-Duser.country=US -printcert -jarfile "$AAB" > build/bundle-certificate.txt
-          python3 - <<'PY'
-          import os, pathlib, re
-          expected = os.environ.get('EXPECTED_CERT_SHA256', '').lower()
-          if not re.fullmatch(r'[0-9a-f]{64}', expected):
-              raise SystemExit('缺少有效的预期证书 SHA-256')
-          text = pathlib.Path('build/release-certificate.txt').read_text()
-          actual = re.search(r'certificate SHA-256 digest:\s*([0-9a-fA-F]{64})', text)
-          if 'Number of signers: 1' not in text or not actual or actual.group(1).lower() != expected:
-              raise SystemExit('发布包签名与长期证书不一致')
-          bundle = pathlib.Path('build/bundle-certificate.txt').read_text()
-          actual_bundle = re.search(r'SHA256:\s*([0-9a-fA-F:]+)', bundle)
-          if not actual_bundle or actual_bundle.group(1).replace(':', '').lower() != expected:
-              raise SystemExit('AAB 签名与长期证书不一致')
-          PY
-          "$ANDROID_HOME/build-tools/37.0.0/zipalign" -c -P 16 4 "$APK"
-          mkdir -p build/release-delivery
-          cp "$APK" "$AAB" build/release-delivery/
-          cp app/build/outputs/mapping/release/mapping.txt build/release-delivery/
-          cp build/release-certificate.txt build/release-delivery/
-          cd build/release-delivery
-          sha256sum app-release.apk app-release.aab release-certificate.txt > SHA256SUMS.txt
-          sha256sum mapping.txt > mapping-SHA256.txt
+          python3 scripts/Verify-Release.py --expected-certificate "$EXPECTED_CERT_SHA256"
       - name: 保存校验与测试报告
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -141,6 +116,6 @@ jobs:
               exit 1
             fi
           else
-            gh release create "$RELEASE_TAG" --verify-tag --draft --title "$RELEASE_TAG" --generate-notes
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "Aster Reader ${RELEASE_TAG#v}" --notes-file release/RELEASE_NOTES.md
           fi
-          gh release upload "$RELEASE_TAG" release/app-release.apk release/app-release.aab release/SHA256SUMS.txt release/release-certificate.txt --clobber
+          gh release upload "$RELEASE_TAG" release/*.apk release/*.aab release/SHA256SUMS.txt release/release-certificate.txt release/THIRD_PARTY_NOTICES.txt release/PRIVACY.md release/RELEASE_NOTES.md --clobber

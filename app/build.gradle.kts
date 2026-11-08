@@ -25,8 +25,8 @@ android {
     applicationId = "com.asterreader.app"
     minSdk = 31
     targetSdk = 37
-    versionCode = 2
-    versionName = "2.4.0"
+    versionCode = 3
+    versionName = "1.0.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -63,6 +63,14 @@ android {
       // Do not remove or modify this signingConfig assignment. It is necessary for Android apps in
       // AI Studio.
       signingConfig = signingConfigs.getByName("debugConfig")
+    }
+  }
+  splits {
+    abi {
+      isEnable = providers.gradleProperty("aster.splitApks").orNull == "true"
+      reset()
+      include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+      isUniversalApk = true
     }
   }
   compileOptions {
@@ -179,9 +187,14 @@ abstract class AsterNoticesTask : DefaultTask() {
     abstract val fonts: ConfigurableFileCollection
     @get:InputFiles @get:PathSensitive(PathSensitivity.NONE)
     abstract val fontLicenses: ConfigurableFileCollection
+    @get:InputDirectory @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val runtimeLicenses: DirectoryProperty
     @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
 
     @TaskAction fun generate() {
+        val licenseDirectory = runtimeLicenses.get().asFile
+        @Suppress("UNCHECKED_CAST")
+        val licenseIndex = groovy.json.JsonSlurper().parse(licenseDirectory.resolve("index.json")) as Map<String, List<String>>
         val factory = DocumentBuilderFactory.newInstance().apply {
             setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
             setFeature("http://xml.org/sax/features/external-general-entities", false)
@@ -215,7 +228,10 @@ abstract class AsterNoticesTask : DefaultTask() {
                 "${parts[0].replace('.', '/')}/${parts[1]}/${parts[2]}/${parts[1]}-${parts[2]}.pom"
             mapOf("id" to coordinate, "name" to "${parts[0]}:${parts[1]}", "version" to parts[2],
                 "license" to names.joinToString(" / ").ifBlank { "许可见来源" },
-                "url" to (licenseUrl ?: safeUrl(root.child("url")).ifBlank { metadataUrl }), "notice" to "")
+                "url" to (licenseUrl ?: safeUrl(root.child("url")).ifBlank { metadataUrl }),
+                "notice" to requireNotNull(licenseIndex[coordinate]) { "缺少离线许可：$coordinate" }
+                    .joinToString("\n\n") { name -> licenseDirectory.resolve(name).readText() }
+                    .also { require(it.isNotBlank()) { "离线许可为空：$coordinate" } })
         }.toMutableList()
         fonts.files.sortedBy { it.name }.forEach { font ->
             val bytes = font.readBytes()
@@ -264,6 +280,7 @@ androidComponents.onVariants { variant ->
         pomFiles.from(fileTree(mavenCache) { include("**/*.pom") })
         fonts.from(fileTree("src/main/res/font") { include("*.ttf", "*.otf") })
         fontLicenses.from(fileTree("src/main/licenses") { include("*.OFL.txt") })
+        runtimeLicenses.set(layout.projectDirectory.dir("src/main/licenses/runtime"))
         outputDirectory.set(layout.buildDirectory.dir("generated/notices/${variant.name}"))
     }
     variant.sources.assets?.addGeneratedSourceDirectory(task, AsterNoticesTask::outputDirectory)

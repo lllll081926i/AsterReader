@@ -2,6 +2,8 @@
 
 Aster Reader 是 Android 本地漫画阅读器。当前实现使用 Kotlin、Jetpack Compose、Material 3 和系统 Monet 动态色。功能完成度以实现、测试与设备验收记录为准。
 
+**正式版本：[1.0.0 下载与发布说明](https://github.com/lllll081926i/AsterReader/releases/tag/v1.0.0)**。提供通用 APK、四种 ABI 专用 APK 和 AAB；普通用户安装 APK，AAB 用于分发平台。[隐私说明](docs/PRIVACY.md)与[最终审查](docs/54_FINAL_AUDIT_AND_1_0_0.md)说明本版本的数据行为与验证边界。
+
 ## 当前能力
 
 - 通过 SAF 导入文件和目录，递归扫描仓库；失联来源可重新定位，并保留作品身份、进度和批注。
@@ -50,7 +52,7 @@ Debug APK 位于 `app/build/outputs/apk/debug/app-debug.apk`。
 
 Release 构建读取 `KEYSTORE_PATH`、`STORE_PASSWORD` 和 `KEY_PASSWORD`，别名为 `upload`。缺少有效签名配置时不能生成正式发布包。
 
-本机已配置仓库外的长期签名。使用 PowerShell 7 执行 `./scripts/Release-Signing.ps1 -Action Build`，无需手工填写口令。GitHub 发包工作流使用同一签名，手动运行保存构建产物，版本标签仅创建草稿 Release。密钥保管、证书指纹与操作说明见 [本地签名与 GitHub 发包](docs/50_RELEASE_SIGNING.md)。
+本机已配置仓库外的长期签名。使用 PowerShell 7 执行 `./scripts/Release-Signing.ps1 -Action Build`，无需手工填写口令。脚本先构建 AAB，再以 `-Paster.splitApks=true` 构建四种 ABI 与通用 APK；不能在同一次 Gradle 调用混合拆分 APK 和 AAB。GitHub 使用同一签名，手动运行保存构建产物，版本标签创建草稿，核验附件后发布。密钥保管、证书指纹与操作说明见 [本地签名与 GitHub 发包](docs/50_RELEASE_SIGNING.md)。
 
 ## 书库清单备份
 
