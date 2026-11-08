@@ -42,8 +42,8 @@ credentials = "1.5.0"
 googleid = "1.1.1"
 commonsCompress = "1.27.1"
 xz = "1.9"
-junrar = "7.5.5"
-slf4j = "1.7.36"
+junrar = "8.1.2"
+slf4j = "2.0.17"
 
 
 [libraries]
