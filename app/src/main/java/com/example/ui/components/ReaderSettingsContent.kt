@@ -66,6 +66,9 @@ fun ReaderSettingsContent(
         AsterSwitchRow("封面单页", checked = selectedCover,
             onCheckedChange = { if (defaults) model.setSmartSpreadStitch(it) else onCover(it) })
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        ReaderSettingsLabel("预加载（通用）")
+        PreloadPagesRow("向上预加载", state.preloadBefore, model::setPreloadBefore)
+        PreloadPagesRow("向下预加载", state.preloadAfter, model::setPreloadAfter)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("亮度", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface)
@@ -78,6 +81,18 @@ fun ReaderSettingsContent(
         }
         AsterSwitchRow("音量键翻页", checked = state.volumeKeyPageTurn, onCheckedChange = model::setVolumeKeyPageTurn)
         AsterSwitchRow("状态条", checked = showStatus, onCheckedChange = onShowStatus)
+    }
+}
+
+@Composable
+private fun PreloadPagesRow(label: String, pages: Int, onChange: (Int) -> Unit) {
+    Column {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Text("$pages 页", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        }
+        Slider(pages.toFloat(), { onChange(it.roundToInt()) },
+            Modifier.fillMaxWidth().semantics { contentDescription = label }, valueRange = 0f..16f, steps = 15)
     }
 }
 

@@ -32,7 +32,7 @@ import kotlin.math.roundToInt
 /** 归档或目录页的打开方式；安全来源由 Repository 完成授权。 */
 internal sealed interface PageSource {
     /** [owned] 为 true 时会话关闭时删除该文件；复用的本地副本必须传 false。 */
-    class Document(val file: File, val format: String, val owned: Boolean = true) : PageSource
+    class Document(val file: File, val format: String, val owned: Boolean = true, val release: () -> Unit = {}) : PageSource
     class Directory(val pageCount: Int, val openPage: (Int) -> InputStream?) : PageSource
     class SecurePdf(val descriptor: ParcelFileDescriptor, val release: () -> Unit) : PageSource
     class SecureArchive(val archive: ComicArchive) : PageSource
@@ -85,13 +85,16 @@ internal class DocumentRenderSession(context: Context) {
         if (pagesToLoad.isEmpty()) return
         val open = ensureSource(key, prepare)
         try {
+        var prefetchedBytes = 0L
         for (page in pagesToLoad.distinct()) {
             currentCoroutineContext().ensureActive()
             if (page < 1 || page > open.pageCount) continue
             val cacheKey = "${open.fingerprint}:$page:$maxPixels"
-            if (pages.get(cacheKey) != null) continue
             try {
-                cachedDecode(open, cacheKey) { renderBitmap(open, page, maxPixels) }
+                val bitmap = cachedDecode(open, cacheKey) { renderBitmap(open, page, maxPixels) }
+                prefetchedBytes += bitmap?.allocationByteCount ?: 0
+                // 为正在显示的页面留出缓存，较远页不能挤掉刚预热的近页。
+                if (prefetchedBytes >= pages.maxSize() * 3L / 4) break
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
             catch (_: Exception) { /* 预取失败由可见页的加载状态呈现。 */ }
         }
@@ -172,7 +175,7 @@ internal class DocumentRenderSession(context: Context) {
                             }
                             OpenSource(
                                 key, fingerprint, renderer.pageCount, null, renderer, null,
-                                temporaryFile, concurrent = false
+                                temporaryFile, concurrent = false, secureRelease = prepared.release
                             )
                         }
                         prepared.format == "IMAGE_DIR" -> throw IOException("目录作品必须通过目录来源打开")
@@ -180,7 +183,7 @@ internal class DocumentRenderSession(context: Context) {
                             val archive = ComicArchives.open(prepared.file, prepared.format)
                             OpenSource(
                                 key, fingerprint, archive.pageCount, archive, null, null,
-                                temporaryFile, concurrent = archive.concurrentReads
+                                temporaryFile, concurrent = archive.concurrentReads, secureRelease = prepared.release
                             )
                         }
                     }
@@ -195,6 +198,7 @@ internal class DocumentRenderSession(context: Context) {
             // 打开失败时 source 还没赋值，closeLocked() 不会回收，必须在这里删掉自己持有的副本
             closeLocked()
             temporaryFile?.delete()
+            if (prepared is PageSource.Document) prepared.release()
             throw failure
         }
     }
@@ -415,10 +419,10 @@ internal class DocumentRenderSession(context: Context) {
         private const val MAX_REGION_BYTES = 48 * 1024 * 1024
 
         private fun budget(context: Context): Int = minOf(
-            32L * 1024 * 1024,
-            Runtime.getRuntime().maxMemory() / 8,
+            96L * 1024 * 1024,
+            Runtime.getRuntime().maxMemory() / 6,
             (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
-                .memoryClass.toLong() * 1024 * 1024 / 8
+                .memoryClass.toLong() * 1024 * 1024 / 6
         ).coerceAtLeast(4L * 1024 * 1024).toInt()
     }
 }

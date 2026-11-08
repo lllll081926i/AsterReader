@@ -266,7 +266,6 @@ class LibraryRepository(
             }
             return@withContext existing
         }
-        require(info.size <= MAX_FILE_BYTES) { "当前版本单文件上限为 512 MB" }
         val format = resolveFormat(info.name, info.mimeType, uri)
         require(format in READABLE_FORMATS) { "此格式尚不支持读取" }
         val id = existing?.id ?: UUID.randomUUID().toString()
@@ -337,7 +336,6 @@ class LibraryRepository(
     /** 临时授权来源转为应用持有的副本，成功后不依赖外部提供者继续授权。 */
     private suspend fun importManagedDocument(uri: Uri, name: String, repositoryId: String, coverPage: Int, replaceId: String?): BookEntity {
         val info = queryDocument(uri)
-        require(info.size <= MAX_FILE_BYTES) { "当前版本单文件上限为 512 MB" }
         val directory = File(context.filesDir, "imports/${UUID.randomUUID()}").apply { check(mkdirs()) }
         val filename = info.name.substringAfterLast('/').substringAfterLast('\\').take(180)
             .takeUnless { it.isBlank() || it == "." || it == ".." } ?: "document"
@@ -564,7 +562,7 @@ class LibraryRepository(
         "${book.id}:${book.filePath}:${book.sizeBytes}:${book.sourceModifiedAt}:${book.contentFingerprint}"
     }
 
-    /** 归档必须落到本地文件才能随机读；这里复用缓存副本，避免每次打开都整本复制。 */
+    /** 普通本地来源直接随机读取；仅不可寻址的提供者需要兼容副本。 */
     private suspend fun prepareSource(book: BookEntity): PageSource = if (book.isVaultEncrypted) {
         val record = fileVault.records.value[book.id] ?: error("请先解锁文件保险库")
         if (record.pageSizes.isNotEmpty()) {
@@ -588,7 +586,9 @@ class LibraryRepository(
             }
         }
     } else {
-        PageSource.Document(localCopy(book), book.format, owned = false)
+        val direct = openLocalDocument(Uri.parse(book.filePath))
+        if (direct != null) PageSource.Document(direct.file, book.format, owned = false, release = direct::close)
+        else PageSource.Document(localCopy(book), book.format, owned = false)
     }
 
     suspend fun renderPage(id: String, page: Int, maxPixels: Int = DEFAULT_PAGE_PIXELS): Bitmap =
@@ -969,7 +969,6 @@ class LibraryRepository(
         is java.io.FileNotFoundException -> "来源文件不可读取"
         is java.util.zip.ZipException -> "ZIP 损坏、加密或压缩方式不支持"
         is IllegalArgumentException -> when {
-            failure.message?.contains("512") == true -> "超过 512 MB 上限"
             failure.message?.contains("页面") == true -> "归档内没有可读取的图片"
             else -> "文件类型或内容无效"
         }
@@ -1251,7 +1250,38 @@ class LibraryRepository(
         bitmap.recycle()
     }
 
+    private class LocalDocument(val file: File, private val descriptor: ParcelFileDescriptor? = null) : java.io.Closeable {
+        override fun close() { descriptor?.close() }
+    }
+
+    /** 保持描述符打开，使引擎能通过进程内 fd 随机读 SAF 原件，不解析外部真实路径。 */
+    private fun openLocalDocument(uri: Uri): LocalDocument? {
+        if (uri.scheme == "file") return LocalDocument(File(uri.path ?: error("源文件不可访问")))
+        if (uri.scheme != "content" || WebDavRepository.isRemote(uri)) return null
+        if (!File("/proc/self/fd").isDirectory) return null
+        val descriptor = try { resolver.openFileDescriptor(uri, "r") }
+            catch (_: java.io.IOException) { null }
+            catch (_: UnsupportedOperationException) { null }
+            ?: return null
+        try {
+            android.system.Os.lseek(descriptor.fileDescriptor, 0, android.system.OsConstants.SEEK_CUR)
+            val file = File("/proc/self/fd/${descriptor.fd}")
+            if (file.isFile && file.canRead()) return LocalDocument(file, descriptor)
+        } catch (_: android.system.ErrnoException) {
+            // 管道等来源不支持随机访问，交给流式兼容路径。
+        } catch (failure: Throwable) {
+            descriptor.close()
+            throw failure
+        }
+        descriptor.close()
+        return null
+    }
+
     private suspend fun <T> withTemporaryCopy(uri: Uri, block: (File) -> T): T {
+        openLocalDocument(uri)?.use { direct ->
+            currentCoroutineContext().ensureActive()
+            return block(direct.file)
+        }
         val file = copyDocument(uri)
         return try {
             currentCoroutineContext().ensureActive()
@@ -1262,6 +1292,7 @@ class LibraryRepository(
     }
 
     private fun <T> withTemporaryCopySync(uri: Uri, block: (File) -> T): T {
+        openLocalDocument(uri)?.use { return block(it.file) }
         val file = File.createTempFile("cover-", ".tmp", context.cacheDir)
         try {
             resolver.openInputStream(uri)?.use { input ->
@@ -1357,13 +1388,10 @@ class LibraryRepository(
             sourceStream?.use { input ->
                 target.outputStream().use { output ->
                     val buffer = ByteArray(64 * 1024)
-                    var size = 0L
                     while (true) {
                         currentCoroutineContext().ensureActive()
                         val count = input.read(buffer)
                         if (count < 0) break
-                        size += count
-                        require(size <= MAX_FILE_BYTES) { "当前版本单文件上限为 512 MB" }
                         output.write(buffer, 0, count)
                     }
                 }
@@ -1406,7 +1434,6 @@ class LibraryRepository(
     companion object {
         const val DEFAULT_PAGE_PIXELS = 2_500_000
         const val ZOOMED_PAGE_PIXELS = 6_000_000
-        private const val MAX_FILE_BYTES = 512L * 1024 * 1024
         private const val MAX_LOCAL_COPY_BYTES = 1024L * 1024 * 1024
         private const val MAX_SCAN_ITEMS = 10_000
 

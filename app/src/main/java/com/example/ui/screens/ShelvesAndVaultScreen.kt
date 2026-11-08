@@ -1177,7 +1177,7 @@ fun ShelfDetailScreen(
     viewModel: AsterViewModel,
     onBack: () -> Unit
 ) {
-    BackHandler(onBack = onBack)
+    BackHandler(enabled = !com.example.ui.components.LocalRootHandlesBack.current, onBack = onBack)
 
     val booksInShelf = remember(allBooks, shelfDetail) {
         allBooks.filter { shelfDetail.shelfId in it.shelfIdsCsv.split(',').map(String::trim) }

@@ -41,7 +41,7 @@ fun PublicationPropertiesScreen(book: BookEntity, section: String, model: AsterV
         else -> false
     }
     val requestBack: () -> Unit = { if (modified) confirmExit = true else onBack() }
-    BackHandler(onBack = requestBack)
+    BackHandler(enabled = modified || !com.example.ui.components.LocalRootHandlesBack.current, onBack = requestBack)
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).statusBarsPadding()) {
         AsterSubScreenHeader(when (section) {
             "metadata" -> "编辑作品信息"; "file" -> "文件属性"; "cover" -> "选择封面页"; else -> "系列与卷序"

@@ -116,6 +116,8 @@ class ReaderPreferences(context: Context) {
             smartSpreadStitch = preferences.getBoolean("coverSingle", true),
             fitModeLabel = preferences.getString("fitMode", "适合屏幕").takeIf { it in setOf("适合屏幕", "原始比例") } ?: "适合屏幕",
             readerBrightness = preferences.getFloat("brightness", 0.95f).coerceIn(0.2f, 1f),
+            preloadBefore = preferences.getInt("preloadBefore", 3).coerceIn(0, 16),
+            preloadAfter = preferences.getInt("preloadAfter", 6).coerceIn(0, 16),
             recentSearches = preferences.getString("recentSearches", "")
                 .orEmpty().split('\n').filter { it.isNotBlank() }.take(8)
         )
@@ -142,6 +144,8 @@ class ReaderPreferences(context: Context) {
             .putBoolean("coverSingle", state.smartSpreadStitch)
             .putString("fitMode", state.fitModeLabel)
             .putFloat("brightness", state.readerBrightness)
+            .putInt("preloadBefore", state.preloadBefore.coerceIn(0, 16))
+            .putInt("preloadAfter", state.preloadAfter.coerceIn(0, 16))
             .putString("recentSearches", state.recentSearches.joinToString("\n"))
             .commit()) { "无法保存阅读设置" }
     }

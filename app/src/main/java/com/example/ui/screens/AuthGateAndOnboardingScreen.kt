@@ -385,7 +385,7 @@ fun OnboardingScreen(
                     Text("• 漫画归档：CBZ / ZIP、CBR / RAR、CB7 / 7Z、CBT / TAR", style = MaterialTheme.typography.bodySmall)
                     Text("• 文档：PDF、EPUB（按 OPF spine 顺序读图）", style = MaterialTheme.typography.bodySmall)
                     Text("• 散图：JPG / PNG / WebP 目录与单张图片", style = MaterialTheme.typography.bodySmall)
-                    Text("• 单文件上限 512 MB", style = MaterialTheme.typography.bodySmall)
+                    Text("• 本地文件无固定大小上限", style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {

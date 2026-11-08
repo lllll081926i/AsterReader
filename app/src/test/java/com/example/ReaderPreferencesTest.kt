@@ -22,9 +22,11 @@ class ReaderPreferencesTest {
         val preferences = ReaderPreferences(app)
         preferences.save(AsterUiState(isAppLockEnabled = true, isVaultUnlocked = true,
             isAppLockedNow = false, themeMode = ThemeMode.DARK, reduceMotion = true,
-            showStatsTab = false,
+            showStatsTab = false, preloadBefore = 16, preloadAfter = 0,
             readerLayoutMode = ReaderLayoutMode.RTL_PAGER, smartSpreadStitch = false, fitModeLabel = "原始比例"))
         val restored = ReaderPreferences(app).load()
+        assertEquals(16, restored.preloadBefore)
+        assertEquals(0, restored.preloadAfter)
         assertTrue(restored.settingsLoaded)
         assertTrue(restored.isAppLockedNow)
         assertFalse(restored.isVaultUnlocked)

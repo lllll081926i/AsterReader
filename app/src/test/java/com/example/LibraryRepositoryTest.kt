@@ -41,6 +41,7 @@ class LibraryRepositoryTest {
     private lateinit var db: AsterDatabase
     private lateinit var repository: LibraryRepository
     private val files = mutableMapOf<String, File>()
+    private val reportedSizes = mutableMapOf<String, Long?>()
     private val mimeTypes = mutableMapOf<String, String>()
     private var rejectModifiedColumn = false
     private val opened = java.util.concurrent.atomic.AtomicInteger()
@@ -66,7 +67,7 @@ class LibraryRepositoryTest {
                 }
                 val file = files.getValue(uri.lastPathSegment!!)
                 return MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE, android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED)).apply {
-                    addRow(arrayOf(file.name, file.length(), file.lastModified()))
+                    addRow(arrayOf<Any?>(file.name, if (reportedSizes.containsKey(file.name)) reportedSizes[file.name] else file.length(), file.lastModified()))
                 }
             }
             override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
@@ -108,6 +109,36 @@ class LibraryRepositoryTest {
         val uri = document("损坏.cbz", byteArrayOf(1, 2, 3))
         assertTrue(runCatching { repository.importDocument(uri) }.isFailure)
         assertEquals(before, imports.listFiles()?.map { it.name }?.toSet().orEmpty())
+    }
+
+    @Test fun scanAcceptsLocalSizeMetadataBeyondTwoGiB() = runBlocking {
+        document("大容器.cbz", comicBytes())
+        reportedSizes["大容器.cbz"] = 3L * 1024 * 1024 * 1024
+        val report = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "大文件", LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(1, report.imported)
+        assertEquals(0, report.failed)
+        val book = repository.observeAllBooks().first().single()
+        assertEquals(3L * 1024 * 1024 * 1024, book.sizeBytes)
+        assertTrue(repository.renderPage(book.id, 1).width > 0)
+    }
+
+    @Test
+    @Config(sdk = [35], shadows = [TemporaryPermissionResolver::class])
+    fun unknownSizeStreamBeyond512MiBCanBeCopiedImportedAndRead() = runBlocking {
+        val uri = document("大文件.cbt", tarBytes(listOf("01.png", "02.png")))
+        val source = files.getValue("大文件.cbt")
+        val length = 512L * 1024 * 1024 + 1024
+        java.io.RandomAccessFile(source, "rw").use { it.setLength(length) }
+        reportedSizes[source.name] = null
+        val book = repository.importDocument(uri)
+        assertEquals(length, book.sizeBytes)
+        assertEquals(2, book.totalPages)
+        assertEquals(length, File(Uri.parse(book.filePath).path!!).length())
+        files.clear()
+        assertEquals(1, repository.renderPage(book.id, 2).width)
+        repository.closeReadSession()
+        assertTrue(File(Uri.parse(book.filePath).path!!).exists())
+        assertFalse(File(app.cacheDir, "read").listFiles().orEmpty().any { it.length() == length })
     }
 
     private fun document(name: String, bytes: ByteArray): Uri {

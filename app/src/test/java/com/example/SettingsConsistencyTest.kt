@@ -82,6 +82,35 @@ open class SettingsConsistencyTest {
         capture("reading-font-200")
     }
 
+    @Test fun preloadControlsAllowSixteenPagesInBothDirections() {
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            val state by model.uiState.collectAsState()
+            AsterReaderTheme {
+                androidx.compose.material3.Surface {
+                androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()
+                    .verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                    com.example.ui.components.ReaderSettingsContent(state, model, state.readerLayoutMode,
+                        state.fitModeLabel, state.smartSpreadStitch, false, {}, {}, {}, {}, {}, true, {})
+                }
+                }
+            }
+        }
+        compose.waitUntil(10_000) {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            model.uiState.value.settingsLoaded
+        }
+        for (label in listOf("向上预加载", "向下预加载")) {
+            compose.onNodeWithContentDescription(label).performScrollTo()
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(16f) }
+        }
+        compose.runOnIdle {
+            org.junit.Assert.assertEquals(16, model.uiState.value.preloadBefore)
+            org.junit.Assert.assertEquals(16, model.uiState.value.preloadAfter)
+        }
+        capture("reading-preload-sixteen")
+    }
+
     @Test fun appearanceUsesDarkTheme() {
         content(section = "appearance", dark = true)
         compose.onNodeWithText("深色模式").assertIsDisplayed()
@@ -190,6 +219,14 @@ open class SettingsConsistencyTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("放大页面").assertDoesNotExist()
         compose.onNodeWithContentDescription("缩小页面").assertDoesNotExist()
+        compose.onNodeWithText("前 10 页").assertDoesNotExist()
+        capture("reader-chrome-hidden")
+        compose.onNodeWithTag("publication_canvas").performTouchInput { click(center) }
+        compose.onNodeWithText("前 10 页").assertIsDisplayed()
+        compose.onNodeWithTag("publication_canvas").performTouchInput { click(center) }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onNodeWithText("前 10 页").assertDoesNotExist()
+        compose.onNodeWithTag("publication_canvas").performTouchInput { click(center) }
         compose.onNodeWithText("前 10 页").assertIsDisplayed()
         compose.onNodeWithText("后 10 页").assertIsDisplayed()
         val pill = compose.onNodeWithTag("reader_mini_status_pill").getUnclippedBoundsInRoot()

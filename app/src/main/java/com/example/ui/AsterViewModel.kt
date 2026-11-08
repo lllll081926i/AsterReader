@@ -156,6 +156,8 @@ data class AsterUiState(
     val smartSpreadStitch: Boolean = true,
     val volumeKeyPageTurn: Boolean = true,
     val fitModeLabel: String = "适合屏幕",
+    val preloadBefore: Int = 3,
+    val preloadAfter: Int = 6,
     val readerBrightness: Float = 0.95f,
 
     // 扫描与来源
@@ -377,7 +379,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                     state.shelvesViewMode, state.showRecentReading, state.showReadingStats, state.showStatsTab, state.readerLayoutMode,
                     state.autoLockPolicyLabel, state.lockOnScreenOff, state.flagSecureEnabled,
                     state.hideRecentsPreview, state.volumeKeyPageTurn, state.smartSpreadStitch,
-                    state.fitModeLabel, state.readerBrightness, state.pinHash,
+                    state.fitModeLabel, state.preloadBefore, state.preloadAfter, state.readerBrightness, state.pinHash,
                     state.biometricUnlockEnabled, state.recentSearches)
             }.debounce(200).collect {
                 try { preferences.save(it) }
@@ -503,6 +505,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     ) = repository.renderPageRegion(id, page, topFraction, bottomFraction, maxPixels)
 
     /** 预取相邻页；失败静默，不影响阅读。 */
+    fun setPreloadBefore(pages: Int) { _uiState.update { it.copy(preloadBefore = pages.coerceIn(0, 16)) } }
+    fun setPreloadAfter(pages: Int) { _uiState.update { it.copy(preloadAfter = pages.coerceIn(0, 16)) } }
+
     fun prefetchPages(id: String, pages: List<Int>) {
         prefetchJob?.cancel()
         prefetchJob = viewModelScope.launch {

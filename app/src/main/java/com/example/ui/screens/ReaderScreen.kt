@@ -134,7 +134,7 @@ fun ReaderScreen(
     viewModel: AsterViewModel,
     onBack: () -> Unit
 ) {
-    BackHandler(onBack = onBack)
+    BackHandler(enabled = !com.example.ui.components.LocalRootHandlesBack.current, onBack = onBack)
     // 安全来源由 Repository 授权并提供随机读取，阅读 UI 不直接接触密钥。
 
     val context = LocalContext.current
@@ -149,7 +149,8 @@ fun ReaderScreen(
         val window = activity?.window
         val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
         insetsController?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
 
         onDispose {
             insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
@@ -210,7 +211,7 @@ fun ReaderScreen(
     }
     var currentChapterIndex by remember(book.id, chapters) { mutableIntStateOf(0) }
 
-    var showChrome by remember { mutableStateOf(true) }
+    var showChrome by remember(book.id) { mutableStateOf(false) }
     var showMiniStatusPill by remember { mutableStateOf(true) }
     var isAtEnd by remember(book.id) { mutableStateOf(false) }
     var showModeSheet by remember { mutableStateOf(false) }
@@ -273,6 +274,8 @@ fun ReaderScreen(
                     coverSingle = readerCover,
                     rightToLeft = rtlOverride ?: (readerMode == ReaderLayoutMode.RTL_PAGER),
                     fitMode = readerFit,
+                    preloadBefore = uiState.preloadBefore,
+                    preloadAfter = uiState.preloadAfter,
                     initialScale = if (restored?.page == currentPage && initialPage == null) restored?.scale ?: 1f else 1f,
                     initialPanX = if (restored?.page == currentPage && initialPage == null) restored?.panX ?: 0f else 0f,
                     initialPanY = if (restored?.page == currentPage && initialPage == null) restored?.panY ?: 0f else 0f,

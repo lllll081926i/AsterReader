@@ -44,7 +44,7 @@ fun SettingsScreen(
         WebDavScreen(onBack = { onBack?.invoke() }, onOpenBook = viewModel::openBookReader)
         return
     }
-    if (onBack != null) BackHandler(onBack = onBack)
+    if (onBack != null) BackHandler(enabled = !com.example.ui.components.LocalRootHandlesBack.current, onBack = onBack)
     val shelves by viewModel.allShelves.collectAsStateWithLifecycle()
     val books by viewModel.allBooks.collectAsStateWithLifecycle()
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) {

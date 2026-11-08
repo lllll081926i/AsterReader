@@ -364,14 +364,6 @@ fun AsterReaderAppRoot(
         dismissButton = { androidx.compose.material3.TextButton(onClick = viewModel::cancelBookRemoval) { Text("取消") } }
     )
 
-    BackHandler(
-        enabled = uiState.isBatchSelectionMode ||
-            uiState.subScreenStack.isNotEmpty() ||
-            uiState.currentTab != MainNavDestination.LIBRARY
-    ) {
-        viewModel.popSubScreen()
-    }
-
     LaunchedEffect(snackbar?.id) {
         val event = snackbar
         if (event != null) {
@@ -391,42 +383,16 @@ fun AsterReaderAppRoot(
         val showAppleBottomDock = activeSub == null && !uiState.isBatchSelectionMode
 
         AsterNavigationLayout(reserveNavigation = showAppleBottomDock, useRail = useNavigationRail, content = {
-            AnimatedContent(
-                targetState = Triple(activeSub, uiState.currentTab, uiState.subScreenStack.size),
-                transitionSpec = {
-                    val (targetSub, targetTab) = targetState
-                    val (initialSub, initialTab) = initialState
-
-                    if (targetSub != null || initialSub != null) {
-                        // 子页面与主页面之间的推入/退出导航转场
-                        AsterMotion.pageTransition(
-                            reduceMotion = reduceMotion,
-                            forward = targetState.third >= initialState.third
-                        )
-                    } else {
-                        // 主 Tab 底部导航切换动画：精致滑入与淡入淡出（向左/向右有序切换）
-                        val targetIndex = MainNavDestination.entries.indexOf(targetTab)
-                        val initialIndex = MainNavDestination.entries.indexOf(initialTab)
-                        val direction = if (targetIndex >= initialIndex) 1 else -1
-
-                        if (reduceMotion) {
-                            androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
-                        } else {
-                            (androidx.compose.animation.slideInHorizontally(
-                                animationSpec = androidx.compose.animation.core.tween(220, easing = AsterMotion.EmphasizedDecelerateEasing),
-                                initialOffsetX = { (it * 0.15f * direction).toInt() }
-                            ) + androidx.compose.animation.fadeIn(
-                                animationSpec = androidx.compose.animation.core.tween(200, easing = AsterMotion.EmphasizedDecelerateEasing)
-                            )) togetherWith (androidx.compose.animation.slideOutHorizontally(
-                                animationSpec = androidx.compose.animation.core.tween(180, easing = AsterMotion.EmphasizedAccelerateEasing),
-                                targetOffsetX = { (-it * 0.12f * direction).toInt() }
-                            ) + androidx.compose.animation.fadeOut(
-                                animationSpec = androidx.compose.animation.core.tween(160, easing = AsterMotion.EmphasizedAccelerateEasing)
-                            ))
-                        }
-                    }
-                },
-                label = "aster_root_navigation"
+            com.example.ui.components.AsterPredictiveNavigation(
+                current = com.example.ui.components.NavigationFrame(activeSub, uiState.currentTab, uiState.subScreenStack.size),
+                previous = if (uiState.subScreenStack.isNotEmpty()) {
+                    com.example.ui.components.NavigationFrame(uiState.subScreenStack.dropLast(1).lastOrNull(), uiState.currentTab,
+                        uiState.subScreenStack.size - 1)
+                } else com.example.ui.components.NavigationFrame(null, MainNavDestination.LIBRARY, 0),
+                enabled = uiState.isBatchSelectionMode || uiState.subScreenStack.isNotEmpty() ||
+                    uiState.currentTab != MainNavDestination.LIBRARY,
+                selectionMode = uiState.isBatchSelectionMode,
+                onBack = { viewModel.popSubScreen() }
             ) { (subScreen, currentTab) ->
                 if (subScreen != null) {
                     when (subScreen) {

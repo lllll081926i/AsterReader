@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -33,9 +35,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -49,6 +53,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -67,6 +78,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -89,6 +102,8 @@ fun PublicationPageCanvas(
     coverSingle: Boolean = true,
     rightToLeft: Boolean = mode == ReaderLayoutMode.RTL_PAGER,
     fitMode: String = "适合屏幕",
+    preloadBefore: Int = 3,
+    preloadAfter: Int = 6,
     initialScale: Float = 1f,
     initialPanX: Float = 0f,
     initialPanY: Float = 0f,
@@ -109,21 +124,26 @@ fun PublicationPageCanvas(
     var zoomScale by remember(publicationId, page) { mutableFloatStateOf(initialScale.coerceIn(1f, 4f)) }
     var panX by remember(publicationId, page) { mutableFloatStateOf(initialPanX) }
     var panY by remember(publicationId, page) { mutableFloatStateOf(initialPanY) }
+    var canvasBounds by remember { mutableStateOf(Rect.Zero) }
+    val chromeRange = canvasBounds.left + canvasBounds.width * 0.25f..canvasBounds.left + canvasBounds.width * 0.75f
 
-    // 相邻页预热：翻页之前就把下一/上一页读进缓存，消除翻页转圈
+    val pageRatios = remember(publicationId) { mutableStateMapOf<Int, Float>() }
+    var previousPage by remember(publicationId) { mutableIntStateOf(page) }
+    // 按移动方向优先预热，避免快速反向滚动时仍先解码远处页面。
     val prefetchOwner = LocalLifecycleOwner.current
-    LaunchedEffect(publicationId, page, totalPages, mode, prefetchOwner) {
+    LaunchedEffect(publicationId, page, totalPages, mode, preloadBefore, preloadAfter, prefetchOwner) {
         prefetchOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            val neighbors = buildList {
-                if (page + 1 <= totalPages) add(page + 1)
-                if (page - 1 >= 1) add(page - 1)
-                if (mode == ReaderLayoutMode.VERTICAL_SCROLL && page + 2 <= totalPages) add(page + 2)
-            }
+            val direction = if (page >= previousPage) 1 else -1
+            previousPage = page
+            val neighbors = readerPrefetchPages(page, totalPages, direction, preloadBefore, preloadAfter)
             onPrefetch(neighbors)
             awaitCancellation()
         }
     }
 
+    Box(Modifier.fillMaxSize().testTag("publication_canvas")
+        .onGloballyPositioned { canvasBounds = it.boundsInRoot() }
+        .readerCenterTap(onToggleChrome)) {
     if (mode == ReaderLayoutMode.VERTICAL_SCROLL) {
         val list = rememberLazyListState(initialFirstVisibleItemIndex = (page - 1).coerceIn(0, totalPages - 1))
         var lastReported by remember(publicationId) { mutableIntStateOf(page) }
@@ -150,8 +170,15 @@ fun PublicationPageCanvas(
             if (page != lastReported) {
                 programmaticScroll = true
                 try {
-                    if (reduceMotion) list.scrollToItem((page - 1).coerceIn(0, totalPages - 1))
-                    else list.animateScrollToItem((page - 1).coerceIn(0, totalPages - 1))
+                    val target = (page - 1).coerceIn(0, totalPages - 1)
+                    if (reduceMotion) list.scrollToItem(target)
+                    else list.animateScrollToItem(target)
+                    // 首次布局可能仍用加载占位高度，解码后的真实尺寸不能使跳页退回前页。
+                    kotlinx.coroutines.withTimeoutOrNull(2_000) {
+                        snapshotFlow { pageRatios[target + 1] }.filterNotNull().first()
+                    }
+                    androidx.compose.runtime.withFrameNanos { }
+                    list.scrollToItem(target)
                 } finally {
                     lastReported = page
                     programmaticScroll = false
@@ -177,8 +204,6 @@ fun PublicationPageCanvas(
                     onViewportChanged(actualPage, fraction, zoomScale, panX, panY)
                 }
         }
-        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
-        val lastPageMinHeight = maxHeight.coerceAtLeast(320.dp)
         LazyColumn(
             state = list,
             userScrollEnabled = zoomScale <= 1.01f,
@@ -191,13 +216,16 @@ fun PublicationPageCanvas(
                     page = index + 1,
                     load = loadPage,
                     nativeSize = nativeSize,
+                    chromeRange = chromeRange,
                     loadRegion = loadRegion,
                     onToggleChrome = onToggleChrome,
                     onNext = onNextPage,
                     onPrev = onPrevPage,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = if (index == totalPages - 1) lastPageMinHeight else 320.dp),
+                        .then(if (pageRatios[index + 1] == null) Modifier.heightIn(min = 320.dp) else Modifier),
+                    knownRatio = pageRatios[index + 1] ?: 0f,
+                    onRatio = { pageRatios[index + 1] = it },
                     resetToken = page,
                     zoomCommand = zoomCommand,
                     active = index + 1 == page,
@@ -209,7 +237,6 @@ fun PublicationPageCanvas(
                     onZoomChanged = { scale, x, y -> if (index + 1 == page) { zoomScale = scale; panX = x; panY = y } }
                 )
             }
-        }
         }
     } else {
         val spreads = remember(totalPages, mode, expanded, coverSingle) {
@@ -247,6 +274,8 @@ fun PublicationPageCanvas(
                             page = number,
                             load = loadPage,
                             nativeSize = nativeSize,
+                            chromeRange = chromeRange,
+                            rightToLeft = rightToLeft,
                             loadRegion = loadRegion,
                             onToggleChrome = onToggleChrome,
                             onNext = {
@@ -287,6 +316,7 @@ fun PublicationPageCanvas(
             }
         }
     }
+    }
 }
 
 /** 单页绘制。加载新分辨率时保留旧图，避免每次缩放都闪一次转圈。 */
@@ -297,11 +327,15 @@ private fun DocumentPage(
     page: Int,
     load: suspend (Int, Int) -> Bitmap,
     nativeSize: (Bitmap) -> Pair<Int, Int>?,
+    chromeRange: ClosedFloatingPointRange<Float>,
+    rightToLeft: Boolean = false,
     loadRegion: suspend (Int, Float, Float, Int) -> Bitmap?,
     onToggleChrome: () -> Unit,
     onNext: () -> Unit,
     onPrev: () -> Unit,
     modifier: Modifier,
+    knownRatio: Float = 0f,
+    onRatio: (Float) -> Unit = {},
     resetToken: Int,
     zoomCommand: ReaderZoomCommand,
     active: Boolean,
@@ -315,6 +349,15 @@ private fun DocumentPage(
     var scale by remember(publicationId, page, resetToken) { mutableFloatStateOf(startScale.coerceIn(1f, 4f)) }
     var translation by remember(publicationId, page, resetToken) { mutableStateOf(Offset.Zero) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
+    var originX by remember { mutableFloatStateOf(0f) }
+    val currentChromeRange by rememberUpdatedState(chromeRange)
+    val currentRightToLeft by rememberUpdatedState(rightToLeft)
+    val nextPage by rememberUpdatedState(onNext)
+    val previousPage by rememberUpdatedState(onPrev)
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
+    val gestureEdges by rememberUpdatedState(WindowInsets.systemGestures.getLeft(density, direction) to WindowInsets.systemGestures.getRight(density, direction))
     var consumedZoom by remember(publicationId, page) { mutableIntStateOf(zoomCommand.sequence) }
     LaunchedEffect(zoomCommand.sequence, active) {
         if (consumedZoom != zoomCommand.sequence) {
@@ -347,9 +390,11 @@ private fun DocumentPage(
     // 注意：这里不能用 detectTransformGestures —— 它会把单指拖动也一并消费掉，
     // 导致外层 LazyColumn 收不到滚动事件，条漫模式完全划不动。
     // 所以只在「双指」或「已经放大」时拦截手势，单指拖动在 1x 时交给滚动容器。
-    val transformModifier = Modifier.pointerInput(viewport) {
+    val transformModifier = Modifier.pointerInput(publicationId, page, resetToken) {
         awaitEachGesture {
-            awaitFirstDown(requireUnconsumed = false)
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val physicalX = originX + down.position.x
+            if (physicalX < gestureEdges.first || physicalX > view.width - gestureEdges.second) return@awaitEachGesture
             do {
                 val event = awaitPointerEvent()
                 val pressedCount = event.changes.count { it.pressed }
@@ -415,7 +460,7 @@ private fun DocumentPage(
         slowLoad = true
     }
     val ready = result?.getOrNull()
-    LaunchedEffect(ready) { shown = ready }
+    LaunchedEffect(ready) { if (ready != null) shown = ready }
     val displayed = ready ?: shown
 
     val fade by animateFloatAsState(
@@ -426,23 +471,27 @@ private fun DocumentPage(
 
     // 条漫模式：item 高度按图片真实比例撑开（而不是被最小高度截断成一条），
     // 这样长图才会连续滚动，短图也不会被拉伸变形。
-    val pageRatio = remember(ready) {
-        val b = ready
+    val pageRatio = remember(displayed, knownRatio) {
+        val b = displayed
         val original = b?.let(nativeSize)
         if (original != null) original.first.toFloat() / original.second
-        else if (b != null && b.width > 0 && b.height > 0) b.width.toFloat() / b.height else 0f
+        else if (b != null && b.width > 0 && b.height > 0) b.width.toFloat() / b.height else knownRatio
     }
+    LaunchedEffect(pageRatio) { if (pageRatio > 0f) onRatio(pageRatio) }
 
     Box(
         modifier = modifier
             .then(if (vertical && pageRatio > 0f) Modifier.aspectRatio(pageRatio) else Modifier)
             .clipToBounds()
             .onSizeChanged { viewport = it }
+            .onGloballyPositioned { originX = it.positionInRoot().x }
             .then(transformModifier)
-            .pointerInput(scale, viewport) {
+            .pointerInput(publicationId, page, resetToken) {
                 detectTapGestures(
                     onDoubleTap = { tapOffset ->
-                        if (scale > 1.01f) {
+                        if (originX + tapOffset.x in currentChromeRange) {
+                            // 中央连续点击逐次切换工具栏，不进入双击缩放判定。
+                        } else if (scale > 1.01f) {
                             scale = 1f
                             translation = Offset.Zero
                         } else {
@@ -457,17 +506,10 @@ private fun DocumentPage(
                         }
                     },
                     onTap = { tapOffset ->
-                        val width = viewport.width.toFloat()
-                        if (scale <= 1.01f && !vertical && width > 0) {
-                            // 左右各留 25% 作为系统返回手势安全区之外才触发翻页
-                            val edgeThreshold = width * 0.25f
-                            when {
-                                tapOffset.x < edgeThreshold -> onPrev()
-                                tapOffset.x > (width - edgeThreshold) -> onNext()
-                                else -> onToggleChrome()
-                            }
-                        } else {
-                            onToggleChrome()
+                        val x = originX + tapOffset.x
+                        if (x !in currentChromeRange && scale <= 1.01f && !vertical) {
+                            val left = x < currentChromeRange.start
+                            if (left == currentRightToLeft) nextPage() else previousPage()
                         }
                     }
                 )
@@ -497,7 +539,7 @@ private fun DocumentPage(
                 val layer = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        alpha = fade
+                        alpha = if (vertical) 1f else fade
                         scaleX = scale
                         scaleY = scale
                         translationX = translation.x

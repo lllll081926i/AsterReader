@@ -36,7 +36,7 @@ fun PrivacySecuritySettingsScreen(
         if (section == "pin") viewModel.cancelPendingAppLockActivation()
         onBack()
     }
-    BackHandler(onBack = back)
+    BackHandler(enabled = section == "pin" || !com.example.ui.components.LocalRootHandlesBack.current, onBack = back)
     val context = LocalContext.current
     val availability = remember(context) { SystemBiometrics.availability(context) }
     val biometricReady = availability == SystemBiometrics.Availability.READY

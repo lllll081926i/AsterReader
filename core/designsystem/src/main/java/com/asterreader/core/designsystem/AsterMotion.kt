@@ -48,6 +48,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 val LocalAsterReduceMotion = staticCompositionLocalOf { false }
 
 object AsterMotion {
+    /** 主导航先淡出旧页，再淡入新页，防止统计文字与图表叠影。 */
+    fun tabTransition(reduceMotion: Boolean): ContentTransform = if (reduceMotion) {
+        androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None
+    } else {
+        fadeIn(tween(120, delayMillis = 90, easing = EmphasizedDecelerateEasing)) togetherWith
+            fadeOut(tween(90, easing = EmphasizedAccelerateEasing))
+    }
+
     // 经典流体柔顺缓动 (Material 3 Emphasized / Predictive Back curves)
     val EmphasizedEasing = CubicBezierEasing(0.2f, 0.0f, 0f, 1.0f)
     val EmphasizedDecelerateEasing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)

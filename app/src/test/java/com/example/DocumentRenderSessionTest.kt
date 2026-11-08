@@ -221,6 +221,26 @@ class DocumentRenderSessionTest {
         } finally { session.close() }
     }
 
+    @Test fun directSourceClosesHandleOnceWithoutDeletingOriginal() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val session = DocumentRenderSession(app)
+        val original = archive(app, listOf("1.png"))
+        var releases = 0
+        session.render("原件", 1, 1000) { PageSource.Document(original, "CBZ", owned = false, release = { releases++ }) }
+        session.close()
+        session.close()
+        assertTrue(original.exists())
+        assertEquals(1, releases)
+        val corrupt = File.createTempFile("direct-invalid-", ".cbz", app.cacheDir).apply { writeBytes(byteArrayOf(1)) }
+        assertTrue(runCatching {
+            session.render("损坏原件", 1, 1000) { PageSource.Document(corrupt, "CBZ", owned = false, release = { releases++ }) }
+        }.isFailure)
+        assertTrue(corrupt.exists())
+        assertEquals(2, releases)
+        session.close()
+        assertEquals(2, releases)
+    }
+
     @Test
     fun readsDirectorySourceWithoutCopyingArchive() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Application>()

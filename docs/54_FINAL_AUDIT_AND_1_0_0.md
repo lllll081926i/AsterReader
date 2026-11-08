@@ -51,3 +51,23 @@ RAR 上游依据：[VM 循环](https://github.com/junrar/junrar/security/advisor
 - UI 截图来自公开测试 fixture，无用户漫画或受保护内容，保存在 [验收截图](evidence/1.0.0/)。包含 API31/API35 200% 字体书架表单、阅读设置、横屏大字体、书库空态与加密清单错误态。新建表单改由 AsterFormDialog 根据窗口约束布局，解决滚动正文与平台弹窗固有尺寸反复测量；阅读末页至少占满视口，避免解码后尺寸变化使定位回退。
 - API31/API37 真机手工矩阵尚未完成；API31 自动化与 API35 设备测试分别记录，不互相替代。
 - 本地正式构建：AAB 与拆分 APK 分两次 Gradle 调用成功，R8 开启。`Verify-Release.py` 对五个 APK 和一个 AAB 的证书、版本、架构、16 KB 对齐与离线许可全部校验成功；分发哈希位于 `build/release-delivery/SHA256SUMS.txt`。日志：`build/final-review-signed-build.log`、`build/final-review-release-verification.log`。
+- API37 真机冒烟：按用户后续指令，先通过无线 ADB 配对并安装本地已校验的 ARM64 正式包。安装成功，设备包管理器确认 `versionName=1.0.0`、`versionCode=3`、`minSdk=31`、`targetSdk=37`；显式启动 `Status: ok`，启动后进程仍在。未卸载既有应用或清除数据。这项结果仅覆盖安装与启动，不替代完整 API37 手工矩阵。
+
+
+## 2026-11-08 真机反馈修复（暂停发布）
+
+- 按用户要求暂停正式发布，保留现有草稿与 tag，不上传本轮安装包。
+- 本地扫描、单文件导入、临时授权持久副本和流式兼容读取移除 512 MiB 硬限制；WebDAV 下载与单页解码预算独立保留。
+- 普通本地文件直接读取，可寻址 SAF 来源保持描述符并通过进程内 fd 读取。扫描、封面与阅读不再强制复制整个容器；不可寻址提供者仍有流式兼容路径，临时授权仍转换为持久来源。
+- 纵向阅读按图片比例排布，末图取消整屏最小高度；尺寸记录随阅读画布保留，取消滚动加载淡入；首次跳页在解码后按实际尺寸再次定位。
+- 阅读设置增加通用“向上预加载”“向下预加载”，各 0～16 页，默认 3/6 页。按移动方向优先预取，LRU 最高 96 MiB 且受设备预算约束；为当前页保留缓存空间。
+- 主 Tab 使用先退出后进入的淡变，内容层使用不透明背景；应用内返回通过 PredictiveBackHandler 在完成时回退一次，按用户最新选择不播放返回转场，取消不提交导航。漫画保留透明系统导航区，避免首次手势只唤醒系统栏。保留未保存编辑、安全设置及 WebDAV 内部导航的局部拦截。
+- 本轮改动模块为 app 与 core:designsystem；不变更数据库 schema、Vault 密文协议或用户漫画原件。手机仅覆盖安装，不清数据、不自动启动。
+- 官方 API 参考：https://developer.android.com/develop/ui/compose/system/predictive-back ，https://developer.android.com/reference/android/os/ParcelFileDescriptor 。
+
+- 阅读交互补充：进入默认隐藏工具栏，中央半宽画布抬手即切换；连点逐次响应且不延迟补切换。加载和短图留白也可点击，拖动、多指、长按与取消不触发开关。两侧双击保留缩放，RTL 点击方向与双页整幅画布热区已校正。
+- 最终自动核验：`testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest` 成功；app 282 项、core:database 10 项、core:vault 9 项，共 301 项，失败、错误、跳过均为 0。Lint 为 0 错误、73 警告。日志：`build/reader-interaction-final-check.log`。
+- 新触摸测试在 API31/API35 运行，覆盖即时点击、连续点击、加载及短图留白、拖动、多指、长按、取消、双击缩放、RTL 和双页热区；返回测试验证取消不回退、完成只回退一次。返回实现已移除 SeekableTransitionState，进入页面和 Tab 切换继续采用设计系统动效。
+- [本轮 UI 证据](evidence/1.0.0-feedback/)使用测试漫画，不含用户内容。API31/API37 真机手工矩阵、TalkBack 和设备快速滑动验收未执行；3 GiB SAF 设备测试已编译，未运行。覆盖安装不等同于这些手工验收。
+- 最终正式签名构建成功：`build/user-fixes-install/AsterReader-1.0.0-fixes.apk`，版本 `1.0.0` / code `3`，签名证书与原安装一致，SHA-256 为 `9DD26748D0FA8AF6B25E594D6AE68182F49EF5BB16224D1B3C5E56ED1CB1E475`。日志：`build/user-fixes-release-build.log`。
+- API37 手机无线 ADB 覆盖安装返回 `Success`，包管理器记录更新时间为 `2026-11-08 11:54:44`。未卸载、未清数据、未启动应用；安装后 `pidof com.asterreader.app` 无输出。本轮没有推送、上传附件或发布 Release。

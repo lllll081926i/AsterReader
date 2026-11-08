@@ -35,7 +35,7 @@ fun WebDavScreen(onBack: () -> Unit, onOpenBook: (String) -> Unit = {}, viewMode
     val state by viewModel.state.collectAsStateWithLifecycle()
     DisposableEffect(viewModel) { onDispose { viewModel.cancel() } }
     val back = { if (!viewModel.back()) onBack() }
-    BackHandler(onBack = back)
+    BackHandler(enabled = state.editing || state.connection != null || !com.example.ui.components.LocalRootHandlesBack.current, onBack = back)
     var removing by remember { mutableStateOf<DavConnection?>(null) }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).statusBarsPadding().testTag("webdav_screen")) {
         AsterSubScreenHeader(if (state.editing) if (state.editConnection == null) "添加连接" else "编辑连接" else state.connection?.name ?: "WebDAV", back)
