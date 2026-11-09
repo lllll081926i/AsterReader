@@ -94,8 +94,8 @@ fun HiddenBooksScreen(
         if (books.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 AsterEmptyState(
-                    title = "没有隐藏的作品",
-                    description = "在作品详情里选择「隐藏作品」，它就会从书库列表移到这里。",
+                    title = "没有已隐藏的作品",
+                    description = "在作品详情里选择「隐藏作品」，它就会移到这里。",
                     compact = true,
                     actionLabel = "返回书库",
                     onAction = onBack,
@@ -184,7 +184,7 @@ fun HiddenBooksScreen(
         AlertDialog(
             onDismissRequest = { pendingUnhide = null },
             title = { Text("取消隐藏", fontWeight = FontWeight.SemiBold) },
-            text = { Text("《${book.title}》将重新出现在书库中，文件本身不会有任何改动。") },
+            text = { Text("《${book.title}》将重新出现在书库。文件不会改动。") },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.setBookHidden(book.id, false)
@@ -192,7 +192,7 @@ fun HiddenBooksScreen(
                 }) { Text("取消隐藏") }
             },
             dismissButton = {
-                TextButton(onClick = { pendingUnhide = null }) { Text("返回") }
+                TextButton(onClick = { pendingUnhide = null }) { Text("取消") }
             }
         )
     }

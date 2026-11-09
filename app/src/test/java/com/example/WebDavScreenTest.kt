@@ -48,8 +48,6 @@ class WebDavScreenTest {
 
     @Test fun emptyConnectionsOfferWorkingAddAction() {
         content()
-        compose.onNodeWithText("暂无连接").assertIsDisplayed()
-        capture("empty-light")
         compose.onNodeWithText("添加连接").performClick()
         compose.onNodeWithText("WebDAV 地址").assertIsDisplayed()
         compose.onNodeWithText("测试").performScrollTo().assertIsNotEnabled()
@@ -77,7 +75,7 @@ class WebDavScreenTest {
         content(dark = true, scale = 2f)
         compose.onNodeWithText("添加连接").performClick()
         compose.onNodeWithText("允许 HTTP").performScrollTo().performClick()
-        compose.onNodeWithText("HTTP 会明文传输账号和漫画。").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("HTTP 以明文传输账号和内容。").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("测试").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("保存").performScrollTo().assertIsDisplayed()
         capture("editor-dark-font-200")

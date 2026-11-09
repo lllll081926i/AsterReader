@@ -106,8 +106,8 @@ private fun PrivacySecuritySettingsScreenBody(
                             onClick = { viewModel.pushSubScreen(SubScreen.SecuritySection("pin")) })
                         AsterGroupDivider()
                         AsterSwitchRow("系统验证", subtitle = if (biometricReady) null else when (availability) {
-                            SystemBiometrics.Availability.NEEDS_ENROLLMENT -> "请先设置系统锁屏"
-                            SystemBiometrics.Availability.NO_HARDWARE -> "请使用 PIN"
+                            SystemBiometrics.Availability.NEEDS_ENROLLMENT -> "需先设置系统锁屏"
+                            SystemBiometrics.Availability.NO_HARDWARE -> "设备不支持"
                             else -> "暂不可用"
                         },
                             checked = uiState.biometricUnlockEnabled && biometricReady, enabled = biometricReady,

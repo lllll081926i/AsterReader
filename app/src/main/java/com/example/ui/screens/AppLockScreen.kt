@@ -269,7 +269,7 @@ fun AppLockScreen(
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "输入应用 PIN 码继续阅读",
+                text = "输入应用 PIN 继续",
                 style = MaterialTheme.typography.bodySmall,
                 color = colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -404,7 +404,7 @@ fun SystemSecurityAuthPromptSheet(
                     fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
             }
             Text(
-                text = if (biometricReady) "输入应用 PIN，或使用指纹按钮进行系统验证" else "输入 4–8 位应用 PIN",
+                text = if (biometricReady) "输入应用 PIN，或使用指纹" else "输入 4–8 位应用 PIN",
                 style = MaterialTheme.typography.bodySmall,
                 color = colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth()

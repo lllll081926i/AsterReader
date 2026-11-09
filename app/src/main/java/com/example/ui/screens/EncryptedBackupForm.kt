@@ -17,10 +17,10 @@ import com.example.ui.components.AsterPairedActions
 @Composable
 fun EncryptedBackupForm(export: Boolean, state: AsterUiState, model: AsterViewModel, onBack: () -> Unit) {
     var password by remember { mutableStateOf("") }
-    var repeated by remember { mutableStateOf("") }
+    var repeated by remember { mutableStateOf("" ) }
     Column(verticalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
-        Text(if (export) "仅备份公开清单，不含漫画、隐藏作品或 PIN。口令丢失无法恢复。"
-            else "验证口令后合并公开清单。漫画文件需另行保存。",
+        Text(if (export) "不包含漫画文件与口令。口令丢失后无法恢复。"
+            else "输入导出时的口令，文件名与漫画需自行保存。",
             style = MaterialTheme.typography.bodyMedium)
         if (!state.encryptedBackupHasTarget) {
             FilledTonalButton(onClick = { model.chooseEncryptedBackupTarget(export) }) {

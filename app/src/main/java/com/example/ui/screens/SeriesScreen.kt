@@ -65,7 +65,7 @@ fun SeriesScreen(
     viewModel: AsterViewModel,
     onBack: () -> Unit
 ) {
-    val series = remember(allBooks) {
+    val series = remember(allBooks, uiState.isVaultUnlocked) {
         allBooks
             .filter { it.series.isNotBlank() }
             .filter { !it.isVaultProtected || uiState.isVaultUnlocked }
@@ -83,13 +83,13 @@ fun SeriesScreen(
             .fillMaxSize()
             .statusBarsPadding()
     ) {
-        AsterSubScreenHeader("系列与卷", onBack)
+        AsterSubScreenHeader("系列", onBack)
 
         if (series.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 AsterEmptyState(
-                    title = "还没有成系列的作品",
-                    description = "书名里带卷号（如「卷 1」「第 02 卷」）会自动归到同一系列。",
+                    title = "还没有系列",
+                    description = "书名带有卷号时会自动归入同一系列。",
                     actionLabel = "返回书库",
                     onAction = onBack,
                     showActionIcon = false
@@ -146,7 +146,7 @@ fun SeriesScreen(
                                 )
                                 Text(
                                     text = "共 ${volumes.size} 卷" +
-                                        (readVolume?.let { " · 读到第 ${it.seriesOrder} 卷" } ?: ""),
+                                        (readVolume?.let { " · 读到 ${it.seriesOrder}" } ?: ""),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1
@@ -222,7 +222,7 @@ private fun VolumeRow(book: BookEntity, onOpen: () -> Unit, onRead: () -> Unit) 
             )
             if (book.sourceStatus == "MISSING") {
                 Text(
-                    text = "来源已失联",
+                    text = "文件已失效",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.error
                 )

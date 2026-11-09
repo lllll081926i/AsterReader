@@ -45,23 +45,23 @@ fun FileVaultContent(state: AsterUiState, model: AsterViewModel, section: String
 
     if (busy) {
         LinearProgressIndicator(Modifier.fillMaxWidth())
-        Text("正在加密或校验，请保持应用在前台", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        TextButton(onClick = model::cancelFileVaultOperation) { Text("取消操作") }
+        Text("正在加密或校验，请勿离开", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = model::cancelFileVaultOperation) { Text("取消") }
     }
     state.fileVaultError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
 
     if (credentials) {
-        AsterSettingsGroup(if (exporting) "导出口令" else if (restore) "文件口令" else if (changing) "新口令" else if (creating) "建立保险库" else "解锁保险库") {
+        AsterSettingsGroup(if (exporting) "导出口令" else if (restore) "文件口令" else if (changing) "改口令" else if (creating) "建立保险库" else "解锁保险库") {
             Column(Modifier.padding(AsterLayout.PagePadding), verticalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {
                 if (changing) OutlinedTextField(currentPassword, { currentPassword = it.take(256) }, label = { Text("当前口令") },
                     singleLine = true, enabled = !busy, visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
                 Text(when {
-                    exporting -> "导出包含漫画、封面和阅读记录。使用独立长口令，忘记后无法恢复。"
-                    restore -> "输入该导出文件的口令。验证全部密文后才导入。"
-                    creating -> "本机保险库使用独立口令和设备密钥。卸载、清除数据或设备密钥丢失后，需要加密导出文件才能恢复。"
-                    changing -> "修改本机口令，不会改变已导出文件的口令。"
-                    else -> "输入保险库口令；应用 PIN 不能代替此口令。"
+                    exporting -> "导出包含漫画、封面与阅读记录。口令丢失后无法恢复。"
+                    restore -> "输入该导出文件的口令。"
+                    creating -> "保险库使用独立口令；卸载或换机后需导出文件才能恢复。"
+                    changing -> "只改本机口令，已导出的文件不变。"
+                    else -> "应用 PIN 不能代替此口令。"
                 }, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(password, { password = it.take(256); revealGenerated = false },
                     label = { Text("口令") }, singleLine = true, enabled = !busy,
@@ -74,9 +74,9 @@ fun FileVaultContent(state: AsterUiState, model: AsterViewModel, section: String
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth())
                     TextButton(enabled = !busy, onClick = {
                         model.generateFileVaultPassword { generated -> password = generated; confirmation = generated; revealGenerated = true }
-                    }) { Icon(Icons.Outlined.Key, null, Modifier.size(AsterLayout.HeaderIconSize)); Spacer(Modifier.width(AsterLayout.ControlSpacing)); Text("生成随机口令") }
-                    if (revealGenerated) Text("请安全保存显示的口令", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                    AsterSwitchRow("我已保存口令并了解恢复条件", checked = acknowledged, enabled = !busy, onCheckedChange = { acknowledged = it })
+                    }) { Icon(Icons.Outlined.Key, null, Modifier.size(AsterLayout.HeaderIconSize)); Spacer(Modifier.width(AsterLayout.ControlSpacing)); Text("生成口令") }
+                    if (revealGenerated) Text("请保存显示的口令", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                    AsterSwitchRow("我已保存口令", checked = acknowledged, enabled = !busy, onCheckedChange = { acknowledged = it })
                 }
                 if (exporting && target == null) {
                     Button(onClick = { model.beginFileVaultPicker(); exportPicker.launch("aster-comic.astervault") }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
@@ -94,7 +94,7 @@ fun FileVaultContent(state: AsterUiState, model: AsterViewModel, section: String
                         else -> model.openFileVault(chars, creating)
                     }
                 }) { Icon(if (exporting) Icons.Outlined.SaveAlt else Icons.Outlined.LockOpen, null); Spacer(Modifier.width(AsterLayout.ControlSpacing));
-                    Text(if (exporting) "加密导出" else if (restore) "验证并恢复" else if (changing) "修改口令" else if (creating) "建立保险库" else "解锁") }
+                    Text(if (exporting) "加密导出" else if (restore) "验证并恢复" else if (changing) "改口令" else if (creating) "建立保险库" else "解锁") }
                 if (restore || changing) TextButton(enabled = !busy, onClick = {
                     restore = false; changing = false; target = null
                     password = ""; confirmation = ""; currentPassword = ""; revealGenerated = false; acknowledged = false
@@ -104,10 +104,10 @@ fun FileVaultContent(state: AsterUiState, model: AsterViewModel, section: String
     } else if (section == "fileEncrypt") {
         AsterSettingsGroup("加密文件") {
             Column(Modifier.padding(AsterLayout.PagePadding), verticalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {
-                Text("漫画、封面、批注与进度将保存为密文。外部原文件仍保留，可能被其他应用读取。", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
-                Text("需要额外存储空间。完成后清空搜索记录，请导出加密副本；取消或中断不会删除源文件。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Text("漫画、封面、笔记与进度会保存为加密文件。外部原文件仍保留。", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
+                Text("需要额外空间。完成后请导出加密副本；中断不会删除原文件。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 Button(onClick = model::encryptPendingBook, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Outlined.EnhancedEncryption, null); Spacer(Modifier.width(AsterLayout.ControlSpacing)); Text("加密并验证")
+                    Icon(Icons.Outlined.EnhancedEncryption, null); Spacer(Modifier.width(AsterLayout.ControlSpacing)); Text("加密")
                 }
             }
         }
@@ -123,6 +123,6 @@ fun FileVaultContent(state: AsterUiState, model: AsterViewModel, section: String
             AsterGroupDivider()
             AsterSettingsRow("锁定保险库", leadingIcon = Icons.Outlined.Lock, onClick = model::closeFileVault)
         }
-        Text("作品详情中可加密或加密导出。请保留已验证的导出文件和口令。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        Text("可在作品详情里加密或导出。请保留导出文件与口令。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
     }
 }

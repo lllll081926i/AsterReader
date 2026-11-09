@@ -156,6 +156,18 @@ fun ShelvesScreen(
 
     var activeQuickFilter by remember { mutableStateOf<String?>(null) }
 
+    // 一次分组后复用：避免每个书架都遍历全库（书架多、作品多时卡顿）。
+    val booksByShelfId = remember(allBooks) {
+        val map = HashMap<String, MutableList<BookEntity>>()
+        allBooks.forEach { book ->
+            book.shelfIdsCsv.split(',').forEach { raw ->
+                val id = raw.trim()
+                if (id.isNotEmpty()) map.getOrPut(id) { mutableListOf() }.add(book)
+            }
+        }
+        map
+    }
+
     val shelvesGridColumns = when (uiState.shelvesViewMode) {
         ShelvesViewMode.COLLAGE_GRID -> GridCells.Adaptive(minSize = 148.dp)
         ShelvesViewMode.COMPACT_GRID -> GridCells.Adaptive(minSize = 100.dp)
@@ -201,7 +213,7 @@ fun ShelvesScreen(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Outlined.SwapVert,
-                            contentDescription = "排序与删除",
+                            contentDescription = "整理书架",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize)
                         )
@@ -258,15 +270,15 @@ fun ShelvesScreen(
                 val historyCount = allBooks.count { it.progressPercent > 0 && (!it.isVaultProtected || uiState.isVaultUnlocked) }
 
                 val quickTiles = listOf(
-                    QuickTileData("ALL", "全部馆藏", "$totalCount 本", Icons.AutoMirrored.Outlined.LibraryBooks),
-                    QuickTileData("FAV", "我的收藏", "$favCount 本", Icons.Default.Favorite),
+                    QuickTileData("ALL", "全部作品", "$totalCount 本", Icons.AutoMirrored.Outlined.LibraryBooks),
+                    QuickTileData("FAV", "收藏", "$favCount 本", Icons.Default.Favorite),
                     QuickTileData("HISTORY", "最近阅读", "$historyCount 本", Icons.Default.History),
-                    QuickTileData("BOOKMARKS", "书签札记", "$annotationsCount 条", Icons.Default.Bookmark)
+                    QuickTileData("BOOKMARKS", "书签与笔记", "$annotationsCount 条", Icons.Default.Bookmark)
                 )
 
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "快捷分类",
+                        text = "快捷入口",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -282,7 +294,7 @@ fun ShelvesScreen(
                                 tile = tile,
                                 isSelected = activeQuickFilter == tile.key,
                                 onClick = {
-                                    if (tile.key == "BOOKMARKS") viewModel.openSearch(initialQuery = "", initialScope = "书签札记")
+                                    if (tile.key == "BOOKMARKS") viewModel.openSearch(initialQuery = "", initialScope = "书签与笔记")
                                     else activeQuickFilter = if (activeQuickFilter == tile.key) null else tile.key
                                 },
                                 modifier = Modifier.weight(1f)
@@ -298,7 +310,7 @@ fun ShelvesScreen(
                                 tile = tile,
                                 isSelected = activeQuickFilter == tile.key,
                                 onClick = {
-                                    if (tile.key == "BOOKMARKS") viewModel.openSearch(initialQuery = "", initialScope = "书签札记")
+                                    if (tile.key == "BOOKMARKS") viewModel.openSearch(initialQuery = "", initialScope = "书签与笔记")
                                     else activeQuickFilter = if (activeQuickFilter == tile.key) null else tile.key
                                 },
                                 modifier = Modifier.weight(1f)
@@ -385,7 +397,7 @@ fun ShelvesScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "我的书架 (${shelves.size})",
+                        text = "书架 (${shelves.size})",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
@@ -418,9 +430,7 @@ fun ShelvesScreen(
 
             items(shelves, key = { it.id }) { shelf ->
                 val isLockedPrivateShelf = shelf.isProtected && !uiState.isVaultUnlocked
-                val shelfBooks = allBooks.filter { book ->
-                    book.shelfIdsCsv.split(",").map { it.trim() }.contains(shelf.id)
-                }
+                val shelfBooks = booksByShelfId[shelf.id].orEmpty()
                 // 书架封面优先用手工配置，缺省时回落到成员作品封面
                 val collageUrls = shelf.coverUrlsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
                     .ifEmpty { shelfBooks.map { it.coverUrl }.filter { it.isNotBlank() } }
@@ -538,7 +548,7 @@ fun ShelvesScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "锁定书架入口（仅隐藏，不改动文件）",
+                                text = "隐藏书架入口（不改动文件）",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.weight(1f),
@@ -794,7 +804,7 @@ private fun ShelfCollageGridCard(
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Text(
-                        text = if (isLockedPrivateShelf) "访问锁" else "$shelfBookCount 本",
+                        text = if (isLockedPrivateShelf) "已锁定" else "$shelfBookCount 本",
                         style = MaterialTheme.typography.labelSmall,
                         fontFamily = RobotoMonoFontFamily,
                         fontWeight = FontWeight.Bold,
@@ -865,7 +875,7 @@ private fun ShelfCompactGridCard(
                         .padding(6.dp)
                 ) {
                     Text(
-                        text = if (isLockedPrivateShelf) "访问锁" else "${shelfBookCount}本",
+                        text = if (isLockedPrivateShelf) "已锁定" else "${shelfBookCount}本",
                         style = MaterialTheme.typography.labelSmall,
                         fontFamily = RobotoMonoFontFamily,
                         fontWeight = FontWeight.Bold,
@@ -1068,7 +1078,7 @@ private fun ShelfShowcasePlankCard(
                     color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Text(
-                        text = if (isLockedPrivateShelf) "访问锁" else "$shelfBookCount 本 · 展开",
+                        text = if (isLockedPrivateShelf) "已锁定" else "$shelfBookCount 本 · 展开",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -1331,7 +1341,7 @@ fun ShelfDetailScreen(
                                         contentPadding = PaddingValues(vertical = 6.dp)
                                     ) {
                                         Text(
-                                            text = "阅读 ${book.progressPercent}%",
+                                            text = if (book.progressPercent > 0) "继续读" else "阅读",
                                             style = MaterialTheme.typography.labelMedium,
                                             maxLines = 1,
                                             softWrap = false

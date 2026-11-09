@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import com.asterreader.core.designsystem.AsterLayout
 
 /** 文件与目录各保留一个入口，左右等宽，文字允许随系统大字体换行。 */
@@ -28,16 +29,16 @@ internal fun ImportSourceActions(onImportFile: () -> Unit, onAddDirectory: () ->
         Modifier.fillMaxWidth().height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)
     ) {
-        ImportSourceAction("导入文件", "压缩包、PDF、图片", Icons.Outlined.Description, onImportFile,
-            Modifier.weight(1f).fillMaxHeight())
-        ImportSourceAction("添加目录", "扫描文件夹中的书籍", Icons.Outlined.CreateNewFolder, onAddDirectory,
-            Modifier.weight(1f).fillMaxHeight())
+        ImportSourceAction("导入文件", Icons.Outlined.Description, onImportFile,
+            Modifier.weight(1f).fillMaxHeight().testTag("import_source_file"))
+        ImportSourceAction("添加目录", Icons.Outlined.CreateNewFolder, onAddDirectory,
+            Modifier.weight(1f).fillMaxHeight().testTag("import_source_directory"))
     }
 }
 
 @Composable
 private fun ImportSourceAction(
-    title: String, description: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier
+    title: String, icon: ImageVector, onClick: () -> Unit, modifier: Modifier
 ) {
     Surface(
         onClick = onClick,
@@ -52,7 +53,6 @@ private fun ImportSourceAction(
         ) {
             Icon(icon, contentDescription = null)
             Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

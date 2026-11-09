@@ -13,13 +13,16 @@ fun readerModeIcon(mode: ReaderLayoutMode): ImageVector = when (mode) {
     ReaderLayoutMode.DUAL_PAGE -> Icons.Outlined.ViewColumn
 }
 
+/** 选项标签统一与「阅读设置 → 翻页」的当前值一致，避免同一状态两种叫法。 */
 val readerFitChoices get() = listOf(AsterChoice("适合屏幕", Icons.Outlined.FitScreen),
     AsterChoice("原始比例", Icons.Outlined.AspectRatio))
 val readerModeChoices get() = ReaderLayoutMode.entries.map {
-    AsterChoice(when (it) {
-        ReaderLayoutMode.VERTICAL_SCROLL -> "滚动"
-        ReaderLayoutMode.RTL_PAGER -> "RTL"
-        ReaderLayoutMode.LTR_PAGER -> "LTR"
-        ReaderLayoutMode.DUAL_PAGE -> "双页"
-    }, readerModeIcon(it), it.label)
+    AsterChoice(readerModeLabel(it), readerModeIcon(it), it.label)
+}
+
+fun readerModeLabel(mode: ReaderLayoutMode): String = when (mode) {
+    ReaderLayoutMode.VERTICAL_SCROLL -> "上下滚动"
+    ReaderLayoutMode.RTL_PAGER -> "从右向左"
+    ReaderLayoutMode.LTR_PAGER -> "从左向右"
+    ReaderLayoutMode.DUAL_PAGE -> "双页"
 }

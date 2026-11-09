@@ -40,7 +40,7 @@ suspend fun searchLibrary(
         if (index % 128 == 0) currentCoroutineContext().ensureActive()
         if (!matchesSource(book)) continue
         parents[book.id] = book
-        if (request.scope == "书签札记") continue
+        if (request.scope == "书签与笔记") continue
         if (query.isBlank() || book.title.contains(query, true) || book.author.contains(query, true) ||
             book.series.contains(query, true) || book.tagsCsv.contains(query, true) || book.format.contains(query, true)) {
             matching.add(book)
@@ -53,7 +53,7 @@ suspend fun searchLibrary(
         SortOption.FILE_SIZE -> matching.sortedByDescending { it.sizeBytes }
         SortOption.PROGRESS -> matching.sortedByDescending { it.progressPercent }
     }
-    val notes = if (request.scope in setOf("全部", "书签札记")) annotations.filterIndexed { index, note ->
+    val notes = if (request.scope in setOf("全部", "书签与笔记")) annotations.filterIndexed { index, note ->
         if (index % 128 == 0) currentCoroutineContext().ensureActive()
         val parent = parents[note.bookId]
         parent != null && (query.isBlank() || note.quoteText.contains(query, true) ||

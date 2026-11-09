@@ -262,7 +262,9 @@ private fun ReaderContent(
 
     val readerBrightness = uiState.readerBrightness
 
-    val bookmarkedPages = annotations.filter { it.type == "BOOKMARK" }.map { it.pageNumber }.toSet()
+    val bookmarkedPages = remember(annotations) {
+        annotations.filter { it.type == "BOOKMARK" }.mapTo(HashSet()) { it.pageNumber }
+    }
 
     var sliderPreview by remember(book.id) { mutableStateOf<Float?>(null) }
     var zoomCommand by remember(book.id) { mutableStateOf(ReaderZoomCommand()) }
@@ -525,8 +527,7 @@ private fun ReaderContent(
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 3
-                                )
-                            }
+                                )                            }
 
                             Text(
                                 text = "$currentPage / $totalPages · ${((currentPage.toFloat() / totalPages) * 100).roundToInt()}%",
@@ -610,7 +611,7 @@ private fun ReaderContent(
                             val isBookmarked = currentPage in bookmarkedPages
                             ReaderIslandButton(
                                 icon = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                                label = if (isBookmarked) "已存" else "书签",
+                                label = "书签",
                                 isActive = isBookmarked,
                                 onClick = {
                                     viewModel.toggleBookmark(book.id, currentPage, activeChapterTitle)
@@ -641,7 +642,7 @@ private fun ReaderContent(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (isAtEnd) "已读完 · $totalPages / $totalPages" else
+                            text = if (isAtEnd) "已读完" else
                                 "$currentPage / $totalPages · ${((currentPage.toFloat() / totalPages) * 100).toInt().coerceAtMost(99)}%",
                             fontFamily = RobotoMonoFontFamily,
                             fontSize = AsterReaderPalette.StatusFontSize,
@@ -757,7 +758,7 @@ private fun ReaderContent(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(
-                    text = "目录 (${chapters.size})",
+                    text = "目录",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )

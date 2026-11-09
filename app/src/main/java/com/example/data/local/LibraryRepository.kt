@@ -58,10 +58,10 @@ data class ScanReport(
 
     fun summary(): String = buildString {
         append("扫描完成：新增 $imported，更新 $updated，已存在 $unchanged")
-        if (hidden > 0) append("；包含隐藏作品，请验证后查看")
-        if (ignored > 0) append("；忽略 $ignored 个非漫画文件")
+        if (hidden > 0) append("；含隐藏作品，验证后可查看")
+        if (ignored > 0) append("；跳过 $ignored 个非图片文件")
         if (failed > 0) append("；失败 $failed：${failureReasons.joinToString("、")}")
-        if (missing > 0) append("；失联 $missing")
+        if (missing > 0) append("；已失效 $missing")
     }
 }
 

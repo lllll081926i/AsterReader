@@ -242,7 +242,7 @@ fun PublicationDetailScreen(
                             )
                             DropdownMenuItem(
                                 leadingIcon = { Icon(Icons.AutoMirrored.Outlined.LibraryBooks, contentDescription = null) },
-                                text = { Text("系列与卷序", maxLines = 1, softWrap = false) },
+                                text = { Text("系列", maxLines = 1, softWrap = false) },
                                 onClick = {
                                     showOverflowMenu = false
                                     openSection("series")
@@ -320,7 +320,7 @@ fun PublicationDetailScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "源文件已移动或授权失效，阅读进度已保留",
+                                    text = "源文件已移动或授权失效，阅读进度保留",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = colorScheme.onErrorContainer,
                                     modifier = Modifier.weight(1f)
@@ -834,7 +834,7 @@ fun PublicationDetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "书签与札记",
+                        text = "书签与笔记",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         maxLines = 1
                     )
@@ -844,8 +844,8 @@ fun PublicationDetailScreen(
                                 bookId = book.id,
                                 chapterTitle = book.currentChapterTitle,
                                 pageNumber = book.currentPage,
-                                quoteText = "第 ${book.currentPage} 页定位点",
-                                noteText = newNoteInput.ifBlank { "书签标记" },
+                                quoteText = "第 ${book.currentPage} 页",
+                                noteText = newNoteInput.ifBlank { "" },
                                 colorName = "GREEN",
                                 type = if (newNoteInput.isBlank()) "BOOKMARK" else "NOTE",
                                 onSaved = { newNoteInput = "" }
@@ -861,7 +861,7 @@ fun PublicationDetailScreen(
                 OutlinedTextField(
                     value = newNoteInput,
                     onValueChange = { newNoteInput = it },
-                    label = { Text("输入笔记内容") },
+                    label = { Text("笔记") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1002,7 +1002,7 @@ private fun DetailMetadataColumn(
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (book.isVaultProtected) {
                 Text(
-                    text = if (book.isVaultEncrypted) "文件已加密" else "已隐藏 · 需验证身份",
+                    text = if (book.isVaultEncrypted) "已加密" else "已隐藏",
                     style = MaterialTheme.typography.labelSmall,
                     color = colorScheme.primary,
                     maxLines = 1,

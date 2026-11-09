@@ -77,8 +77,8 @@ class WebDavViewModel(application: Application) : AndroidViewModel(application) 
         operation {
             val book = library.importDocument(WebDavRepository.documentUri(connection.id, entry.path), connection.name, persist = false)
             val cached = remote.cached(connection.id, entry)
-            _state.update { it.copy(message = if (book.isVaultProtected || book.isVaultEncrypted) "已存在于隐藏作品，请验证后查看"
-                else "已导入 · ${book.totalPages} 页", cachedPaths = if (cached) it.cachedPaths + entry.path else it.cachedPaths) }
+            _state.update { it.copy(message = if (book.isVaultProtected || book.isVaultEncrypted) "已在隐藏作品中，验证后可查看"
+                else "已导入《${book.title}》", cachedPaths = if (cached) it.cachedPaths + entry.path else it.cachedPaths) }
             if (!book.isVaultProtected && !book.isVaultEncrypted) onOpen(book.id)
         }
     }
@@ -93,14 +93,14 @@ class WebDavViewModel(application: Application) : AndroidViewModel(application) 
                 _state.update { it.copy(progress = "已处理 $processed / $discovered") }
             }
             val cached = state.entries.filter { !it.directory && remote.cached(connection.id, it) }.mapTo(mutableSetOf()) { it.path }
-            _state.update { it.copy(message = "已加入书架 · ${report.summary()}", cachedPaths = cached) }
+            _state.update { it.copy(message = "已导入：${report.summary()}", cachedPaths = cached) }
         }
     }
 
     fun remove(connection: DavConnection) = operation {
         remote.remove(connection.id)
         library.invalidateRemoteReadCopies(connection.id)
-        _state.update { it.copy(connections = remote.connections(), connection = null, entries = emptyList(), path = "", message = "连接已移除，云端文件和阅读记录保留") }
+        _state.update { it.copy(connections = remote.connections(), connection = null, entries = emptyList(), path = "", message = "连接已移除，云端文件与阅读记录保留") }
     }
 
     fun back(): Boolean {
@@ -118,8 +118,8 @@ class WebDavViewModel(application: Application) : AndroidViewModel(application) 
     fun cancel() { job?.cancel() }
 
     private fun safeMessage(failure: Exception): String = when (failure) {
-        is java.io.IOException -> "网络读取失败，请检查网络、地址与证书后重试"
-        is java.security.GeneralSecurityException -> "凭据无法解密，请检查设备密钥；原配置保留"
-        else -> failure.message?.takeIf { !it.contains("://") && it.length <= 180 } ?: "读取失败，请刷新或检查连接配置"
+        is java.io.IOException -> "网络读取失败，请检查网络与地址"
+        is java.security.GeneralSecurityException -> "凭据无法解密，原配置未改动"
+        else -> failure.message?.takeIf { !it.contains("://") && it.length <= 180 } ?: "读取失败，请刷新后重试"
     }
 }

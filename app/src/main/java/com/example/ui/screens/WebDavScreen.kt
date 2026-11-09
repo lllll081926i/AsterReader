@@ -74,7 +74,7 @@ fun WebDavScreen(onBack: () -> Unit, onOpenBook: (String) -> Unit = {}, viewMode
                         Text(if (state.path.isBlank()) "根目录" else android.net.Uri.decode(state.path.trimEnd('/')), style = MaterialTheme.typography.bodySmall)
                         WebDavActions {
                             OutlinedButton(onClick = viewModel::retry, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.Refresh, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("刷新") }
-                            Button(onClick = viewModel::scan, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.FolderOpen, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("加入书架") }
+                            Button(onClick = viewModel::scan, enabled = !state.busy, modifier = it) { Icon(Icons.Outlined.FolderOpen, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("导入此目录") }
                         }
                     }
                 }
@@ -82,7 +82,7 @@ fun WebDavScreen(onBack: () -> Unit, onOpenBook: (String) -> Unit = {}, viewMode
                 items(state.entries, key = { "entry:${it.path}" }) { entry ->
                     AsterSettingsGroup {
                         AsterSettingsRow(entry.name, leadingIcon = if (entry.directory) Icons.Outlined.Folder else Icons.Outlined.Description,
-                            trailingText = if (entry.directory) "打开" else if (entry.path in state.cachedPaths) "已缓存" else "读取",
+                            trailingText = if (entry.directory) "打开" else if (entry.path in state.cachedPaths) "已下载" else "读取",
                             onClick = { if (!state.busy) { if (entry.directory) viewModel.browse(state.connection!!, entry.path) else viewModel.importFile(entry, onOpenBook) } })
                     }
                 }
@@ -90,7 +90,7 @@ fun WebDavScreen(onBack: () -> Unit, onOpenBook: (String) -> Unit = {}, viewMode
         }
     }
     removing?.let { connection -> AlertDialog(onDismissRequest = { removing = null }, title = { Text("移除连接") },
-        text = { Text("移除连接和下载缓存。云端文件与书库阅读记录保留。") },
+        text = { Text("将删除此连接与已下载的文件。云端文件与阅读记录保留。") },
         confirmButton = { TextButton(onClick = { removing = null; viewModel.remove(connection) }) { Icon(Icons.Outlined.LinkOff, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("移除") } },
         dismissButton = { TextButton(onClick = { removing = null }) { Icon(Icons.Outlined.Close, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("取消") } }) }
 }
@@ -147,7 +147,7 @@ private fun WebDavConnectionEditor(connection: DavConnection?, busy: Boolean, vi
             visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = { IconButton(onClick = { showPassword = !showPassword }) { Icon(if (showPassword) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (showPassword) "隐藏密码" else "显示密码") } })
         AsterSwitchRow("允许 HTTP", checked = http, onCheckedChange = { if (!busy) http = it })
-        if (http) Text("HTTP 会明文传输账号和漫画。", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        if (http) Text("HTTP 以明文传输账号和内容。", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
         WebDavActions {
             OutlinedButton(onClick = { viewModel.save(name, address, username, password.toCharArray(), http, false, keepPassword) },
                 enabled = !busy && name.isNotBlank() && address.isNotBlank(), modifier = it) { Icon(Icons.Outlined.Wifi, null, Modifier.size(ButtonDefaults.IconSize)); Spacer(Modifier.width(ButtonDefaults.IconSpacing)); Text("测试") }

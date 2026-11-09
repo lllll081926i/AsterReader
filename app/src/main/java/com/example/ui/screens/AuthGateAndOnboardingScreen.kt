@@ -175,7 +175,7 @@ fun OnboardingScreen(
             when (step) {
                 0 -> {
                     Text(
-                        text = "安静、通透、书籍优先",
+                        text = "Aster Reader",
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                         color = colorScheme.onSurface,
                         textAlign = TextAlign.Center
@@ -191,15 +191,15 @@ fun OnboardingScreen(
                             modifier = Modifier.padding(20.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            OnboardingBullet("本地优先", "零广告、零云端上传，专注纯粹阅读。")
-                            OnboardingBullet("漫画阅读", "支持 ZIP/CBZ、RAR4/CBR、7Z/CB7、TAR、PDF、图片型 EPUB 与图片目录。")
-                            OnboardingBullet("隐私保护", "隐藏只限制应用内访问。文件保险库另行加密，外部原文件保留。")
+                            OnboardingBullet("本地优先", "书籍保存在本机。")
+                            OnboardingBullet("格式支持", "ZIP / CBZ、RAR4 / CBR、7Z / CB7、TAR / CBT、PDF、图片型 EPUB。")
+                            OnboardingBullet("隐私", "隐藏只限制应用内可见；保险库会加密另存一份。")
                         }
                     }
                 }
                 1 -> {
                     Text(
-                        text = "导入本地书籍",
+                        text = "导入书籍",
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                         color = colorScheme.onSurface
                     )
@@ -226,13 +226,13 @@ fun OnboardingScreen(
                             )
                             Column {
                                 Text(
-                                    text = "导入单本",
+                                    text = "导入文件",
                                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                     color = colorScheme.onSecondaryContainer,
                                     maxLines = 1
                                 )
                                 Text(
-                                    text = "CBZ / PDF",
+                                    text = "压缩包、PDF、图片",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = colorScheme.onSurfaceVariant,
                                     maxLines = 1
@@ -271,7 +271,7 @@ fun OnboardingScreen(
                                     maxLines = 1
                                 )
                                 Text(
-                                    text = "扫描书库文件夹",
+                                    text = "扫描文件夹",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = colorScheme.onSurfaceVariant,
                                     maxLines = 1
@@ -282,7 +282,7 @@ fun OnboardingScreen(
                 }
                 else -> {
                     Text(
-                        text = "安全与访问控制",
+                        text = "安全设置",
                         style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                         color = colorScheme.onSurface
                     )
@@ -297,8 +297,8 @@ fun OnboardingScreen(
                             modifier = Modifier.padding(20.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            OnboardingBullet("应用锁", "自定义 4–8 位 PIN，或直接调用系统指纹 / 面容 / 锁屏凭据。")
-                            OnboardingBullet("防窥", "可开启防截屏与多任务缩略图遮罩。")
+                            OnboardingBullet("应用锁", "4–8 位 PIN，或系统指纹 / 面容 / 锁屏凭据。")
+                            OnboardingBullet("防窥", "可禁止截屏，并隐藏任务预览。")
                         }
                     }
                 }
@@ -382,10 +382,9 @@ fun OnboardingScreen(
             title = { Text("支持格式", maxLines = 1) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("• 漫画归档：CBZ / ZIP、CBR / RAR、CB7 / 7Z、CBT / TAR", style = MaterialTheme.typography.bodySmall)
-                    Text("• 文档：PDF、EPUB（按 OPF spine 顺序读图）", style = MaterialTheme.typography.bodySmall)
-                    Text("• 散图：JPG / PNG / WebP 目录与单张图片", style = MaterialTheme.typography.bodySmall)
-                    Text("• 本地文件无固定大小上限", style = MaterialTheme.typography.bodySmall)
+                    Text("• 漫画：CBZ / ZIP、CBR / RAR、CB7 / 7Z、CBT / TAR", style = MaterialTheme.typography.bodySmall)
+                    Text("• 文档：PDF、图片型 EPUB", style = MaterialTheme.typography.bodySmall)
+                    Text("• 图片：JPG / PNG / WebP 目录与单张图片", style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {

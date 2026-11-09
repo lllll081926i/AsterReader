@@ -24,10 +24,10 @@ import com.example.ui.*
 import com.example.ui.components.*
 
 private val sectionTitles = mapOf(
-    "appearance" to "外观", "sources" to "仓库",
+    "appearance" to "外观", "sources" to "来源",
     "shelves" to "书架", "tags" to "标签", "storage" to "存储",
     "backup" to "备份", "stats" to "阅读统计", "about" to "关于", "licenses" to "致谢",
-    "encryptedExport" to "加密清单导出", "encryptedRestore" to "加密清单恢复"
+    "encryptedExport" to "加密导出", "encryptedRestore" to "加密恢复"
 )
 
 @Composable
@@ -95,7 +95,7 @@ private fun SettingsScreenBody(
                         AsterSettingsRow("阅读统计", leadingIcon = Icons.Outlined.Schedule, onClick = { navigate("stats") })
                     }
                     AsterSettingsGroup("内容") {
-                        AsterSettingsRow("仓库", leadingIcon = Icons.Outlined.Folder, onClick = { navigate("sources") })
+                        AsterSettingsRow("来源", leadingIcon = Icons.Outlined.Folder, onClick = { navigate("sources") })
                         AsterGroupDivider()
                         AsterSettingsRow("书架", leadingIcon = Icons.Outlined.CollectionsBookmark, onClick = { navigate("shelves") })
                         AsterGroupDivider()
@@ -128,24 +128,24 @@ private fun SettingsScreenBody(
                     }
                 }
                 "stats" -> AsterSettingsGroup {
-                    AsterSwitchRow("统计入口", checked = uiState.showStatsTab, onCheckedChange = viewModel::setShowStatsTab)
+                    AsterSwitchRow("统计页", checked = uiState.showStatsTab, onCheckedChange = viewModel::setShowStatsTab)
                     AsterGroupDivider()
-                    AsterSwitchRow("阅读计时", checked = uiState.showReadingStats, onCheckedChange = viewModel::setShowReadingStats)
+                    AsterSwitchRow("记录时长", checked = uiState.showReadingStats, onCheckedChange = viewModel::setShowReadingStats)
                     if (uiState.showReadingStats) {
                         AsterGroupDivider()
-                        AsterSettingsRow("查看统计", onClick = { viewModel.pushSubScreen(SubScreen.ReadingStats) })
+                        AsterSettingsRow("查看数据", onClick = { viewModel.pushSubScreen(SubScreen.ReadingStats) })
                     }
                 }
                 "sources" -> {
                     AsterSettingsGroup {
                         AsterSettingsRow("导入文件", leadingIcon = Icons.Outlined.Add, onClick = onTriggerImportFile)
                         AsterGroupDivider()
-                        AsterSettingsRow("添加仓库", leadingIcon = Icons.Outlined.CreateNewFolder,
+                        AsterSettingsRow("添加目录", leadingIcon = Icons.Outlined.CreateNewFolder,
                             onClick = { viewModel.addRepositoryAndScan("本地书库", com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE) })
                         AsterGroupDivider()
                         AsterSettingsRow("WebDAV", leadingIcon = Icons.Outlined.Cloud, onClick = { navigate("webdav") })
                     }
-                    if (repositories.isNotEmpty()) AsterSettingsGroup("已添加") {
+                    if (repositories.isNotEmpty()) AsterSettingsGroup("目录") {
                         repositories.forEachIndexed { index, repo ->
                             if (index > 0) AsterGroupDivider()
                             AsterSettingsRow(repo.name, trailingText = "移除", onClick = { confirmation = "repo:${repo.id}" })
@@ -185,16 +185,18 @@ private fun SettingsScreenBody(
                     AsterGroupDivider()
                     AsterSettingsRow("重建封面", onClick = viewModel::rebuildLibraryCovers)
                 }
-                "backup" -> AsterSettingsGroup {
-                    AsterSettingsRow("加密清单导出", leadingIcon = Icons.Outlined.Lock,
-                        onClick = { viewModel.chooseEncryptedBackupTarget(true) })
-                    AsterGroupDivider()
-                    AsterSettingsRow("加密清单恢复", leadingIcon = Icons.Outlined.LockOpen,
-                        onClick = { viewModel.chooseEncryptedBackupTarget(false) })
-                    AsterGroupDivider()
-                    AsterSettingsRow("导出清单", onClick = { confirmation = "export" })
-                    AsterGroupDivider()
-                    AsterSettingsRow("恢复清单", onClick = { confirmation = "restore" })
+                "backup" -> {
+                    AsterSettingsGroup("备份与恢复") {
+                        AsterSettingsRow("加密导出", leadingIcon = Icons.Outlined.Lock,
+                            onClick = { viewModel.chooseEncryptedBackupTarget(true) })
+                        AsterGroupDivider()
+                        AsterSettingsRow("加密恢复", leadingIcon = Icons.Outlined.LockOpen,
+                            onClick = { viewModel.chooseEncryptedBackupTarget(false) })
+                        AsterGroupDivider()
+                        AsterSettingsRow("导出阅读记录", onClick = { confirmation = "export" })
+                        AsterGroupDivider()
+                        AsterSettingsRow("导入阅读记录", onClick = { confirmation = "restore" })
+                    }
                 }
                 "about" -> AboutSettingsContent(viewModel) { navigate("licenses") }
                 "licenses" -> OpenSourceSettingsContent(viewModel, onOpen = { navigate("license:${it.id}") })
@@ -206,13 +208,13 @@ private fun SettingsScreenBody(
     }
     if (confirmation != null) AlertDialog(
         onDismissRequest = { confirmation = null },
-        title = { Text(when (confirmation) { "cache" -> "清理缓存"; "export" -> "导出书库清单"; "restore" -> "合并恢复"; else -> "确认移除" }) },
+        title = { Text(when (confirmation) { "cache" -> "清理缓存"; "export" -> "导出阅读记录"; "restore" -> "导入阅读记录"; else -> "确认移除" }) },
         text = { Text(when (confirmation) {
-            "cache" -> "仅清理可再生缓存。保留原文件和阅读记录。"
-            "export" -> "导出公开书架、进度和批注。不含漫画、隐藏作品或凭据。"
-            "restore" -> "验证后合并。保留本机来源，按时间合并进度，重复批注去重。"
-            else -> if (confirmation?.startsWith("tag:") == true) "从所有公开作品中移除标签「${confirmation?.removePrefix("tag:")}」。作品和阅读记录将保留。"
-                else "移除分类或仓库关联，保留原文件和作品阅读记录。"
+            "cache" -> "仅清理可再生成的缓存，保留原文件和阅读进度。"
+            "export" -> "包含书库、进度、标签、书架与笔记，不含文件本身。"
+            "restore" -> "合并进度与笔记，按时间取较新的记录。"
+            else -> if (confirmation?.startsWith("tag:") == true) "移除标签「${confirmation?.removePrefix("tag:")}」，作品保留。"
+                else "移除索引，保留原文件和阅读进度。"
         }) },
         confirmButton = { TextButton(onClick = {
             val action = confirmation; confirmation = null
@@ -224,7 +226,7 @@ private fun SettingsScreenBody(
                 action?.startsWith("shelf:") == true -> viewModel.deleteCustomShelf(action.removePrefix("shelf:"))
                 action?.startsWith("tag:") == true -> viewModel.deleteTag(action.removePrefix("tag:"))
             }
-        }) { Text("继续") } },
+        }) { Text("确定") } },
         dismissButton = { TextButton(onClick = { confirmation = null }) { Text("取消") } }
     )
     if (shelfEditor) AlertDialog(onDismissRequest = { shelfEditor = false }, title = { Text("书架名称") },

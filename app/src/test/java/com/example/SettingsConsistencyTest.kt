@@ -75,18 +75,19 @@ open class SettingsConsistencyTest {
         }
         compose.onNodeWithTag("library_add_fab").performClick()
         captureDialog(if (dark) "import-sources-dark-font-200" else "import-sources-light")
-        val file = compose.onNodeWithText("导入文件").assertIsDisplayed().assertHasClickAction().fetchSemanticsNode().boundsInRoot
-        val directory = compose.onNode(hasText("添加目录") and hasText("扫描文件夹中的书籍")).assertIsDisplayed()
-            .assertHasClickAction().fetchSemanticsNode().boundsInRoot
+        val file = compose.onNodeWithTag("import_source_file").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val directory = compose.onNodeWithTag("import_source_directory").assertIsDisplayed()
+            .fetchSemanticsNode().boundsInRoot
         org.junit.Assert.assertTrue(file.right < directory.left)
         org.junit.Assert.assertEquals(file.top, directory.top, 1f)
         org.junit.Assert.assertEquals(file.height, directory.height, 1f)
         compose.onNodeWithText("导入单本").assertDoesNotExist()
         compose.onNodeWithText("导入本地文件").assertDoesNotExist()
         captureDialog(if (dark) "import-sources-dark-font-200" else "import-sources-light")
-        compose.onNodeWithText("导入文件").performClick()
+        compose.onNodeWithTag("import_source_file").performClick()
         compose.runOnIdle { org.junit.Assert.assertEquals(1, fileRequests) }
-        compose.onNodeWithText("导入文件").assertDoesNotExist()
+        compose.onNodeWithTag("import_source_file").assertDoesNotExist()
+        compose.onNodeWithTag("import_source_directory").assertDoesNotExist()
     }
 
     @Test fun settingsHomeHasOnlyCategoryNavigation() {
@@ -110,14 +111,14 @@ open class SettingsConsistencyTest {
         compose.onNode(hasSetTextAction() and hasText("口令")).performTextInput("rT8-Vp3_Zm7_Qe4-nK9")
         compose.onNode(hasSetTextAction() and hasText("确认口令")).performTextInput("rT8-Vp3_Zm7_Qe4-nK9")
         compose.onAllNodesWithText("建立保险库").filter(hasClickAction()).onFirst().performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithText("我已保存口令并了解恢复条件").performScrollTo().performClick()
+        compose.onNodeWithText("我已保存口令").performScrollTo().performClick()
         compose.onAllNodesWithText("建立保险库").filter(hasClickAction()).onFirst().performScrollTo().assertIsEnabled()
         capture("file-vault-create")
     }
 
     @Test fun lockedFileVaultControlsRemainReachableInDarkLargeFont() {
         content(section = "fileVault", dark = true, fontScale = 2f)
-        compose.onNodeWithText("生成随机口令").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("生成口令").performScrollTo().assertIsDisplayed()
         compose.onAllNodesWithText("建立保险库").filter(hasClickAction()).onFirst().performScrollTo().assertIsDisplayed()
         capture("file-vault-dark-font-200")
     }
@@ -146,7 +147,7 @@ open class SettingsConsistencyTest {
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
             model.uiState.value.settingsLoaded
         }
-        for (label in listOf("向上预加载", "向下预加载")) {
+        for (label in listOf("向前", "向后")) {
             compose.onNodeWithContentDescription(label).performScrollTo()
                 .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(16f) }
         }
@@ -378,7 +379,7 @@ open class SettingsConsistencyTest {
                     AsterUiState(settingsLoaded = true), false, model)
             }
         }
-        compose.onNodeWithContentDescription("排序与删除").performClick()
+        compose.onNodeWithContentDescription("整理书架").performClick()
         compose.runOnIdle { check(model.uiState.value.activeSubScreen == com.example.ui.SubScreen.SettingsSection("shelves")) }
         compose.onNodeWithTag("create_shelf_button").performClick()
         compose.onNodeWithText("创建").assertIsNotEnabled()
@@ -597,7 +598,7 @@ open class SettingsConsistencyTest {
         compose.runOnIdle { screen = 2 }
         val filter = compose.onNodeWithTag("toggle_filter_sheet_btn").assertIsDisplayed().getUnclippedBoundsInRoot()
         org.junit.Assert.assertEquals(48f, (filter.bottom - filter.top).value, .5f)
-        compose.onNodeWithText("札记").performClick().assertIsSelected()
+        compose.onNodeWithText("笔记").performClick().assertIsSelected()
     }
 
     @Test fun compactHeaderPreservesExpandedTouchTargets() {
@@ -662,7 +663,7 @@ open class SettingsConsistencyTest {
     @Test fun readerDefaultsDoNotOverwriteTheBookOverride() {
         readerContent()
         chooseReaderMode("从左向右")
-        compose.onNodeWithText("默认", substring = false).performScrollTo().performClick()
+        compose.onNodeWithText("全部", substring = false).performScrollTo().performClick()
         chooseReaderMode("双页")
         compose.runOnIdle { check(model.uiState.value.readerLayoutMode == com.example.ui.ReaderLayoutMode.DUAL_PAGE) }
         compose.onNodeWithText("本书").performScrollTo().performClick()

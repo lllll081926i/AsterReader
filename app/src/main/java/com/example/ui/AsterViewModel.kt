@@ -138,7 +138,7 @@ data class AsterUiState(
     val hideRecentsPreview: Boolean = true,
 
     // Library Filter & Search
-    val libraryQuickStatusFilter: String = "全部格式",
+    val libraryQuickStatusFilter: String = "全部",
     val searchQuery: String = "",
     val recentSearches: List<String> = emptyList(),
     val sortOption: SortOption = SortOption.RECENT_READ,
@@ -248,7 +248,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private var backgroundAt: Long? = null
     private var backgroundLock: kotlinx.coroutines.Job? = null
     private val operationErrors = CoroutineExceptionHandler { _, _ ->
-        showSnackbar("操作失败，请检查来源授权、文件和可用空间后重试")
+        showSnackbar("操作失败，请检查来源与可用空间")
     }
 
     private val _uiState = MutableStateFlow(AsterUiState())
@@ -388,7 +388,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             }.debounce(200).collect {
                 try { preferences.save(it) }
                 catch (cancelled: CancellationException) { throw cancelled }
-                catch (_: Exception) { showSnackbar("设置保存失败，请检查可用空间后重试") }
+                catch (_: Exception) { showSnackbar("设置保存失败") }
             }
         }
     }
@@ -953,21 +953,21 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             preferences.save(_uiState.value)
             pendingFileVaultBook = null
             popSubScreen()
-            showSnackbar("已加密并验证。外部原文件仍保留，请导出加密副本备份。", SnackbarTone.SUCCESS)
+            showSnackbar("已加密，原文件仍保留", SnackbarTone.SUCCESS)
         }
     }
 
     fun exportFileVaultBook(bookId: String, uri: Uri, password: CharArray) {
         fileVaultOperation(password) {
             repository.exportEncryptedBook(bookId, uri, password)
-            showSnackbar("漫画文件已加密导出，并完成重读校验", SnackbarTone.SUCCESS)
+            showSnackbar("已加密导出", SnackbarTone.SUCCESS)
         }
     }
 
     fun restoreFileVaultBook(uri: Uri, password: CharArray) {
         fileVaultOperation(password) {
             repository.restoreEncryptedBook(uri, password)
-            showSnackbar("加密文件已验证并恢复至保险库", SnackbarTone.SUCCESS)
+            showSnackbar("已恢复到保险库", SnackbarTone.SUCCESS)
         }
     }
 
@@ -975,13 +975,13 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         if (_uiState.value.fileVaultBusy || _uiState.value.isAppLockedNow) { current.fill('\u0000'); password.fill('\u0000'); return }
         fileVaultOperation(password) {
             try { repository.changeFileVaultPassword(current, password) } finally { current.fill('\u0000') }
-            showSnackbar("本机保险库口令已修改。旧导出文件仍使用原导出口令。", SnackbarTone.SUCCESS)
+            showSnackbar("口令已修改；已导出的文件仍用原口令", SnackbarTone.SUCCESS)
         }
     }
 
     fun verifyFileVault() = fileVaultOperation {
         repository.verifyFileVault()
-        showSnackbar("全部保险库文件已通过完整性校验", SnackbarTone.SUCCESS)
+        showSnackbar("全部文件校验通过", SnackbarTone.SUCCESS)
     }
 
     fun closeFileVault() { repository.lockFileVault(); _uiState.update { it.copy(fileVaultOpen = false) }; lockAppImmediately() }
@@ -1007,7 +1007,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             catch (failure: Exception) {
                 if (generation == authenticationGeneration) _uiState.update { it.copy(fileVaultError =
                     if (failure is com.example.data.local.vault.VaultCooldownException) "尝试过多，请 ${failure.seconds} 秒后重试"
-                    else "操作失败：请检查口令、文件完整性、授权和剩余空间。连续失败会延长等待；未完成的导出文件不可恢复。") }
+                    else "操作失败：请检查口令、文件与可用空间。连续失败会延长等待。") }
             } finally {
                 password?.fill('\u0000')
                 val configured = withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) { repository.fileVault.configured }
@@ -1047,7 +1047,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.update {
                     it.copy(requestPinSetup = true, pendingAppLockActivation = true)
                 }
-                showSnackbar("请先设置应用 PIN，设置完成后应用锁才会开启", SnackbarTone.INFO)
+                showSnackbar("先设置应用 PIN，应用锁随后开启", SnackbarTone.INFO)
                 return@launch
             }
             _uiState.update {
@@ -1269,7 +1269,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                     failures = 0
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (_: Exception) {
-                    if (failures == 0) showSnackbar("阅读进度暂未保存，将自动重试，请检查可用空间", SnackbarTone.ERROR)
+                    if (failures == 0) showSnackbar("阅读进度暂未保存，正在重试", SnackbarTone.ERROR)
                     failures++
                 }
             }
@@ -1337,7 +1337,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(operationErrors) {
             repository.updateMetadata(bookId, newTitle.trim(), newAuthor.trim(), newSeries.trim(),
                 newSynopsis.trim(), newTagsCsv.split(',', '，').map(String::trim).filter(String::isNotBlank).distinct().joinToString(","))
-            showSnackbar("已保存元数据")
+            showSnackbar("已保存")
             onSaved()
         }
     }
@@ -1355,7 +1355,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun moveSeriesOrder(bookId: String, series: String, order: Int, onSaved: () -> Unit = {}) {
         viewModelScope.launch(operationErrors) {
             repository.updateSeries(bookId, series.trim(), order)
-            showSnackbar("已更新系列与卷序")
+            showSnackbar("已更新系列")
             onSaved()
         }
     }
@@ -1367,7 +1367,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                     (!it.isVaultProtected || _uiState.value.isVaultUnlocked) && (!it.isVaultEncrypted || _uiState.value.fileVaultOpen) }
                 .minByOrNull { it.seriesOrder }
             if (next == null) {
-                showSnackbar(if (current.series.isBlank()) "这是单卷作品" else "已是《${current.series}》最后一卷")
+                showSnackbar(if (current.series.isBlank()) "本书没有系列" else "已是最后一卷")
                 return@launch
             }
             _uiState.update { state ->
@@ -1408,7 +1408,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(operationErrors) {
             repository.addBooksToShelf(ids, shelfId)
             exitBatchSelection()
-            showSnackbar("已将 ${ids.size} 部作品加入书架「$shelfName」")
+            showSnackbar("已将 ${ids.size} 本加入书架「$shelfName」")
         }
     }
 
@@ -1427,7 +1427,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             repository.removeBooks(ids)
             _pendingRemoval.value = emptyList()
             exitBatchSelection()
-            showSnackbar("已移除 ${ids.size} 部作品索引（保留外部源文件）")
+            showSnackbar("已移除 ${ids.size} 本（原文件保留）")
         }
     }
 
@@ -1524,7 +1524,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteCustomShelf(shelfId: String) {
         viewModelScope.launch(operationErrors) {
             repository.deleteShelfById(shelfId)
-            showSnackbar("已删除书架分类（书籍本体保留）")
+            showSnackbar("已删除书架，作品保留")
         }
     }
 
@@ -1541,14 +1541,14 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteTag(tag: String) {
         viewModelScope.launch(operationErrors) {
             repository.deleteTag(tag)
-            showSnackbar("已从公开作品中移除标签")
+            showSnackbar("已移除标签")
         }
     }
 
     fun deleteRepository(repoId: String) {
         viewModelScope.launch(operationErrors) {
             repository.deleteRepository(repoId)
-            showSnackbar("已移除书库目录")
+            showSnackbar("已移除目录")
         }
     }
 
@@ -1653,10 +1653,10 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 withContext(Dispatchers.IO) {
                     appContext.contentResolver.openOutputStream(uri)?.use { stream ->
                         repository.exportLibraryTo(stream)
-                    } ?: error("无法写入备份文件")
+                    } ?: error("无法写入文件")
                 }
             }
-            outcome.onSuccess { showSnackbar("书库清单已导出", SnackbarTone.SUCCESS) }
+            outcome.onSuccess { showSnackbar("已导出", SnackbarTone.SUCCESS) }
                 .onFailure { showSnackbar(it.message ?: "导出失败，请检查可用空间", SnackbarTone.ERROR) }
         }
     }
@@ -1693,21 +1693,21 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                         try {
                             kotlinx.coroutines.currentCoroutineContext().ensureActive()
                             appContext.contentResolver.openOutputStream(target, "wt")?.use { it.write(bytes) }
-                                ?: error("无法写入加密清单")
+                                ?: error("无法写入文件")
                         } finally { bytes.fill(0) }
                     } else {
                         appContext.contentResolver.openInputStream(target)?.use { repository.restoreEncryptedLibrary(it, password) }
-                            ?: error("无法读取加密清单")
+                            ?: error("无法读取文件")
                     }
                 }
                 encryptedBackupTarget = null
                 _uiState.update { it.copy(encryptedBackupHasTarget = false) }
                 popSubScreen()
-                showSnackbar(if (export) "公开书库清单已加密导出" else "加密清单已验证并合并恢复；来源需重新授权", SnackbarTone.SUCCESS)
+                showSnackbar(if (export) "已加密导出" else "已恢复，来源需重新授权", SnackbarTone.SUCCESS)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (failure: Exception) {
-                _uiState.update { it.copy(encryptedBackupError = if (export) "导出失败，请检查文件授权与可用空间；未完成文件不可用于恢复"
-                    else "恢复失败：口令不正确、文件损坏或格式不受支持。书库未按此文件恢复。") }
+                _uiState.update { it.copy(encryptedBackupError = if (export) "导出失败，请检查存储空间"
+                    else "恢复失败：口令不正确或文件已损坏") }
             } finally {
                 password.fill('\u0000')
                 _uiState.update { it.copy(encryptedBackupBusy = false) }
@@ -1722,15 +1722,15 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 withContext(Dispatchers.IO) {
                     appContext.contentResolver.openInputStream(uri)?.use { stream ->
                         repository.importLibraryFrom(stream)
-                    } ?: error("无法读取备份文件")
+                    } ?: error("无法读取文件")
                 }
             }
             outcome.onSuccess { result ->
                 showSnackbar(
-                    "已恢复 ${result.restored + result.updated} 部作品、${result.annotations} 条批注；来源需重新授权",
+                    "已恢复 ${result.restored + result.updated} 本、${result.annotations} 条笔记，来源需重新选择",
                     SnackbarTone.SUCCESS
                 )
-            }.onFailure { showSnackbar(it.message ?: "导入失败，请确认是有效的备份文件", SnackbarTone.ERROR) }
+            }.onFailure { showSnackbar(it.message ?: "导入失败，文件格式不正确", SnackbarTone.ERROR) }
         }
     }
 
@@ -1740,8 +1740,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val book = repository.importDocument(uri)
                 if ((book.isVaultProtected || book.isVaultEncrypted) && !_uiState.value.isVaultUnlocked)
-                    showSnackbar("此文件已在隐藏作品中，请验证后查看")
-                else showSnackbar("已导入《${book.title}》· ${book.totalPages} 页")
+                    showSnackbar("已在隐藏作品中，验证后可查看")
+                else showSnackbar("已导入《${book.title}》")
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -1755,7 +1755,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun startScan(operation: suspend () -> String) {
-        if (_uiState.value.isScanning) { showSnackbar("正在扫描，可先取消"); return }
+        if (_uiState.value.isScanning) { showSnackbar("正在扫描，可先停止"); return }
         _uiState.update { it.copy(isScanning = true) }
         _scanProgress.value = ScanProgress()
         scanJob = viewModelScope.launch(operationErrors) {
@@ -1763,7 +1763,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 showSnackbar(operation())
             }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { showSnackbar(failure.message ?: "扫描失败，请重新授权目录") }
+            catch (failure: Exception) { showSnackbar(failure.message ?: "扫描失败，请重新选择目录") }
             finally { _uiState.update { it.copy(isScanning = false) } }
         }
     }
@@ -1775,7 +1775,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun cancelScanning(notify: Boolean = true) {
         scanJob?.cancel()
         _uiState.update { it.copy(isScanning = false) }
-        if (notify) showSnackbar("已取消扫描，已导入的漫画保留")
+        if (notify) showSnackbar("已停止扫描，已导入的保留")
     }
 
     fun onDirectorySelected(uri: Uri?) {
@@ -1795,7 +1795,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         startScan {
             val repos = repository.observeAllRepositories().first()
             if (repos.isEmpty()) {
-                return@startScan "尚无书库，请先选择目录"
+                return@startScan "还没有目录，先选择一个"
             }
             var imported = 0
             var updated = 0
@@ -1822,7 +1822,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                     throw cancelled
                 } catch (_: Exception) {
                     failed++
-                    reasons.add("目录授权失效或读取失败")
+                    reasons.add("目录不可读取")
                 }
             }
             com.example.data.local.ScanReport(imported, updated, failed, missing, unchanged, hidden, ignored, reasons.toList()).summary()
@@ -1847,8 +1847,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(pendingRelocateBookId = null, pendingRelocateIsFolder = false) }
         if (uri == null || bookId == null) return
         viewModelScope.launch(operationErrors) {
-            if (repository.relocateBookSource(bookId, uri)) showSnackbar("已重新关联来源，阅读进度保留")
-            else showSnackbar("重新关联失败，请确认选择的文件与原作品一致")
+            if (repository.relocateBookSource(bookId, uri)) showSnackbar("已关联，阅读进度保留")
+            else showSnackbar("关联失败，请确认选择的是同一部作品")
         }
     }
 
@@ -1899,7 +1899,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                 coil.Coil.imageLoader(getApplication()).diskCache?.clear()
             }
             val mb = String.format(java.util.Locale.ROOT, "%.1f", covers / 1048576.0)
-            showSnackbar("已清理缓存 $mb MB，封面将在需要时重建")
+            showSnackbar("已清理 $mb MB，封面会自动重建")
         }
     }
 
@@ -1934,7 +1934,8 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun toneFor(message: String): SnackbarTone = when {
         message.contains("失败") || message.contains("无法") || message.contains("不能") ||
-            message.contains("错误") || message.contains("过多") || message.contains("超出") -> SnackbarTone.ERROR
+            message.contains("错误") || message.contains("过多") || message.contains("超出") ||
+            message.contains("不正确") || message.contains("没有") -> SnackbarTone.ERROR
         message.contains("已") || message.contains("完成") -> SnackbarTone.SUCCESS
         else -> SnackbarTone.INFO
     }

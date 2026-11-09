@@ -156,7 +156,7 @@ fun ReadingStatsScreen(
                     if (stats.daily.sumOf { it.minutes } == 0) {
                         Spacer(Modifier.height(10.dp))
                         Text(
-                            text = "还没有阅读记录，翻开一本书开始计时吧。",
+                            text = "还没有阅读记录",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,

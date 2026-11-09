@@ -178,9 +178,6 @@ fun LibraryHomeScreen(
         when (uiState.libraryQuickStatusFilter) {
             "未读" -> books.filter { it.progressPercent == 0 && !it.isVaultProtected }
             "在读" -> books.filter { it.progressPercent in 1..99 }
-            "已完结" -> books.filter { it.progressPercent >= 100 }
-            "PDF" -> books.filter { it.format == "PDF" }
-            "CBZ" -> books.filter { it.format == "CBZ" }
             else -> books
         }
     }
@@ -263,7 +260,7 @@ fun LibraryHomeScreen(
                                     onClick = { showBatchShelfPicker = true },
                                     contentPadding = PaddingValues(horizontal = 8.dp)
                                 ) {
-                                    Text("入架", maxLines = 1, softWrap = false)
+                                    Text("加入书架", maxLines = 1, softWrap = false)
                                 }
                                 IconButton(onClick = { viewModel.batchRemoveSelectedFromLibrary() }) {
                                     Icon(
@@ -291,14 +288,14 @@ fun LibraryHomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "馆藏",
+                            text = "书库",
                             style = AsterHeaderTitleStyle.copy(fontWeight = FontWeight.Bold),
                             color = colorScheme.onSurface,
                             maxLines = 1,
                             softWrap = false
                         )
                         Text(
-                            text = "${filteredBooks.size} 部",
+                            text = "${filteredBooks.size} 本",
                             style = MaterialTheme.typography.labelSmall,
                             color = colorScheme.outline,
                             maxLines = 1,
@@ -350,7 +347,7 @@ fun LibraryHomeScreen(
                                 onDismissRequest = { showOverflowMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text(if (uiState.isScanning) "取消扫描" else "刷新书库", maxLines = 1, softWrap = false) },
+                                    text = { Text(if (uiState.isScanning) "停止扫描" else "重新扫描", maxLines = 1, softWrap = false) },
                                     onClick = {
                                         showOverflowMenu = false
                                         viewModel.rescanRepositories()
@@ -366,14 +363,14 @@ fun LibraryHomeScreen(
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text("系列与卷", maxLines = 1, softWrap = false) },
+                                    text = { Text("系列", maxLines = 1, softWrap = false) },
                                     onClick = {
                                         showOverflowMenu = false
                                         viewModel.pushSubScreen(SubScreen.SeriesList)
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("批量管理", maxLines = 1, softWrap = false) },
+                                    text = { Text("批量选择", maxLines = 1, softWrap = false) },
                                     onClick = {
                                         showOverflowMenu = false
                                         viewModel.enterBatchSelection(null)
@@ -505,7 +502,7 @@ fun LibraryHomeScreen(
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Text(
-                                            text = "续读: ${continueReadingBook.title}",
+                                            text = "继续阅读 · ${continueReadingBook.title}",
                                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
                                             color = colorScheme.onSecondaryContainer,
                                             maxLines = 1,
@@ -513,7 +510,7 @@ fun LibraryHomeScreen(
                                         )
                                     }
                                     Text(
-                                        text = if (continueReadingBook.totalPages > 0) "${continueReadingBook.currentPage}/${continueReadingBook.totalPages}页 (${continueReadingBook.progressPercent}%)" else "第 ${continueReadingBook.currentPage} 页 (${continueReadingBook.progressPercent}%)",
+                                        text = if (continueReadingBook.totalPages > 0) "第 ${continueReadingBook.currentPage} / ${continueReadingBook.totalPages} 页 · ${continueReadingBook.progressPercent}%" else "第 ${continueReadingBook.currentPage} 页 · ${continueReadingBook.progressPercent}%",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontFamily = com.example.ui.theme.RobotoMonoFontFamily,
                                         color = colorScheme.primary,
@@ -529,7 +526,7 @@ fun LibraryHomeScreen(
                     item(span = { GridItemSpan(maxLineSpan) }) {
                         val inProgressCount = books.count { it.progressPercent in 1..99 }
                         val chips = listOf(
-                            "全部格式" to "全部",
+                            "全部" to "全部",
                             "未读" to "未读",
                             "在读" to "在读 ($inProgressCount)"
                         )
@@ -540,7 +537,9 @@ fun LibraryHomeScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             chips.forEach { (key, label) ->
-                                val selected = uiState.libraryQuickStatusFilter == key
+                                val selected = if (key == "全部") {
+                                    uiState.libraryQuickStatusFilter !in setOf("未读", "在读")
+                                } else uiState.libraryQuickStatusFilter == key
                                 val chipColor by animateColorAsState(
                                     targetValue = if (selected) colorScheme.secondaryContainer else asterColors.surfaceContainerLow,
                                     animationSpec = com.asterreader.core.designsystem.AsterMotion.effectsSpec(LocalAsterReduceMotion.current),
@@ -586,19 +585,19 @@ fun LibraryHomeScreen(
                         item(span = { GridItemSpan(maxLineSpan) }) {
                             if (books.isEmpty()) {
                                 AsterEmptyState(
-                                    title = "书库还是空的",
-                                    description = "导入本地漫画，或添加一个书库目录，书卷就会出现在这里。",
-                                    actionLabel = "导入书籍",
+                                    title = "书库是空的",
+                                    description = "导入文件，或添加一个目录。",
+                                    actionLabel = "导入文件",
                                     onAction = onTriggerSystemFilePicker,
                                     secondaryLabel = "添加目录",
                                     onSecondaryAction = { showRepoWizardDialog = true }
                                 )
                             } else {
                                 AsterEmptyState(
-                                    title = "没有符合条件的作品",
-                                    description = "当前筛选条件下没有书卷，换个条件或查看全部。",
-                                    actionLabel = "显示全部",
-                                    onAction = { viewModel.setLibraryQuickStatusFilter("全部格式") },
+                                    title = "没有匹配的作品",
+                                    description = "换一个筛选条件。",
+                                    actionLabel = "查看全部",
+                                    onAction = { viewModel.setLibraryQuickStatusFilter("全部") },
                                     actionIcon = Icons.Outlined.RestartAlt
                                 )
                             }
@@ -755,7 +754,7 @@ fun LibraryHomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "导入书籍",
+                    text = "导入",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     color = colorScheme.onSurface,
                     maxLines = 1
@@ -794,7 +793,7 @@ fun LibraryHomeScreen(
             title = { Text("加入书架", maxLines = 1) },
             text = {
                 androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (shelves.isEmpty()) item { Text("暂无书架，请先在书架页新建书架") }
+                    if (shelves.isEmpty()) item { Text("还没有书架，先在书架页新建") }
                     items(shelves, key = { it.id }) { shelf ->
                         Surface(
                             shape = MaterialTheme.shapes.medium,
@@ -1281,7 +1280,7 @@ private fun PublicationGalleryCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "进度 ${book.progressPercent}%",
+                        text = "已读 ${book.progressPercent}%",
                         style = MaterialTheme.typography.labelSmall,
                         color = colorScheme.outline,
                         maxLines = 1,
@@ -1689,7 +1688,7 @@ fun SearchAndFilterScreen(
     val colorScheme = MaterialTheme.colorScheme
 
     var showFilterSheet by rememberSaveable { mutableStateOf(openFilterInitially) }
-    var searchScopeTab by rememberSaveable(initialScope) { mutableStateOf(initialScope) } // 全部, 漫画, 书签札记
+    var searchScopeTab by rememberSaveable(initialScope) { mutableStateOf(initialScope) } // 全部, 漫画, 书签与笔记
     val keyboard = LocalSoftwareKeyboardController.current
 
     val request = com.example.ui.LibrarySearchRequest(uiState.searchQuery, searchScopeTab,
@@ -1780,12 +1779,12 @@ fun SearchAndFilterScreen(
                         modifier = Modifier
                             .weight(1f)
                             .padding(horizontal = 4.dp)
-                            .semantics { contentDescription = "搜索书名、作者、系列、标签或批注" }
+                            .semantics { contentDescription = "搜索书名、作者、系列、标签或笔记" }
                             .testTag("search_query_input"),
                         decorationBox = { innerTextField ->
                             if (uiState.searchQuery.isEmpty()) {
                                 Text(
-                                    text = "搜索书名、作者、系列、书签札记...",
+                                    text = "搜索书名、作者、系列、书签或笔记",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = colorScheme.outline,
                                     maxLines = 1,
@@ -1819,8 +1818,8 @@ fun SearchAndFilterScreen(
         Row(Modifier.widthIn(max = AsterLayout.SearchContentMaxWidth).fillMaxWidth()
             .align(Alignment.CenterHorizontally).padding(horizontal = AsterLayout.PagePadding),
             verticalAlignment = Alignment.CenterVertically) {
-            val scopes = listOf("全部", "漫画", "书签札记")
-            com.asterreader.core.designsystem.AsterScopeTabs(listOf("全部", "漫画", "札记"),
+            val scopes = listOf("全部", "漫画", "书签与笔记")
+            com.asterreader.core.designsystem.AsterScopeTabs(listOf("全部", "漫画", "笔记"),
                 scopes.indexOf(searchScopeTab).coerceAtLeast(0), { searchScopeTab = scopes[it] }, Modifier.weight(1f))
             IconButton(onClick = { showFilterSheet = true }, modifier = Modifier.size(AsterLayout.TouchTarget).testTag("toggle_filter_sheet_btn")) {
                 BadgedBox(badge = {
@@ -1927,7 +1926,7 @@ fun SearchAndFilterScreen(
             }
 
             // Books Section
-            if (searchScopeTab != "书签札记") {
+            if (searchScopeTab != "书签与笔记") {
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1936,9 +1935,9 @@ fun SearchAndFilterScreen(
                     ) {
                         Text(
                             text = if (uiState.searchQuery.isBlank() && uiState.activeFilterCount == 0) {
-                                "全部馆藏 (${matchingBooks.size})"
+                                "全部作品 (${matchingBooks.size})"
                             } else {
-                                "匹配作品 (${matchingBooks.size})"
+                                "找到 ${matchingBooks.size} 本"
                             },
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                             color = colorScheme.onSurface,
@@ -1947,7 +1946,7 @@ fun SearchAndFilterScreen(
                         )
                         if (uiState.activeFilterCount > 0 || uiState.searchQuery.isNotBlank()) {
                             Text(
-                                text = "重置筛选",
+                                text = "清除条件",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = colorScheme.primary,
                                 maxLines = 1,
@@ -1971,9 +1970,9 @@ fun SearchAndFilterScreen(
                 } else if (matchingBooks.isEmpty()) {
                     item {
                         AsterEmptyState(
-                            title = if (uiState.searchQuery.isBlank() && uiState.activeFilterCount == 0) "搜索书库" else "未找到匹配的作品",
-                            description = if (uiState.searchQuery.isBlank()) "输入书名、作者或标签开始搜索。"
-                            else "换个关键词，或放宽筛选条件试试。",
+                            title = if (uiState.searchQuery.isBlank() && uiState.activeFilterCount == 0) "搜索书库" else "没有结果",
+                            description = if (uiState.searchQuery.isBlank()) "输入书名、作者或标签。"
+                            else "换一个关键词。",
                             compact = true,
                             actionLabel = if (uiState.activeFilterCount > 0) "清除筛选" else null,
                             onAction = if (uiState.activeFilterCount > 0) {
@@ -2001,20 +2000,20 @@ fun SearchAndFilterScreen(
             }
 
             // Annotations & Bookmarks Section
-            if (searchScopeTab == "书签札记" && matchingAnnotations.isEmpty()) {
+            if (searchScopeTab == "书签与笔记" && matchingAnnotations.isEmpty()) {
                 item {
                     if (currentResult == null) {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp))
                     } else {
-                        AsterEmptyState("未找到匹配的书签与札记", "更换关键词，或在阅读时添加书签与札记。", compact = true)
+                        AsterEmptyState("没有书签与笔记", "阅读时添加书签或笔记。", compact = true)
                     }
                 }
             }
-            if ((searchScopeTab == "全部" || searchScopeTab == "书签札记") && matchingAnnotations.isNotEmpty()) {
+            if ((searchScopeTab == "全部" || searchScopeTab == "书签与笔记") && matchingAnnotations.isNotEmpty()) {
                 item {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "书签与札记 (${matchingAnnotations.size})",
+                        text = "书签与笔记 (${matchingAnnotations.size})",
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                         color = colorScheme.onSurface,
                         maxLines = 1,
@@ -2026,7 +2025,7 @@ fun SearchAndFilterScreen(
                     val parentBook = books.firstOrNull { it.id == annotation.bookId }
                     SearchAnnotationResultCard(
                         annotation = annotation,
-                        bookTitle = parentBook?.title ?: "馆藏作品",
+                        bookTitle = parentBook?.title ?: "作品",
                         onClick = {
                             viewModel.commitSearchHistory(uiState.searchQuery)
                             viewModel.openBookReader(
@@ -2191,7 +2190,7 @@ fun SearchAndFilterScreen(
                     AsterPairedActions(
                         leftLabel = "重置", leftIcon = Icons.Outlined.RestartAlt,
                         onLeft = viewModel::resetAllSearchFilters,
-                        rightLabel = "查看 ${matchingBooks.size} 部", rightIcon = Icons.Outlined.FilterAlt,
+                        rightLabel = "查看 ${matchingBooks.size} 本", rightIcon = Icons.Outlined.FilterAlt,
                         onRight = { showFilterSheet = false }, primaryOnRight = true,
                         modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("apply_filter_sheet_btn")
                     )

@@ -210,7 +210,7 @@ fun AppleFloatingBottomDock(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "续读",
+                                text = "继续阅读",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                                 maxLines = 1,
                                 softWrap = false
@@ -324,7 +324,7 @@ fun SafeProtectedBookCard(
         modifier = modifier
             .clip(MaterialTheme.shapes.medium)
             .asterBounceClick(onClick = onClick)
-            .semantics { contentDescription = "已隐藏作品，点击验证身份" }
+            .semantics { contentDescription = "已隐藏作品" }
             .testTag("vault_protected_card")
     ) {
         Box(

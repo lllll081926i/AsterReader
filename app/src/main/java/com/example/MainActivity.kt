@@ -283,6 +283,8 @@ fun AsterReaderAppRoot(
     }
 
     val allBooks by viewModel.allBooks.collectAsStateWithLifecycle()
+    // 详情/阅读页 O(1) 取书：避免每次重组都线性扫描整个书库。
+    val booksById = remember(allBooks) { allBooks.associateBy { it.id } }
     val allShelves by viewModel.allShelves.collectAsStateWithLifecycle()
     val mainContentReady by viewModel.mainContentReady.collectAsStateWithLifecycle()
     val libraryLoadFailed by viewModel.libraryLoadFailed.collectAsStateWithLifecycle()
@@ -293,7 +295,7 @@ fun AsterReaderAppRoot(
                 uiState.settingsLoaded && !uiState.isAppLockedNow && libraryLoadFailed -> Column(
                     Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center) {
-                    Text("书库读取失败，请重试", style = MaterialTheme.typography.bodyMedium)
+                    Text("书库读取失败", style = MaterialTheme.typography.bodyMedium)
                     Button(onClick = viewModel::retryLibraryLoad) {
                         Icon(Icons.Default.Refresh, null)
                         Text("重试")
@@ -327,7 +329,7 @@ fun AsterReaderAppRoot(
                             color = colorScheme.primary
                         )
                         Text(
-                            text = "正在准备书库",
+                            text = "正在打开",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
@@ -346,7 +348,7 @@ fun AsterReaderAppRoot(
         return
     }
     val needsAnnotations = uiState.activeSubScreen is SubScreen.Search ||
-        uiState.activeSubScreen == null && uiState.currentTab in setOf(MainNavDestination.SEARCH, MainNavDestination.STATS)
+        uiState.activeSubScreen == null && uiState.currentTab in setOf(MainNavDestination.SEARCH, MainNavDestination.STATS, MainNavDestination.SHELVES)
     val allAnnotations = if (needsAnnotations) {
         val notes by viewModel.allAnnotations.collectAsStateWithLifecycle()
         notes
@@ -358,8 +360,8 @@ fun AsterReaderAppRoot(
     val pendingRemoval by viewModel.pendingRemoval.collectAsStateWithLifecycle()
     if (pendingRemoval.isNotEmpty()) androidx.compose.material3.AlertDialog(
         onDismissRequest = viewModel::cancelBookRemoval,
-        title = { Text("移除 ${pendingRemoval.size} 部作品") },
-        text = { Text("将删除作品索引、阅读进度和批注。外部源文件将保留。") },
+        title = { Text("移除 ${pendingRemoval.size} 本") },
+        text = { Text("移除索引、进度与笔记。原文件保留。") },
         confirmButton = { androidx.compose.material3.TextButton(onClick = viewModel::confirmBookRemoval) { Text("移除") } },
         dismissButton = { androidx.compose.material3.TextButton(onClick = viewModel::cancelBookRemoval) { Text("取消") } }
     )
@@ -404,7 +406,7 @@ fun AsterReaderAppRoot(
                         }
 
                         is SubScreen.PublicationDetail -> {
-                            val targetBook = allBooks.find { it.id == subScreen.bookId }
+                            val targetBook = booksById[subScreen.bookId]
                                 ?.takeIf { !it.isVaultEncrypted || uiState.fileVaultOpen }
 
                             if (targetBook != null) {
@@ -426,14 +428,14 @@ fun AsterReaderAppRoot(
                             } else {
                                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
                                     horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("作品不可用，请返回资料库检查来源或访问权限")
+                                    Text("作品不可用，请返回书库检查来源")
                                     Button(onClick = { viewModel.popSubScreen() }) { Text("返回") }
                                 }
                             }
                         }
 
                         is SubScreen.Reader -> {
-                            val targetBook = allBooks.find { it.id == subScreen.bookId }
+                            val targetBook = booksById[subScreen.bookId]
                                 ?.takeIf { !it.isVaultEncrypted || uiState.fileVaultOpen }
 
                             if (targetBook != null) {
@@ -448,7 +450,7 @@ fun AsterReaderAppRoot(
                             } else {
                                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
                                     horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("作品不可用，请返回资料库检查来源或访问权限")
+                                    Text("作品不可用，请返回书库检查来源")
                                     Button(onClick = { viewModel.popSubScreen() }) { Text("返回") }
                                 }
                             }

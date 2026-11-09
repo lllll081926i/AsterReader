@@ -24,7 +24,7 @@ class LibrarySearchTest {
         val result = searchLibrary(listOf(small, large, hidden), notes, request(sort = SortOption.FILE_SIZE))
         assertEquals(listOf("大文件", "小文件"), result.books.map { it.id })
         assertEquals(listOf("小文件"), result.annotations.map { it.bookId })
-        val bookmarks = searchLibrary(listOf(small, large, hidden), notes, request("书签札记"))
+        val bookmarks = searchLibrary(listOf(small, large, hidden), notes, request("书签与笔记"))
         assertTrue(bookmarks.books.isEmpty())
         assertEquals(1, bookmarks.annotations.size)
     }

@@ -65,22 +65,17 @@ private fun ReaderSettingsContentBody(
     val selectedMode = if (defaults) state.readerLayoutMode else mode
     val selectedFit = if (defaults) state.fitModeLabel else fit
     val selectedCover = if (defaults) state.smartSpreadStitch else cover
-    val modeLabels = listOf("上下滚动", "从右向左", "从左向右", "双页")
+    val modeLabels = ReaderLayoutMode.entries.map(::readerModeLabel)
     Column(verticalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TabRow(selectedTabIndex = if (defaults) 1 else 0, modifier = Modifier.weight(1f),
-                    containerColor = MaterialTheme.colorScheme.background) {
-                    Tab(selected = !defaults, onClick = { defaults = false }, text = { Text("本书") })
-                    Tab(selected = defaults, onClick = { defaults = true }, text = { Text("默认") })
-                }
-                IconButton(onClick = onReset, enabled = !defaults) {
-                    Icon(Icons.Outlined.RestartAlt, "恢复默认", Modifier.size(AsterLayout.HeaderIconSize))
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TabRow(selectedTabIndex = if (defaults) 1 else 0, modifier = Modifier.weight(1f),
+                containerColor = MaterialTheme.colorScheme.background) {
+                Tab(selected = !defaults, onClick = { defaults = false }, text = { Text("本书") })
+                Tab(selected = defaults, onClick = { defaults = true }, text = { Text("全部") })
             }
-            Text(if (defaults) "用于未单独设置的漫画" else "仅应用于当前漫画",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = AsterLayout.ControlSpacing))
+            IconButton(onClick = onReset, enabled = !defaults) {
+                Icon(Icons.Outlined.RestartAlt, "恢复默认", Modifier.size(AsterLayout.HeaderIconSize))
+            }
         }
         AsterSettingsGroup("页面") {
             AsterSettingsRow("翻页", trailingText = modeLabels[ReaderLayoutMode.entries.indexOf(selectedMode)],
@@ -95,11 +90,11 @@ private fun ReaderSettingsContentBody(
                 AsterSwitchRow("从右向左", checked = rightToLeft, onCheckedChange = onRightToLeft)
             }
         }
-        AsterSettingsGroup("预加载 · 通用") {
-            ReaderValueSlider("向上预加载", "${state.preloadBefore} 页", state.preloadBefore.toFloat(),
+        AsterSettingsGroup("预加载") {
+            ReaderValueSlider("向前", "${state.preloadBefore} 页", state.preloadBefore.toFloat(),
                 0f..16f, 15) { model.setPreloadBefore(it.roundToInt()) }
             AsterGroupDivider()
-            ReaderValueSlider("向下预加载", "${state.preloadAfter} 页", state.preloadAfter.toFloat(),
+            ReaderValueSlider("向后", "${state.preloadAfter} 页", state.preloadAfter.toFloat(),
                 0f..16f, 15) { model.setPreloadAfter(it.roundToInt()) }
         }
         AsterSettingsGroup("屏幕") {
