@@ -415,7 +415,7 @@ private fun ReaderContent(
                                     if (book.isVaultProtected) {
                                         Icon(
                                             imageVector = Icons.Outlined.Lock,
-                                            contentDescription = "受保护",
+                                            contentDescription = "已锁定",
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(14.dp)
                                         )
@@ -795,7 +795,7 @@ private fun ReaderContent(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "P.${ch.startPage}",
+                                    text = "第 ${ch.startPage} 页",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontFamily = RobotoMonoFontFamily,
                                     color = MaterialTheme.colorScheme.primary,
@@ -965,7 +965,7 @@ private fun TabletReaderSidePanel(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "P.${ch.startPage}",
+                                    text = "第 ${ch.startPage} 页",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontFamily = RobotoMonoFontFamily,
                                     color = MaterialTheme.colorScheme.primary,

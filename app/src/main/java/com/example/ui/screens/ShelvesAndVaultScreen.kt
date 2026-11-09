@@ -168,6 +168,15 @@ fun ShelvesScreen(
         map
     }
 
+    // 一次遍历得出快捷入口计数，避免每帧重复全库扫描。
+    val totalCount = allBooks.size
+    val favCount = remember(allBooks, uiState.isVaultUnlocked) {
+        allBooks.count { it.isFavorite && (!it.isVaultProtected || uiState.isVaultUnlocked) }
+    }
+    val historyCount = remember(allBooks, uiState.isVaultUnlocked) {
+        allBooks.count { it.progressPercent > 0 && (!it.isVaultProtected || uiState.isVaultUnlocked) }
+    }
+
     val shelvesGridColumns = when (uiState.shelvesViewMode) {
         ShelvesViewMode.COLLAGE_GRID -> GridCells.Adaptive(minSize = 148.dp)
         ShelvesViewMode.COMPACT_GRID -> GridCells.Adaptive(minSize = 100.dp)
@@ -265,10 +274,6 @@ fun ShelvesScreen(
         ) {
             // Section 1: Quick Access Grid
             item(span = { GridItemSpan(maxLineSpan) }) {
-                val totalCount = allBooks.size
-                val favCount = allBooks.count { it.isFavorite && (!it.isVaultProtected || uiState.isVaultUnlocked) }
-                val historyCount = allBooks.count { it.progressPercent > 0 && (!it.isVaultProtected || uiState.isVaultUnlocked) }
-
                 val quickTiles = listOf(
                     QuickTileData("ALL", "全部作品", "$totalCount 本", Icons.AutoMirrored.Outlined.LibraryBooks),
                     QuickTileData("FAV", "收藏", "$favCount 本", Icons.Default.Favorite),
@@ -323,10 +328,12 @@ fun ShelvesScreen(
             // Optional Expanded Quick Filter Preview Row
             if (activeQuickFilter != null) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
-                    val filteredBooks = when (activeQuickFilter) {
-                        "FAV" -> allBooks.filter { it.isFavorite && (!it.isVaultProtected || uiState.isVaultUnlocked) }
-                        "HISTORY" -> allBooks.filter { it.progressPercent > 0 && (!it.isVaultProtected || uiState.isVaultUnlocked) }
-                        else -> allBooks.filter { !it.isVaultProtected || uiState.isVaultUnlocked }
+                    val filteredBooks = remember(activeQuickFilter, allBooks, uiState.isVaultUnlocked) {
+                        when (activeQuickFilter) {
+                            "FAV" -> allBooks.filter { it.isFavorite && (!it.isVaultProtected || uiState.isVaultUnlocked) }
+                            "HISTORY" -> allBooks.filter { it.progressPercent > 0 && (!it.isVaultProtected || uiState.isVaultUnlocked) }
+                            else -> allBooks.filter { !it.isVaultProtected || uiState.isVaultUnlocked }
+                        }
                     }
                     Surface(
                         shape = MaterialTheme.shapes.large,
@@ -377,7 +384,7 @@ fun ShelvesScreen(
                                         )
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(b.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                            Text("${b.author} · ${b.updatedTimeText}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text("${b.author} · ${com.example.ui.importTimeText(b.addedAt, b.updatedTimeText)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }
                                 }
@@ -703,7 +710,7 @@ private fun ShelfCollageGridCard(
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Lock,
-                                    contentDescription = "受保护",
+                                    contentDescription = "已锁定",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp)
                                 )
@@ -711,7 +718,7 @@ private fun ShelfCollageGridCard(
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "受保护",
+                            text = "已锁定",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -853,7 +860,7 @@ private fun ShelfCompactGridCard(
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Lock,
-                            contentDescription = "受保护",
+                            contentDescription = "已锁定",
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(26.dp)
                         )
@@ -951,7 +958,7 @@ private fun ShelfHorizontalListCard(
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Lock,
-                            contentDescription = "受保护",
+                            contentDescription = "已锁定",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -1109,7 +1116,7 @@ private fun ShelfShowcasePlankCard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "验证系统锁屏凭据以解锁书架",
+                            text = "解锁后查看",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -1223,7 +1230,7 @@ fun ShelfDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     TranquilDeskEmptyIllustration(modifier = Modifier.size(140.dp))
-                    Text("暂无书籍", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("还没有作品", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
         } else {

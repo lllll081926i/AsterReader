@@ -375,9 +375,6 @@ interface AsterDao {
     @Query("SELECT * FROM books WHERE series = :series AND series <> '' ORDER BY seriesOrder ASC, addedAt ASC")
     suspend fun getSeriesBooks(series: String): List<BookEntity>
 
-    @Query("SELECT * FROM books WHERE sourceStatus = 'MISSING'")
-    fun observeMissingBooks(): Flow<List<BookEntity>>
-
     @Query("DELETE FROM comic_pages WHERE bookId = :id")
     suspend fun deleteComicPages(id: String)
 

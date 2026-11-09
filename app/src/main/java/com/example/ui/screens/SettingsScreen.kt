@@ -172,7 +172,7 @@ private fun SettingsScreenBody(
                 }
                 "tags" -> {
                     val tags = books.flatMap { it.tagsCsv.split(',') }.map(String::trim).filter(String::isNotEmpty).distinct().sorted()
-                    if (tags.isEmpty()) Text("暂无标签", style = MaterialTheme.typography.bodyMedium)
+                    if (tags.isEmpty()) Text("没有标签", style = MaterialTheme.typography.bodyMedium)
                     else AsterSettingsGroup {
                         tags.forEachIndexed { index, tag ->
                             if (index > 0) AsterGroupDivider()

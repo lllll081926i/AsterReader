@@ -75,7 +75,6 @@ fun SeriesScreen(
             .sortedByDescending { (_, volumes) -> volumes.maxOfOrNull { it.lastReadTimestamp } ?: 0L }
     }
 
-    val looseCount = allBooks.count { it.series.isBlank() }
     var expanded by remember { mutableStateOf<String?>(series.firstOrNull()?.first) }
 
     Column(

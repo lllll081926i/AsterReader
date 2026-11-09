@@ -585,7 +585,7 @@ fun PublicationDetailScreen(
                                         )
                                     }
                                     TextButton(onClick = { showAnnotationsSheet = true }) {
-                                        Text("管理 (${annotations.size})", maxLines = 1, softWrap = false)
+                                        Text("全部 (${annotations.size})", maxLines = 1, softWrap = false)
                                     }
                                 }
 
@@ -607,7 +607,7 @@ fun PublicationDetailScreen(
                                                 horizontalArrangement = Arrangement.SpaceBetween
                                             ) {
                                                 Text(
-                                                    text = "${item.chapterTitle} · P.${item.pageNumber}",
+                                                    text = "${item.chapterTitle} · 第 ${item.pageNumber} 页",
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = colorScheme.primary,
                                                     maxLines = 1,
@@ -908,7 +908,7 @@ fun PublicationDetailScreen(
                                                 .background(badgeTint)
                                         )
                                         Text(
-                                            text = "${item.chapterTitle} · P.${item.pageNumber}",
+                                            text = "${item.chapterTitle} · 第 ${item.pageNumber} 页",
                                             style = MaterialTheme.typography.labelMedium,
                                             color = colorScheme.primary,
                                             maxLines = 1
@@ -974,7 +974,7 @@ private fun DetailCoverCard(
                     .padding(8.dp)
             ) {
                 Text(
-                    text = "受保护",
+                    text = "已锁定",
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                     color = colorScheme.primary,
                     maxLines = 1,
@@ -1055,7 +1055,7 @@ private fun DetailMetadataColumn(
                 }
             }
 
-            Surface(
+            if (com.example.ui.importTimeText(book.addedAt, book.updatedTimeText).isNotBlank()) Surface(
                 shape = CircleShape,
                 color = asterColors.surfaceContainer
             ) {
@@ -1071,7 +1071,7 @@ private fun DetailMetadataColumn(
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = book.updatedTimeText,
+                        text = com.example.ui.importTimeText(book.addedAt, book.updatedTimeText),
                         style = MaterialTheme.typography.labelMedium,
                         color = colorScheme.onSurfaceVariant,
                         maxLines = 1,

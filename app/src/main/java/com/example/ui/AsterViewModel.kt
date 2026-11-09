@@ -1154,8 +1154,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(libraryQuickStatusFilter = filter) }
     }
 
-    fun toggleGridView() = cycleLibraryLayoutMode()
-
     fun setLibraryLayoutMode(mode: LibraryLayoutMode) {
         _uiState.update { it.copy(libraryLayoutMode = mode) }
     }
@@ -1559,9 +1557,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun moveShelfUp(shelf: ShelfEntity) = moveShelf(shelf, -1)
-    fun moveShelfDown(shelf: ShelfEntity) = moveShelf(shelf, 1)
-
     // ========================================================================
     // Annotations
     // ========================================================================
@@ -1855,12 +1850,6 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     // ========================================================================
     // 阅读设置与主题
     // ========================================================================
-    fun cycleReaderLayoutMode() {
-        _uiState.update { state ->
-            val modes = ReaderLayoutMode.entries
-            state.copy(readerLayoutMode = modes[(modes.indexOf(state.readerLayoutMode) + 1) % modes.size])
-        }
-    }
 
     fun setReaderLayoutMode(mode: ReaderLayoutMode) {
         _uiState.update { it.copy(readerLayoutMode = mode) }

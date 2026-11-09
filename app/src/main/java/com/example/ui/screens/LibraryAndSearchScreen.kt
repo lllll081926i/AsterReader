@@ -186,6 +186,8 @@ fun LibraryHomeScreen(
         books.filter { !it.isVaultProtected && it.progressPercent > 0 }.maxByOrNull { it.lastReadTimestamp }
     }
 
+    val inProgressCount = remember(books) { books.count { it.progressPercent in 1..99 } }
+
     val inspectedBook = remember(books, uiState.tabletInspectedBookId) {
         books.find { it.id == uiState.tabletInspectedBookId } ?: books.firstOrNull()
     }
@@ -524,7 +526,6 @@ fun LibraryHomeScreen(
 
                     // 2. Filter Chips Row (精简为全部/未读/在读)
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        val inProgressCount = books.count { it.progressPercent in 1..99 }
                         val chips = listOf(
                             "全部" to "全部",
                             "未读" to "未读",
@@ -1159,7 +1160,7 @@ private fun PublicationListRowCard(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = if (book.totalPages > 0) "${book.author} · 第 ${book.currentPage}/${book.totalPages} 页" else "${book.author} · 第 ${book.currentPage} 页",
+                    text = if (book.totalPages > 0) "${book.author} · 第 ${book.currentPage} / ${book.totalPages} 页" else "${book.author} · 第 ${book.currentPage} 页",
                     style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -1565,7 +1566,7 @@ private fun TabletSupportingDetailPane(
                                         )
                                     }
                                     Text(
-                                        text = "P.${ch.startPage}",
+                                        text = "第 ${ch.startPage} 页",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = if (ch.isCurrent) colorScheme.primary else colorScheme.outline,
                                         maxLines = 1,
@@ -1712,6 +1713,8 @@ fun SearchAndFilterScreen(
     val matchingBooks = currentResult?.books.orEmpty()
     val matchingAnnotations = currentResult?.annotations.orEmpty()
 
+    // 批注结果按书号 O(1) 取书名：避免每条笔记都线性扫描全库。
+    val booksById = remember(books) { books.associateBy { it.id } }
     // 筛选项全部由真实馆藏聚合，避免出现永远命中 0 条的硬编码选项
     val availableTags = remember(books) {
         books.flatMap { it.tagsCsv.split(',', '，') }
@@ -2022,7 +2025,7 @@ fun SearchAndFilterScreen(
                 }
 
                 items(matchingAnnotations, key = { it.id }) { annotation ->
-                    val parentBook = books.firstOrNull { it.id == annotation.bookId }
+                    val parentBook = booksById[annotation.bookId]
                     SearchAnnotationResultCard(
                         annotation = annotation,
                         bookTitle = parentBook?.title ?: "作品",
@@ -2062,7 +2065,7 @@ fun SearchAndFilterScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "高级筛选与排序",
+                        text = "筛选与排序",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                         color = colorScheme.onSurface,
                         maxLines = 1
@@ -2084,8 +2087,7 @@ fun SearchAndFilterScreen(
                 ) {
                     FilterPartitionHeader(
                         icon = Icons.AutoMirrored.Outlined.Sort,
-                        title = "排序方式",
-                        modeLabel = "单选"
+                        title = "排序方式"
                     )
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2103,8 +2105,7 @@ fun SearchAndFilterScreen(
 
                     FilterPartitionHeader(
                         icon = Icons.Outlined.AutoStories,
-                        title = "阅读状态",
-                        modeLabel = "单选"
+                        title = "阅读状态"
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2123,8 +2124,7 @@ fun SearchAndFilterScreen(
 
                     FilterPartitionHeader(
                         icon = Icons.Outlined.Description,
-                        title = "文件格式",
-                        modeLabel = "多选"
+                        title = "文件格式"
                     )
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2143,8 +2143,7 @@ fun SearchAndFilterScreen(
                     if (availableTags.isNotEmpty()) {
                         FilterPartitionHeader(
                             icon = Icons.Outlined.Tag,
-                            title = "题材标签",
-                            modeLabel = "多选"
+                            title = "标签"
                         )
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2164,8 +2163,7 @@ fun SearchAndFilterScreen(
                     if (availableStorages.size > 1) {
                         FilterPartitionHeader(
                             icon = Icons.Outlined.SdCard,
-                            title = "存储目录",
-                            modeLabel = "多选"
+                            title = "目录"
                         )
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -2203,8 +2201,7 @@ fun SearchAndFilterScreen(
 @Composable
 private fun FilterPartitionHeader(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    modeLabel: String
+    title: String
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -2228,13 +2225,6 @@ private fun FilterPartitionHeader(
                 maxLines = 1
             )
         }
-        Text(
-            text = modeLabel,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.outline,
-            maxLines = 1,
-            softWrap = false
-        )
     }
 }
 
@@ -2401,7 +2391,7 @@ private fun SearchBookResultCard(
                         Text(
                             text = when {
                                 book.progressPercent >= 100 -> "已读完"
-                                book.progressPercent > 0 -> "第 ${book.currentPage}/${book.totalPages} 页"
+                                book.progressPercent > 0 -> "第 ${book.currentPage} / ${book.totalPages} 页"
                                 else -> "未读"
                             },
                             style = MaterialTheme.typography.labelSmall,
@@ -2508,7 +2498,7 @@ private fun SearchAnnotationResultCard(
                 }
 
                 Text(
-                    text = "${annotation.chapterTitle} · P.${annotation.pageNumber}",
+                    text = "${annotation.chapterTitle} · 第 ${annotation.pageNumber} 页",
                     style = MaterialTheme.typography.labelSmall,
                     color = colorScheme.primary,
                     maxLines = 1,

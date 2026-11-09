@@ -44,7 +44,7 @@ class GitHubUpdateRepositoryTest {
 
     @Test fun missingPrivateOrUnpublishedReleaseNeverMeansLatest() = runBlocking {
         val state = repository(404).check("2.4.0")
-        assertTrue(state.message!!.contains("暂无公开版本"))
+        assertTrue(state.message!!.contains("还没有发布版本"))
         assertTrue(state.openReleases)
     }
 

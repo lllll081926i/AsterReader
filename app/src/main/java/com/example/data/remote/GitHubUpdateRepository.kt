@@ -33,7 +33,7 @@ class GitHubUpdateRepository(private val clientFactory: () -> OkHttpClient = {
             }
             try { call.execute().use { response ->
                 when (response.code) {
-                    404 -> UpdateCheckState(message = "暂无公开版本，私有仓库请登录 GitHub 查看", openReleases = true)
+                    404 -> UpdateCheckState(message = "GitHub 上还没有发布版本", openReleases = true)
                     403, 429 -> UpdateCheckState(message = "GitHub 暂时限制访问，请稍后重试", openReleases = true)
                     200 -> {
                         val body = requireNotNull(response.body)

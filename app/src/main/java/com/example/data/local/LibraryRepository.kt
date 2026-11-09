@@ -976,15 +976,6 @@ class LibraryRepository(
         true
     }
 
-    /** 清理自建封面缓存，返回释放的字节数。 */
-    suspend fun clearCoverCache(): Long = withContext(Dispatchers.IO) {
-        val dir = File(context.cacheDir, "covers")
-        val files = dir.listFiles() ?: return@withContext 0L
-        val released = files.sumOf { it.length() }
-        files.forEach { it.delete() }
-        released
-    }
-
     suspend fun clearRegenerableDiskCache(): Long = withContext(Dispatchers.IO) {
         closeReadSession()
         localCopyMutex.withLock {

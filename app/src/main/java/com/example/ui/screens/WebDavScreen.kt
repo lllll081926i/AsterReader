@@ -58,7 +58,7 @@ fun WebDavScreen(onBack: () -> Unit, onOpenBook: (String) -> Unit = {}, viewMode
                 }
             } else if (state.connection == null) {
                 item(key = "add") { AsterSettingsGroup { AsterSettingsRow("添加连接", leadingIcon = Icons.Outlined.Add, onClick = { viewModel.edit() }) } }
-                if (state.connections.isEmpty() && !state.busy) item(key = "empty") { Text("暂无连接", style = MaterialTheme.typography.bodyMedium) }
+                if (state.connections.isEmpty() && !state.busy) item(key = "empty") { Text("还没有连接", style = MaterialTheme.typography.bodyMedium) }
                 items(state.connections, key = { "connection:${it.id}" }) { connection ->
                     AsterSettingsGroup {
                         AsterSettingsRow(connection.name, leadingIcon = Icons.Outlined.Cloud, onClick = { viewModel.browse(connection) })
