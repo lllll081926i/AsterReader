@@ -71,7 +71,8 @@ for item in elements:
     with zipfile.ZipFile(source) as archive:
         native = [entry for entry in archive.namelist() if entry.startswith('lib/') and entry.endswith('.so')]
         actual_abis = {entry.split('/')[1] for entry in native}
-        assert actual_abis == (abis - {'universal'} if abi == 'universal' else {abi}), 'APK ABI 不符'
+        expected_abis = {'arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86'} if abi == 'universal' else {abi}
+        assert actual_abis == expected_abis, f'APK ABI 不符：{abi}，实际 {sorted(actual_abis)}'
         for entry in native:
             if entry.split('/')[1] in {'arm64-v8a', 'x86_64'}:
                 elf_alignment(archive.read(entry))
