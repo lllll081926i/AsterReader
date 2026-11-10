@@ -19,6 +19,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
@@ -244,6 +245,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private var preparingReaderPage: Int? = null
     private var readerCleanupJob: kotlinx.coroutines.Job? = null
     private var prefetchJob: kotlinx.coroutines.Job? = null
+    private val coverRevision = MutableStateFlow(0L)
     private val navigationRevision = java.util.concurrent.atomic.AtomicLong()
     private var backgroundAt: Long? = null
     private var backgroundLock: kotlinx.coroutines.Job? = null
@@ -354,6 +356,24 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(1000, 0), emptyList())
 
     init {
+        viewModelScope.launch {
+            combine(allBooks, coverRevision) { books, revision ->
+                revision to books.sortedBy { it.id }.map { book ->
+                    listOf(book.id, book.filePath, book.sizeBytes.toString(), book.sourceModifiedAt.toString(),
+                        book.contentFingerprint, book.coverPage.toString(), book.sourceStatus, book.isVaultProtected.toString())
+                }
+            }.distinctUntilChanged().conflate().collect {
+                suspend fun awaitBackgroundSlot() {
+                    uiState.first { state -> state.settingsLoaded && !state.isAppLockedNow && !state.isScanning &&
+                        state.activeSubScreen !is SubScreen.Reader && state.activeSubScreen !is SubScreen.PublicationDetail }
+                }
+                try {
+                    awaitBackgroundSlot()
+                    repository.refreshMissingCovers { awaitBackgroundSlot() }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { /* 不阻断书库，来源恢复或重新扫描后重试。 */ }
+            }
+        }
         viewModelScope.launch(operationErrors) {
             try {
                 pinFailures = withContext(Dispatchers.IO) { pinAttempts.getInt("failures", 0) }
@@ -1884,6 +1904,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
             repository.trimPageMemory()
             coil.Coil.imageLoader(getApplication()).memoryCache?.clear()
             val covers = repository.clearRegenerableDiskCache()
+            coverRevision.update { it + 1 }
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 coil.Coil.imageLoader(getApplication()).diskCache?.clear()
             }

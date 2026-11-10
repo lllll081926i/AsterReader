@@ -3,7 +3,7 @@ O-00,启动 Bootstrap / 安全遮盖,P0,正常、锁定、数据库失败,UI-W0/
 O-01,欢迎与本地优先说明,P0,首次、返回,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 O-02,添加内容引导,P0,未授权、选择来源,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 O-03,首次安全引导,P0,跳过、设置完成,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-L-01,资料库首页,P0,空、加载、正常、错误、受保护,UI-W1,已统一书架标题高度与正文间距；已优化订阅生命周期（见 docs/47）；完整状态待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+L-01,资料库首页,P0,空、加载、正常、错误、受保护,UI-W1,已补后台高清封面与导航岛内容宽度；见 docs/62；完整状态待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 L-02,资料库作用域 / 文件夹视图,P0,所有、某仓库、某书架,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 L-03,搜索输入与历史,P0,焦点、无历史、有历史,UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 L-04,搜索结果 / 筛选,P0,全部、零结果、错误、局部解锁,UI-W1,已实现紧凑分类 Tab 与单一筛选入口；已优化后台取消（见 docs/47）；完整状态待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md

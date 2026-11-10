@@ -82,6 +82,18 @@ interface AsterDao {
             current.coverPage == source.coverPage) updateCover(source.id, path, source.coverPage)
     }
 
+    @Transaction
+    suspend fun saveGeneratedCover(source: BookEntity, path: String): Boolean {
+        val current = getBookById(source.id) ?: return false
+        if (current.isVaultProtected || current.isVaultEncrypted || current.coverUrl != source.coverUrl ||
+            current.sourceStatus != source.sourceStatus ||
+            current.coverPage != source.coverPage || current.filePath != source.filePath ||
+            current.sizeBytes != source.sizeBytes || current.sourceModifiedAt != source.sourceModifiedAt ||
+            current.contentFingerprint != source.contentFingerprint) return false
+        updateCover(source.id, path, source.coverPage)
+        return true
+    }
+
     @Query("UPDATE books SET title = CASE WHEN :title = '' THEN title ELSE :title END, author = :author, series = :series, synopsis = :synopsis, tagsCsv = :tags WHERE id = :id")
     suspend fun updateMetadata(id: String, title: String, author: String, series: String, synopsis: String, tags: String)
 

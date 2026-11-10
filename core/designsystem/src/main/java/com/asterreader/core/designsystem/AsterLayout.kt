@@ -16,6 +16,7 @@ object AsterLayout {
     val BottomSpacing = 12.dp
     val MainNavigationHeight = 64.dp
     val FloatingDockBottomGap = 8.dp
+    val FloatingDockMaxWidth = 480.dp
     val MainHeaderHeight = HeaderHeight
     val HeaderIconSize = 18.dp
     val NavigationRailBreakpoint = 600.dp

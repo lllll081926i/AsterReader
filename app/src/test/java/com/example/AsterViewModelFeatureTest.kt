@@ -62,6 +62,27 @@ class AsterViewModelFeatureTest {
     }
 
     @Test
+    fun registeredComicGetsCoverWithoutOpeningDetailOrReader() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val file = java.io.File(app.cacheDir, "自动封面.cbz")
+        val png = java.util.Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
+        java.util.zip.ZipOutputStream(file.outputStream()).use { zip ->
+            zip.putNextEntry(java.util.zip.ZipEntry("01.png"))
+            zip.write(png)
+            zip.closeEntry()
+        }
+        val dao = com.example.data.local.AsterDatabase.getDatabase(app).asterDao()
+        val book = comicFixture("自动补全-${java.util.UUID.randomUUID()}").copy(
+            filePath = android.net.Uri.fromFile(file).toString(), totalPages = 0)
+        dao.insertBook(book)
+        val updated = withTimeout(10000) { dao.observeBookById(book.id).first { !it?.coverUrl.isNullOrBlank() } }!!
+        assertEquals(0, updated.totalPages)
+        assertTrue(java.io.File(updated.coverUrl).length() > 0)
+        assertNull(viewModel.uiState.value.activeSubScreen)
+    }
+
+    @Test
     fun testInitialEmptyLibraryState() = runBlocking {
         val uiState = viewModel.uiState.value
         assertEquals(MainNavDestination.LIBRARY, uiState.currentTab)

@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.selection.toggleable
 
 import androidx.compose.animation.animateColorAsState
@@ -123,11 +124,11 @@ fun AppleFloatingBottomDock(
                 width = 0.8.dp,
                 color = colorScheme.outlineVariant.copy(alpha = 0.45f)
             ),
-            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().heightIn(min = com.asterreader.core.designsystem.AsterLayout.MainNavigationHeight)
+            modifier = Modifier.widthIn(max = com.asterreader.core.designsystem.AsterLayout.FloatingDockMaxWidth).heightIn(min = com.asterreader.core.designsystem.AsterLayout.MainNavigationHeight)
                 .testTag("apple_floating_bottom_dock")
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                modifier = Modifier.width(IntrinsicSize.Max).padding(horizontal = 8.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -152,6 +153,7 @@ fun AppleFloatingBottomDock(
                     Column(
                         modifier = Modifier
                             .weight(1f)
+                            .widthIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                             .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                             .clip(androidx.compose.foundation.shape.CircleShape)
                             .background(pillBg)
@@ -175,8 +177,8 @@ fun AppleFloatingBottomDock(
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                             ),
                             color = contentColor,
-                            maxLines = 1,
-                            softWrap = false
+                            maxLines = 2,
+                            softWrap = true
                         )
                     }
                 }

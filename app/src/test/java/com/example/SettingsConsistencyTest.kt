@@ -436,7 +436,8 @@ open class SettingsConsistencyTest {
         org.junit.Assert.assertTrue((island.bottom - island.top).value >= 64f)
     }
 
-    @Test fun floatingIslandTabsWorkAtDoubleFontScale() {
+    @Test @Config(qualifiers = "w320dp-h720dp-xhdpi")
+    fun floatingIslandTabsWorkAtDoubleFontScale() {
         compose.setContent {
             rootView = androidx.compose.ui.platform.LocalView.current.rootView
             val density = LocalDensity.current.density
@@ -456,6 +457,31 @@ open class SettingsConsistencyTest {
         compose.onNodeWithTag("nav_dock_shelves").performClick().assertIsSelected()
         compose.onNodeWithTag("nav_dock_search").performClick().assertIsSelected()
         capture("floating-island-font-200")
+    }
+
+    @Test fun floatingIslandShrinksWithVisibleDestinationCount() {
+        val showStats = androidx.compose.runtime.mutableStateOf(true)
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme {
+                com.example.ui.components.AppleFloatingBottomDock(
+                    com.example.ui.components.MainNavDestination.LIBRARY, {}, false,
+                    showStatsTab = showStats.value)
+            }
+        }
+        val four = compose.onNodeWithTag("apple_floating_bottom_dock").getUnclippedBoundsInRoot()
+        val root = compose.onRoot().getUnclippedBoundsInRoot()
+        org.junit.Assert.assertTrue("岛体应按内容收缩", four.right - four.left < root.right - root.left - 64.dp)
+        compose.runOnIdle { showStats.value = false }
+        val three = compose.onNodeWithTag("apple_floating_bottom_dock").getUnclippedBoundsInRoot()
+        org.junit.Assert.assertTrue("隐藏标签后岛体应缩窄", three.right - three.left < four.right - four.left)
+        org.junit.Assert.assertEquals((root.left.value + root.right.value) / 2f,
+            (three.left.value + three.right.value) / 2f, 1f)
+        listOf("library", "shelves", "search").forEach {
+            val tab = compose.onNodeWithTag("nav_dock_$it").getUnclippedBoundsInRoot()
+            org.junit.Assert.assertTrue(tab.right - tab.left >= 48.dp && tab.bottom - tab.top >= 48.dp)
+        }
+        capture("floating-island-content-width")
     }
 
     @Test @Config(qualifiers = "w1100dp-h800dp-xhdpi")

@@ -271,7 +271,7 @@ class LibraryRepository(
         require(format in READABLE_FORMATS) { "此格式尚不支持读取" }
         val id = existing?.id ?: UUID.randomUUID().toString()
         val selectedCover = existing?.coverPage ?: coverPage
-        val coverFile = File(context.cacheDir, "covers/${id}.jpg")
+        val coverFile = newCoverFile(id)
         coverFile.parentFile?.mkdirs()
         // 单次临时拷贝内完成「页数 + 章节 + 封面」，避免大文件被完整复制多次
         val scanned = when (format) {
@@ -387,7 +387,7 @@ class LibraryRepository(
         val id = existing?.id ?: UUID.randomUUID().toString()
         val name = documentDisplayName(folderUri) ?: "未命名目录"
         val (seriesName, volOrder) = parseSeriesAndVolume(name)
-        val coverFile = File(context.cacheDir, "covers/${id}.jpg")
+        val coverFile = newCoverFile(id)
         val selectedCover = (existing?.coverPage ?: 1).coerceIn(1, images.size)
         val coverPath = (if (includeCover) writeCover({ runCatching { resolver.openInputStream(images[selectedCover - 1].uri) }.getOrNull() }, coverFile) else null)
             ?: existing?.coverUrl.orEmpty()
@@ -669,24 +669,8 @@ class LibraryRepository(
             require(page in 1..book.totalPages) { "页码超出范围" }
             renderSession.render(sourceKey(book), page, maxPixels) { prepareSource(book) }.also {
                 if (book.isVaultEncrypted) check(fileVault.isSessionValid(token)) { "保险库已锁定" }
-                if (!book.isVaultProtected && !book.isVaultEncrypted && book.coverUrl.isBlank() && page == book.coverPage) {
-                    currentCoroutineContext().ensureActive()
-                    val cover = runCatching { saveRenderedCover(book, it) }.getOrNull()
-                    if (cover != null) dao.saveReadingCover(book, cover)
-                }
             }
         }
-
-    private fun saveRenderedCover(book: BookEntity, bitmap: Bitmap): String {
-        val target = File(context.cacheDir, "covers/${book.id}-${sourceKey(book).hashCode()}.jpg")
-        target.parentFile?.mkdirs()
-        val scale = minOf(300f / bitmap.width, 450f / bitmap.height, 1f)
-        val thumbnail = Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt().coerceAtLeast(1),
-            (bitmap.height * scale).toInt().coerceAtLeast(1), true)
-        try { target.outputStream().use { check(thumbnail.compress(Bitmap.CompressFormat.JPEG, 86, it)) } }
-        finally { if (thumbnail !== bitmap) thumbnail.recycle() }
-        return target.absolutePath
-    }
 
     /** 详情页预读即将打开的一页，直接复用阅读会话，不生成磁盘预览副本。 */
     suspend fun prepareReading(id: String, page: Int, unlocked: Boolean): Boolean = withContext(Dispatchers.IO) {
@@ -911,38 +895,42 @@ class LibraryRepository(
         val books = dao.observeAllBooks().first()
         var refreshed = 0
         books.forEach { book ->
-            if (book.isVaultEncrypted) return@forEach
+            if (book.isVaultProtected || book.isVaultEncrypted || book.sourceStatus != "AVAILABLE" ||
+                WebDavRepository.isRemote(Uri.parse(book.filePath))) return@forEach
             currentCoroutineContext().ensureActive()
-            val target = File(context.cacheDir, "covers/${book.id}.jpg")
+            val target = newCoverFile(book.id)
             val path = runCatching {
                 if (book.format == "IMAGE_DIR") regenerateDirectoryCover(book, target)
                 else generateCover(Uri.parse(book.filePath), book.format, book.coverPage, target)
             }.getOrNull()
-            if (path != null) {
-                dao.updateCover(book.id, path, book.coverPage)
-                refreshed++
-            }
+            if (path != null && dao.saveGeneratedCover(book, path)) refreshed++
         }
         refreshed
     }
 
     /** 只补全封面文件缺失的作品，避免每次刷新都重算全部封面。 */
-    suspend fun refreshMissingCovers(): Int = withContext(Dispatchers.IO) {
+    suspend fun refreshMissingCovers(beforeEach: suspend () -> Unit = {}): Int = withContext(Dispatchers.IO) {
         val books = dao.observeAllBooks().first()
         var refreshed = 0
         books.forEach { book ->
-            if (book.isVaultEncrypted) return@forEach
+            if (book.isVaultProtected || book.isVaultEncrypted || book.sourceStatus != "AVAILABLE" ||
+                WebDavRepository.isRemote(Uri.parse(book.filePath))) return@forEach
             val existing = book.coverUrl.takeIf { it.isNotBlank() }?.let { File(it) }
-            if (existing != null && existing.exists() && existing.length() > 0) return@forEach
+            if (existing != null && existing.name.startsWith("v3-") && existing.exists() && existing.length() > 0) return@forEach
+            beforeEach()
             currentCoroutineContext().ensureActive()
-            val target = File(context.cacheDir, "covers/${book.id}.jpg")
+            val current = dao.getBookById(book.id) ?: return@forEach
+            if (current.isVaultProtected || current.isVaultEncrypted || current.sourceStatus != "AVAILABLE" ||
+                current.coverUrl != book.coverUrl || current.coverPage != book.coverPage ||
+                current.filePath != book.filePath || current.sizeBytes != book.sizeBytes ||
+                current.sourceModifiedAt != book.sourceModifiedAt || current.contentFingerprint != book.contentFingerprint) return@forEach
+            val target = newCoverFile(book.id)
             val path = runCatching {
                 if (book.format == "IMAGE_DIR") regenerateDirectoryCover(book, target)
                 else generateCover(Uri.parse(book.filePath), book.format, book.coverPage, target)
             }.getOrNull() ?: return@forEach
             currentCoroutineContext().ensureActive()
-            dao.updateCover(book.id, path, book.coverPage)
-            refreshed++
+            if (dao.saveGeneratedCover(book, path)) refreshed++ else target.delete()
         }
         refreshed
     }
@@ -964,7 +952,7 @@ class LibraryRepository(
         }
         val book = dao.getBookById(bookId) ?: return@withContext false
         if (page !in 1..book.totalPages) return@withContext false
-        val target = File(context.cacheDir, "covers/${book.id}.jpg")
+        val target = newCoverFile(book.id)
         val path = if (book.format == "IMAGE_DIR") {
             val pages = dao.getComicPages(book.id).associateBy { it.number }
             val uri = pages[page]?.uri ?: return@withContext false
@@ -1271,6 +1259,16 @@ class LibraryRepository(
     private fun generateCover(uri: Uri, format: String, page: Int, target: File): String? = try {
         when {
             format == "IMAGE_DIR" -> null
+            format.uppercase(Locale.ROOT) in setOf("ZIP", "CBZ") -> {
+                val direct = openLocalZip(uri)
+                if (direct != null) direct.use { archive ->
+                    writeCover({ archive.openPage(page.coerceIn(1, archive.pageCount.coerceAtLeast(1))) }, target)
+                } else withTemporaryCopySync(uri) { file ->
+                    ComicArchives.open(file, format).use { archive ->
+                        writeCover({ archive.openPage(page.coerceIn(1, archive.pageCount.coerceAtLeast(1))) }, target)
+                    }
+                }
+            }
             format == "PDF" -> withTemporaryCopySync(uri) { file -> generatePdfCover(file, page, target) }
             else -> withTemporaryCopySync(uri) { file ->
                 ComicArchives.open(file, format).use { archive ->
@@ -1293,35 +1291,44 @@ class LibraryRepository(
         return renderer.let {
             val index = (page - 1).coerceIn(0, (it.pageCount - 1).coerceAtLeast(0))
             it.openPage(index).use { pdfPage ->
-                val scale = minOf(720f / pdfPage.width, 1280f / pdfPage.height, 1f)
+                val scale = minOf(COVER_WIDTH.toFloat() / pdfPage.width, COVER_HEIGHT.toFloat() / pdfPage.height, 3f)
                 val bitmap = Bitmap.createBitmap(
                     (pdfPage.width * scale).toInt().coerceAtLeast(1),
                     (pdfPage.height * scale).toInt().coerceAtLeast(1),
                     Bitmap.Config.ARGB_8888
                 )
-                bitmap.eraseColor(android.graphics.Color.WHITE)
-                pdfPage.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                writeBitmap(bitmap, target)
+                try {
+                    bitmap.eraseColor(android.graphics.Color.WHITE)
+                    pdfPage.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    writeBitmap(bitmap, target)
+                } finally { if (!bitmap.isRecycled) bitmap.recycle() }
             }
         }
     }
 
     private fun writeCover(open: () -> java.io.InputStream?, target: File): String? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        val stream = open() ?: return null
-        stream.use { BitmapFactory.decodeStream(it, null, bounds) }
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-            return null
-        }
-        var sample = 1
-        while (bounds.outWidth / sample > 720 || bounds.outHeight / sample > 1280) sample *= 2
-        val bitmap = open()?.use {
-            BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
-        } ?: return null
-        return writeBitmap(bitmap, target)
+        var input = open()?.buffered(64 * 1024) ?: return null
+        try {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            input.mark(64 * 1024)
+            BitmapFactory.decodeStream(input, null, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            var sample = 1
+            val ratio = minOf(COVER_WIDTH.toFloat() / bounds.outWidth, COVER_HEIGHT.toFloat() / bounds.outHeight, 1f)
+            val width = (bounds.outWidth * ratio).toInt().coerceAtLeast(1)
+            val height = (bounds.outHeight * ratio).toInt().coerceAtLeast(1)
+            while (sample < (1 shl 29) && bounds.outWidth / (sample * 2) >= width &&
+                bounds.outHeight / (sample * 2) >= height) sample *= 2
+            try { input.reset() } catch (_: java.io.IOException) {
+                input.close()
+                input = open()?.buffered(64 * 1024) ?: return null
+            }
+            val bitmap = BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+            return writeBitmap(bitmap, target)
+        } finally { input.close() }
     }
 
-    /** 把封面限制在 720×1280 以内，避免极端长图生成巨大的 JPEG。 */
+    /** 仅缩小，不放大原图；保留详情页所需的封面分辨率。 */
     private fun scaleDown(source: Bitmap, maxWidth: Int, maxHeight: Int): Bitmap {
         if (source.width <= maxWidth && source.height <= maxHeight) return source
         val ratio = minOf(maxWidth.toFloat() / source.width, maxHeight.toFloat() / source.height)
@@ -1335,12 +1342,21 @@ class LibraryRepository(
         return scaled
     }
 
-    private fun writeBitmap(bitmap: Bitmap, target: File): String? = try {
-        target.parentFile?.mkdirs()
-        target.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 86, it) }
-        target.absolutePath
-    } finally {
-        bitmap.recycle()
+    private fun writeBitmap(source: Bitmap, target: File): String? {
+        val bitmap = scaleDown(source, COVER_WIDTH, COVER_HEIGHT)
+        return try {
+            target.parentFile?.mkdirs()
+            target.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it)) }
+            target.absolutePath
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    private fun newCoverFile(id: String): File {
+        val name = java.security.MessageDigest.getInstance("SHA-256").digest(id.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+        return File(context.cacheDir, "covers/v3-$name-${UUID.randomUUID()}.jpg")
     }
 
     private class LocalDocument(val file: File, private val descriptor: ParcelFileDescriptor? = null) : java.io.Closeable {
@@ -1525,6 +1541,8 @@ class LibraryRepository(
         withContext(Dispatchers.IO) { LibraryBackup.import(dao, stream) }
 
     companion object {
+        private const val COVER_WIDTH = 1080
+        private const val COVER_HEIGHT = 1620
         const val DEFAULT_PAGE_PIXELS = 2_500_000
         const val ZOOMED_PAGE_PIXELS = 6_000_000
         private const val MAX_LOCAL_COPY_BYTES = 1024L * 1024 * 1024

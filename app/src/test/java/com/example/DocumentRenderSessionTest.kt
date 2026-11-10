@@ -30,6 +30,36 @@ class DocumentRenderSessionTest {
     private val png = java.util.Base64.getDecoder()
         .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
 
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun zoomRegionsReuseOneEncodedSourceAndDecodeDifferentBands() = runBlocking {
+        val original = android.graphics.Bitmap.createBitmap(400, 1600, android.graphics.Bitmap.Config.ARGB_8888)
+        original.eraseColor(android.graphics.Color.RED)
+        android.graphics.Canvas(original).drawRect(0f, 800f, 400f, 1600f,
+            android.graphics.Paint().apply { color = android.graphics.Color.BLUE })
+        val bytes = java.io.ByteArrayOutputStream().also {
+            original.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, it)
+        }.toByteArray()
+        original.recycle()
+        val opened = AtomicInteger()
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val source = PageSource.Directory(1) { opened.incrementAndGet(); bytes.inputStream() }
+        try {
+            val top = session.renderRegion("长图", 1, 0f, 0.25f, 160_000) { source }!!
+            val bottom = session.renderRegion("长图", 1, 0.5f, 0.75f, 160_000) { source }!!
+            // Robolectric 的区域解码器只模拟尺寸；真实像素由设备测试覆盖。
+            assertEquals(400, top.width)
+            assertEquals(400, top.height)
+            assertEquals(400, bottom.height)
+            assertNotSame(top, bottom)
+            assertSame(top, session.renderRegion("长图", 1, 0f, 0.25f, 160_000) { source })
+            assertEquals("不同区域应复用当前页解码器，不重新解压图片", 1, opened.get())
+            session.close()
+            assertNotNull(session.renderRegion("长图", 1, 0.25f, 0.5f, 160_000) { source })
+            assertEquals("关闭后必须重建来源", 2, opened.get())
+        } finally { session.close() }
+    }
+
     @Test fun higherResolutionReplacesLowerResolutionWithoutDecodingAgain() = runBlocking {
         val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
         val streams = AtomicInteger()

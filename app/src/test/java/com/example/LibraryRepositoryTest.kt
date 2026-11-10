@@ -426,9 +426,69 @@ class LibraryRepositoryTest {
                 assertTrue(repository.renderPage(book.id, 1).width > 0)
                 assertEquals(openedAfterPreparation, opened.get())
                 assertTrue(repository.getBookById(book.id)!!.totalPages > 0)
-                assertTrue(repository.getBookById(book.id)!!.coverUrl.isNotBlank())
+                assertTrue("阅读请求不再同步写封面", repository.getBookById(book.id)!!.coverUrl.isBlank())
             }
         }
+        assertEquals(3, repository.refreshMissingCovers())
+        repository.observeAllBooks().first().filter { it.title != "非漫画" }.forEach {
+            assertTrue(it.coverUrl.isNotBlank())
+        }
+    }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun scannedCoversRefreshWithoutIndexingAndRebuildUsesNewHighResolutionPath() = runBlocking {
+        val bitmap = android.graphics.Bitmap.createBitmap(1800, 2700, android.graphics.Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(android.graphics.Color.RED)
+        val jpeg = java.io.ByteArrayOutputStream().also {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, it)
+        }.toByteArray()
+        bitmap.recycle()
+        val zipBytes = java.io.ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip -> zip.putNextEntry(ZipEntry("01.jpg")); zip.write(jpeg); zip.closeEntry() }
+        }.toByteArray()
+        document("高清封面.cbz", zipBytes)
+        repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "封面队列", LibraryRepository.DEFAULT_SCAN_RULE)
+        val pending = repository.observeAllBooks().first().single()
+        assertEquals(0, pending.totalPages)
+        assertTrue(pending.coverUrl.isBlank())
+        assertEquals(1, repository.refreshMissingCovers())
+        val first = repository.getBookById(pending.id)!!
+        assertEquals("补封面不得建立阅读索引", 0, first.totalPages)
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(first.coverUrl, bounds)
+        assertEquals(1080, bounds.outWidth)
+        assertEquals(1620, bounds.outHeight)
+        assertEquals(0, repository.refreshMissingCovers())
+        assertEquals(1, repository.refreshAllBookCovers())
+        assertNotEquals("新路径使 Coil 自动刷新缓存", first.coverUrl, repository.getBookById(first.id)!!.coverUrl)
+    }
+
+    @Test
+    fun pausedCoverQueueRechecksBookBeforeOpeningSource() = runBlocking {
+        document("等待封面.cbz", comicBytes())
+        repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "后台队列", LibraryRepository.DEFAULT_SCAN_RULE)
+        val book = repository.observeAllBooks().first().single()
+        val count = opened.get()
+        assertEquals(0, repository.refreshMissingCovers {
+            db.asterDao().updateBook(book.copy(isVaultProtected = true))
+        })
+        assertEquals("等待期间隐藏的作品不得再读取来源", count, opened.get())
+        assertTrue(db.asterDao().getBookById(book.id)!!.coverUrl.isBlank())
+    }
+
+    @Test
+    fun backgroundCoverCannotOverwriteNewSelectionOrHiddenBook() = runBlocking {
+        val dao = db.asterDao()
+        val book = comicFixture("并发封面")
+        dao.insertBook(book)
+        dao.updateCover(book.id, "手选封面.jpg", 2)
+        assertFalse(dao.saveGeneratedCover(book, "后台封面.jpg"))
+        val selected = dao.getBookById(book.id)!!
+        assertEquals("手选封面.jpg", selected.coverUrl)
+        dao.updateBook(selected.copy(isVaultProtected = true))
+        assertFalse(dao.saveGeneratedCover(selected, "后台封面.jpg"))
+        assertEquals("手选封面.jpg", dao.getBookById(book.id)!!.coverUrl)
     }
 
     @Test

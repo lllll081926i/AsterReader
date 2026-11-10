@@ -21,9 +21,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
@@ -110,8 +108,9 @@ internal class DocumentRenderSession(context: Context) {
                     if (page > open.pageCount) break
                     val cacheKey = PageKey(open.fingerprint, page, maxPixels)
                     try {
-                        val bitmap = cachedDecode(open, cacheKey) { renderBitmap(open, page, maxPixels) }
-                        prefetchedBytes += bitmap?.allocationByteCount ?: 0
+                        val bitmap = cachedDecode(open, cacheKey, background = true) { renderBitmap(open, page, maxPixels) }
+                        if (bitmap == null) continue
+                        prefetchedBytes += bitmap.allocationByteCount
                     } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
                     catch (_: Exception) { /* 可见页负责显示读取错误。 */ }
                     break
@@ -235,12 +234,12 @@ internal class DocumentRenderSession(context: Context) {
         return pages.get(compatible)
     }
 
-    private suspend fun cachedDecode(open: OpenSource, key: PageKey, block: () -> Bitmap?): Bitmap? {
+    private suspend fun cachedDecode(open: OpenSource, key: PageKey, background: Boolean = false, block: () -> Bitmap?): Bitmap? {
         cachedPage(key)?.let { return it }
         // 同一页的不同清晰度共用门锁，高清完成后预览直接复用，不再排队重复解码。
         val gate = (31 * key.source.hashCode() + key.page).and(Int.MAX_VALUE) % pageGates.size
         return pageGates[gate].withLock {
-            cachedPage(key) ?: decode(open) {
+            cachedPage(key) ?: decode(open, background) {
                 block()?.also { bitmap ->
                     if (bitmap.allocationByteCount <= pages.maxSize()) {
                         pages.snapshot().keys.filter { it.sameArea(key) && it.pixels < key.pixels }.forEach(pages::remove)
@@ -251,9 +250,13 @@ internal class DocumentRenderSession(context: Context) {
         }
     }
 
-    private suspend fun <T> decode(open: OpenSource, block: () -> T): T {
-        return if (open.concurrent) decodeSlots.withPermit { withContext(Dispatchers.IO) { block() } }
-            else open.gate.withLock { withContext(Dispatchers.IO) { block() } }
+    private suspend fun decode(open: OpenSource, background: Boolean, block: () -> Bitmap?): Bitmap? {
+        suspend fun admitted(): Bitmap? = withContext(Dispatchers.IO) {
+            currentCoroutineContext().ensureActive()
+            if (background && foregroundRequests.value > 0) null else block()
+        }
+        return if (open.concurrent) decodeSlots.withPermit { admitted() }
+            else open.gate.withLock { admitted() }
     }
 
     private fun renderBitmap(open: OpenSource, page: Int, maxPixels: Int): Bitmap = try {
@@ -286,7 +289,7 @@ internal class DocumentRenderSession(context: Context) {
         }
 
     private fun renderImage(open: OpenSource, number: Int, maxPixels: Int): Bitmap {
-        fun stream() = java.io.BufferedInputStream(LimitedStream(openStream(open, number)), 64 * 1024)
+        fun stream() = java.io.BufferedInputStream(openStream(open, number), 64 * 1024)
         var input = stream()
         try {
             val original = open.imageSizes[number] ?: run {
@@ -337,20 +340,20 @@ internal class DocumentRenderSession(context: Context) {
             }
         }
 
-        val bytes = openStream(open, number).use { readFully(it, MAX_REGION_BYTES) } ?: return null
-        val decoder = try {
-            BitmapRegionDecoder.newInstance(bytes, 0, bytes.size, false)
-        } catch (_: Throwable) {
-            null
-        } ?: return null
-        return try {
+        return synchronized(open.regionGate) {
+            if (open.regionPage != number) {
+                open.regionDecoder?.recycle()
+                open.regionDecoder = null
+                open.regionPage = -1
+            }
+            val decoder = open.regionDecoder ?: openStream(open, number).use {
+                BitmapRegionDecoder.newInstance(it, false)
+            }?.also { open.regionDecoder = it; open.regionPage = number } ?: return@synchronized null
             val width = decoder.width
             val height = decoder.height
             val rect = Rect(0, (height * top).toInt(), width, (height * bottom).toInt().coerceAtLeast(1))
             val sample = sampleFor(rect.width(), rect.height(), maxPixels)
             decoder.decodeRegion(rect, BitmapFactory.Options().apply { inSampleSize = sample })
-        } finally {
-            decoder.recycle()
         }
     }
 
@@ -395,6 +398,10 @@ internal class DocumentRenderSession(context: Context) {
         val open = source ?: return
         source = null
         pages.evictAll()
+        synchronized(open.regionGate) {
+            open.regionDecoder?.recycle()
+            open.regionDecoder = null
+        }
         try {
             open.renderer?.close()
         } finally {
@@ -420,18 +427,6 @@ internal class DocumentRenderSession(context: Context) {
         digest.digest().joinToString("") { "%02x".format(it) }
     }
 
-    private fun readFully(input: InputStream, limit: Int): ByteArray? {
-        val output = ByteArrayOutputStream()
-        val buffer = ByteArray(64 * 1024)
-        while (true) {
-            val read = input.read(buffer)
-            if (read < 0) break
-            output.write(buffer, 0, read)
-            if (output.size() > limit) return null
-        }
-        return output.toByteArray()
-    }
-
     private class OpenSource(
         val key: String,
         val fingerprint: String,
@@ -445,27 +440,12 @@ internal class DocumentRenderSession(context: Context) {
     ) {
         val gate = Mutex()
         val imageSizes = java.util.concurrent.ConcurrentHashMap<Int, Pair<Int, Int>>()
-    }
-
-    private class LimitedStream(input: InputStream) : FilterInputStream(input) {
-        private var remaining = MAX_IMAGE_BYTES
-        override fun read(): Int {
-            check(remaining > 0) { "图像资源超出限制" }
-            return super.read().also { if (it >= 0) remaining-- }
-        }
-
-        override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
-            if (length == 0) return 0
-            check(remaining > 0) { "图像资源超出限制" }
-            return `in`.read(bytes, offset, minOf(length.toLong(), remaining).toInt())
-                .also { if (it > 0) remaining -= it }
-        }
+        val regionGate = Any()
+        var regionPage = -1
+        var regionDecoder: BitmapRegionDecoder? = null
     }
 
     companion object {
-        private const val MAX_IMAGE_BYTES = 32L * 1024 * 1024
-        private const val MAX_REGION_BYTES = 48 * 1024 * 1024
-
         private fun budget(context: Context): Int = minOf(
             96L * 1024 * 1024,
             Runtime.getRuntime().maxMemory() / 6,

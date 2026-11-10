@@ -24,6 +24,34 @@ import java.util.UUID
 /** 独立测试目录与内存数据库；不访问用户书库。 */
 @RunWith(AndroidJUnit4::class)
 class LocalDirectReadDeviceTest {
+    @Test fun reusedRegionDecoderKeepsPixelsAfterInputCloses() = runBlocking {
+        val app = InstrumentationRegistry.getInstrumentation().targetContext
+        val original = android.graphics.Bitmap.createBitmap(400, 1600, android.graphics.Bitmap.Config.ARGB_8888)
+        original.eraseColor(android.graphics.Color.RED)
+        android.graphics.Canvas(original).drawRect(0f, 800f, 400f, 1600f,
+            android.graphics.Paint().apply { color = android.graphics.Color.BLUE })
+        val bytes = java.io.ByteArrayOutputStream().also {
+            original.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, it)
+        }.toByteArray()
+        original.recycle()
+        val opened = java.util.concurrent.atomic.AtomicInteger()
+        val source = com.example.data.local.PageSource.Directory(1) {
+            opened.incrementAndGet()
+            bytes.inputStream()
+        }
+        val session = com.example.data.local.DocumentRenderSession(app)
+        try {
+            val top = session.renderRegion("区域像素", 1, 0f, 0.25f, 160_000) { source }!!
+            val bottom = session.renderRegion("区域像素", 1, 0.5f, 0.75f, 160_000) { source }!!
+            assertTrue(android.graphics.Color.red(top.getPixel(200, 200)) > 200)
+            assertTrue(android.graphics.Color.blue(bottom.getPixel(200, 200)) > 200)
+            assertEquals(1, opened.get())
+            session.close()
+            assertNotNull(session.renderRegion("区域像素", 1, 0.25f, 0.5f, 160_000) { source })
+            assertEquals(2, opened.get())
+        } finally { session.close() }
+    }
+
     @Test fun safThreeGiBTarImportsAndRendersWithoutWholeFileCopies() = runBlocking {
         val app = InstrumentationRegistry.getInstrumentation().targetContext
         val directory = File(app.cacheDir, "local-direct-${UUID.randomUUID()}").apply { mkdirs() }
