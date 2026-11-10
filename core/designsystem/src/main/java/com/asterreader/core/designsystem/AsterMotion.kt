@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 
 /**
  * Aster Reader Material 3 Expressive Motion System
@@ -48,6 +49,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 val LocalAsterReduceMotion = staticCompositionLocalOf { false }
 
 object AsterMotion {
+    const val BackScaleReduction = 0.1f
+    val BackTranslation = 24.dp
+    val BackCornerRadius = 28.dp
+
     /** 主导航先淡出旧页，再淡入新页，防止统计文字与图表叠影。 */
     fun tabTransition(reduceMotion: Boolean): ContentTransform = if (reduceMotion) {
         androidx.compose.animation.EnterTransition.None togetherWith androidx.compose.animation.ExitTransition.None

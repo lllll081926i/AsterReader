@@ -389,7 +389,14 @@ fun AsterReaderAppRoot(
                 current = com.example.ui.components.NavigationFrame(activeSub, uiState.currentTab, uiState.subScreenStack.size),
                 enabled = uiState.isBatchSelectionMode || uiState.subScreenStack.isNotEmpty() ||
                     uiState.currentTab != MainNavDestination.LIBRARY,
-                onBack = { viewModel.popSubScreen() }
+                onBack = { viewModel.popSubScreen() },
+                backStack = MainNavDestination.entries.map {
+                    com.example.ui.components.NavigationFrame(null, it, 0)
+                } + uiState.subScreenStack.mapIndexed { index, screen ->
+                    com.example.ui.components.NavigationFrame(screen, uiState.currentTab, index + 1)
+                },
+                retainState = !uiState.isVaultUnlocked && !uiState.fileVaultOpen && activeSub != SubScreen.HiddenBooks,
+                animateBack = !uiState.isBatchSelectionMode
             ) { (subScreen, currentTab) ->
                 if (subScreen != null) {
                     when (subScreen) {

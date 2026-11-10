@@ -724,7 +724,7 @@ fun PublicationDetailScreen(
                                 .weight(1f)
                                 .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                 .clip(CircleShape)
-                                .clickable { onStartReading(book.currentPage) }
+                                .clickable { onStartReading(null) }
                                 .testTag("detail_start_reading_cta")
                         ) {
                             Row(

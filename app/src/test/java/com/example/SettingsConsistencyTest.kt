@@ -520,6 +520,25 @@ open class SettingsConsistencyTest {
         capture("detail-font-200")
     }
 
+    @Test fun continueReadingRestoresSavedViewportInsteadOfExplicitPageJump() {
+        var called = false
+        var requestedPage: Int? = -1
+        compose.setContent {
+            AsterReaderTheme {
+                com.example.ui.screens.PublicationDetailScreen(comicFixture("继续阅读"),
+                    AsterUiState(settingsLoaded = true), false, model, {}, {
+                        called = true
+                        requestedPage = it
+                    })
+            }
+        }
+        compose.onNodeWithTag("detail_start_reading_cta").performClick()
+        compose.runOnIdle {
+            org.junit.Assert.assertTrue(called)
+            org.junit.Assert.assertNull(requestedPage)
+        }
+    }
+
     @Test fun metadataEditorIsAFullPageAtDoubleFontScale() {
         compose.setContent {
             rootView = androidx.compose.ui.platform.LocalView.current.rootView
