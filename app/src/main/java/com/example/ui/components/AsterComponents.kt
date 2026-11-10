@@ -128,9 +128,9 @@ fun AppleFloatingBottomDock(
                 .testTag("apple_floating_bottom_dock")
         ) {
             Row(
-                modifier = Modifier.width(IntrinsicSize.Max).padding(horizontal = 8.dp, vertical = 5.dp),
+                modifier = Modifier.width(IntrinsicSize.Max).padding(horizontal = com.asterreader.core.designsystem.AsterLayout.FloatingDockHorizontalPadding, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(com.asterreader.core.designsystem.AsterLayout.FloatingDockTabGap)
             ) {
                 dockItems.forEach { dest ->
                     val selected = dest == currentDestination
@@ -153,7 +153,7 @@ fun AppleFloatingBottomDock(
                     Column(
                         modifier = Modifier
                             .weight(1f)
-                            .widthIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                            .widthIn(min = com.asterreader.core.designsystem.AsterLayout.FloatingDockTabWidth)
                             .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                             .clip(androidx.compose.foundation.shape.CircleShape)
                             .background(pillBg)

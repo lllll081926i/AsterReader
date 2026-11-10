@@ -111,6 +111,7 @@ fun PublicationPageCanvas(
     zoomCommand: ReaderZoomCommand = ReaderZoomCommand(),
     loadPage: suspend (Int, Int) -> Bitmap,
     cachedPage: (Int, Int) -> Bitmap? = { _, _ -> null },
+    cachedPageSize: (Int) -> Pair<Int, Int>? = { null },
     nativeSize: (Bitmap) -> Pair<Int, Int>? = { null },
     loadRegion: suspend (Int, Float, Float, Int) -> Bitmap? = { _, _, _, _ -> null },
     onPrefetch: (List<Int>) -> Unit = {},
@@ -217,7 +218,7 @@ fun PublicationPageCanvas(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            items(totalPages, key = { it }) { index ->
+            items(totalPages, key = { it }, contentType = { "comic_page" }) { index ->
                 DocumentPage(
                     publicationId = publicationId,
                     page = index + 1,
@@ -230,7 +231,9 @@ fun PublicationPageCanvas(
                     onNext = onNextPage,
                     onPrev = onPrevPage,
                     modifier = Modifier.fillMaxWidth(),
-                    knownRatio = pageRatios[index + 1] ?: 0f,
+                    knownRatio = pageRatios[index + 1] ?: cachedPageSize(index + 1)?.let {
+                        it.first.toFloat() / it.second
+                    } ?: 0f,
                     onRatio = { pageRatios[index + 1] = it },
                     resetToken = page,
                     zoomCommand = zoomCommand,
@@ -464,15 +467,16 @@ private fun DocumentPage(
     // 换页时保留上一张位图作占位：预取命中缓存后几乎立刻替换，不再闪全屏转圈。
     // 只有超过 220ms 还没加载出来，才在角落补一个轻量指示器。
     var shown by remember(publicationId, page) { mutableStateOf<Bitmap?>(null) }
+    val ready = result?.getOrNull()
+    val displayed = ready ?: shown
     var slowLoad by remember(publicationId, page) { mutableStateOf(false) }
-    LaunchedEffect(publicationId, page) {
+    LaunchedEffect(publicationId, page, displayed, ready) {
         slowLoad = false
+        if (ready != null) return@LaunchedEffect
         delay(220)
         slowLoad = true
     }
-    val ready = result?.getOrNull()
     LaunchedEffect(ready) { if (ready != null) shown = ready }
-    val displayed = ready ?: shown
 
     val fade by animateFloatAsState(
         targetValue = if (displayed != null) 1f else 0f,

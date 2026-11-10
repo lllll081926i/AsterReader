@@ -27,6 +27,53 @@ import java.util.zip.ZipOutputStream
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [31, 35])
 class DocumentRenderSessionTest {
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun distantPrefetchCannotEvictCurrentAndNearbyPages() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val bitmap = android.graphics.Bitmap.createBitmap(4, 4, android.graphics.Bitmap.Config.ARGB_8888)
+        val encoded = java.io.ByteArrayOutputStream().also {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }.toByteArray()
+        val bytesPerPage = bitmap.allocationByteCount
+        bitmap.recycle()
+        val session = DocumentRenderSession(app, bytesPerPage * 3)
+        val reads = AtomicInteger()
+        val source = PageSource.Directory(10_000) { reads.incrementAndGet(); encoded.inputStream() }
+        try {
+            val current = session.render("大图集", 1, 1000) { source }
+            session.prefetch("大图集", (2..16).toList(), 1000) { source }
+            assertSame(current, session.cachedPage("大图集", 1, 1000))
+            assertNotNull(session.cachedPage("大图集", 2, 1000))
+            assertNotNull(session.cachedPage("大图集", 3, 1000))
+            assertNull(session.cachedPage("大图集", 4, 1000))
+            assertEquals(4, reads.get())
+            val next = session.render("大图集", 8, 1000) { source }
+            session.prefetch("大图集", listOf(7, 6, 5, 4), 1000) { source }
+            assertSame(next, session.cachedPage("大图集", 8, 1000))
+            assertNotNull(session.cachedPage("大图集", 7, 1000))
+            assertNotNull(session.cachedPage("大图集", 6, 1000))
+            assertTrue(session.cachedBytes() <= session.maxCacheBytes())
+        } finally { session.close() }
+    }
+
+    @Test fun dimensionsSurviveBitmapEvictionButNotSourceChangeOrClose() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val source = PageSource.Directory(1) { png.inputStream() }
+        try {
+            session.render("尺寸", 1, 1000) { source }
+            session.trimMemory()
+            assertNull(session.cachedPage("尺寸", 1, 1000))
+            assertEquals(1 to 1, session.cachedPageSize("尺寸", 1))
+            assertNull(session.cachedPageSize("其他来源", 1))
+            session.index("其他来源") { source }
+            assertNull(session.cachedPageSize("尺寸", 1))
+            session.render("其他来源", 1, 1000) { source }
+            session.close()
+            assertNull(session.cachedPageSize("其他来源", 1))
+        } finally { session.close() }
+    }
+
     private val png = java.util.Base64.getDecoder()
         .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
 

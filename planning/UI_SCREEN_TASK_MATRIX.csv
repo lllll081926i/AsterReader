@@ -3,7 +3,7 @@ O-00,启动 Bootstrap / 安全遮盖,P0,正常、锁定、数据库失败,UI-W0/
 O-01,欢迎与本地优先说明,P0,首次、返回,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 O-02,添加内容引导,P0,未授权、选择来源,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 O-03,首次安全引导,P0,跳过、设置完成,UI-W0/UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
-L-01,资料库首页,P0,空、加载、正常、错误、受保护,UI-W1,已补后台高清封面与导航岛内容宽度；见 docs/62；完整状态待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+L-01,资料库首页,P0,空、加载、正常、错误、受保护,UI-W1,已补后台高清封面与导航岛内容宽度；导航岛加宽和间距见 docs/64；完整状态待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 L-02,资料库作用域 / 文件夹视图,P0,所有、某仓库、某书架,UI-W1,未开始,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 L-03,搜索输入与历史,P0,焦点、无历史、有历史,UI-W1,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 L-04,搜索结果 / 筛选,P0,全部、零结果、错误、局部解锁,UI-W1,已实现紧凑分类 Tab 与单一筛选入口；已优化后台取消（见 docs/47）；完整状态待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
@@ -18,7 +18,7 @@ P-03,编辑元数据,P0,保存、冲突、取消,UI-W1,已实现独立编辑页�
 P-04,文件属性与来源,P0,单文件、目录、密文,UI-W1,1.0.0 密文属性隐藏内部 URI 并说明校验边界；完整字段待补充,引用 docs/54_FINAL_AUDIT_AND_1_0_0.md
 P-05,漫画页书签与笔记汇总,P0,有内容、空、格式受限,UI-W3,1.0.0 修正笔记文案与成功清空时机；待完整设备验收,引用 docs/54_FINAL_AUDIT_AND_1_0_0.md
 R-01,Reader Shell,P0,controls 隐藏/显示、会话失效,UI-W3,已修复连续滚动重组与缓存首帧；见 docs/63；API31和37设备待验收,引用 docs/54_FINAL_AUDIT_AND_1_0_0.md
-R-02,漫画分页/条漫,P0,正常、缩放、解码失败,UI-W3,延迟解析与阅读复用ZIP索引；常规图片复用单流；解析失败可重试（见 docs/56）；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
+R-02,漫画分页/条漫,P0,正常、缩放、解码失败,UI-W3,延迟解析与阅读复用ZIP索引；常规图片复用单流；缓存优先保留近页并复用尺寸（见 docs/64）；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-03,Reader 进度/跳转,P0,拖动、预览、提交,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-04,漫画阅读设置,P0,独立页面及本书与默认共用配置,UI-W3,MD3标准密度与列表控件；保留上下0～16页与本书/默认范围（见 docs/61）；待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md
 R-07,漫画页书签与笔记,P0,正常、空、错误、锁定,UI-W3,待设备验收,引用 docs/36_COMPLETE_UI_UX_SPEC.md

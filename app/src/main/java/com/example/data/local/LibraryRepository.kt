@@ -208,6 +208,11 @@ class LibraryRepository(
     fun observeHiddenCount() = dao.observeHiddenCount()
     fun nativePageSize(bitmap: Bitmap): Pair<Int, Int>? = renderSession.nativeSize(bitmap)
 
+    fun cachedPageSize(book: BookEntity, page: Int): Pair<Int, Int>? {
+        if (book.isVaultEncrypted && !fileVault.unlocked) return null
+        return renderSession.cachedPageSize(sourceKey(book), page)
+    }
+
     fun cachedPage(book: BookEntity, page: Int, maxPixels: Int): Bitmap? {
         if (book.isVaultEncrypted && !fileVault.unlocked) return null
         return renderSession.cachedPage(sourceKey(book), page, maxPixels)

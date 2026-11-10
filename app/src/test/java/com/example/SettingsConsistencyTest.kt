@@ -472,6 +472,10 @@ open class SettingsConsistencyTest {
         val four = compose.onNodeWithTag("apple_floating_bottom_dock").getUnclippedBoundsInRoot()
         val root = compose.onRoot().getUnclippedBoundsInRoot()
         org.junit.Assert.assertTrue("岛体应按内容收缩", four.right - four.left < root.right - root.left - 64.dp)
+        org.junit.Assert.assertTrue("四个标签应有适当宽度", four.right - four.left >= 284.dp)
+        val first = compose.onNodeWithTag("nav_dock_library").getUnclippedBoundsInRoot()
+        val second = compose.onNodeWithTag("nav_dock_shelves").getUnclippedBoundsInRoot()
+        org.junit.Assert.assertTrue("按钮之间至少留出12dp", second.left - first.right >= 12.dp)
         compose.runOnIdle { showStats.value = false }
         val three = compose.onNodeWithTag("apple_floating_bottom_dock").getUnclippedBoundsInRoot()
         org.junit.Assert.assertTrue("隐藏标签后岛体应缩窄", three.right - three.left < four.right - four.left)

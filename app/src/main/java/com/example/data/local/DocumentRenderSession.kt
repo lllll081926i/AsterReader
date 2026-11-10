@@ -46,7 +46,7 @@ internal sealed interface PageSource {
  *   7z / RAR / PDF 的真实随机读不支持并发，退化为串行；
  * - [close] 会等待在途解码结束，避免关闭归档时另一个线程还在读。
  */
-internal class DocumentRenderSession(context: Context) {
+internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = budget(context)) {
     data class Index(val pageCount: Int, val pageNames: List<String>)
 
     suspend fun index(key: String, prepare: suspend () -> PageSource): Index {
@@ -58,7 +58,7 @@ internal class DocumentRenderSession(context: Context) {
     private data class PageKey(val source: String, val page: Int, val pixels: Int, val top: Int = -1, val bottom: Int = -1) {
         fun sameArea(other: PageKey) = source == other.source && page == other.page && top == other.top && bottom == other.bottom
     }
-    private val pages = object : LruCache<PageKey, Bitmap>(budget(context)) {
+    private val pages = object : LruCache<PageKey, Bitmap>(cacheBudgetBytes) {
         override fun sizeOf(key: PageKey, value: Bitmap) = value.allocationByteCount
     }
     @Volatile private var source: OpenSource? = null
@@ -68,11 +68,15 @@ internal class DocumentRenderSession(context: Context) {
     private val pageGates = Array(32) { Mutex() }
     private val decodeSlots = Semaphore(2)
     private val foregroundRequests = MutableStateFlow(0)
+    @Volatile private var foregroundPage: Pair<String, Int>? = null
+
+    fun cachedPageSize(key: String, page: Int): Pair<Int, Int>? =
+        source?.takeIf { it.key == key }?.imageSizes?.get(page)
 
     /** 仅读取已解码内存，不打开来源；供页面首帧复用预加载结果。 */
     fun cachedPage(key: String, page: Int, maxPixels: Int): Bitmap? {
         val open = source?.takeIf { it.key == key } ?: return null
-        return cachedPage(PageKey(open.fingerprint, page, maxPixels))
+        return cachedPage(PageKey(open.fingerprint, page, maxPixels))?.also { foregroundPage = key to page }
     }
 
     suspend fun render(
@@ -81,6 +85,7 @@ internal class DocumentRenderSession(context: Context) {
         maxPixels: Int,
         prepare: suspend () -> PageSource
     ): Bitmap {
+        foregroundPage = key to page
         foregroundRequests.update { it + 1 }
         try {
         val open = ensureSource(key, prepare)
@@ -117,6 +122,8 @@ internal class DocumentRenderSession(context: Context) {
                         val bitmap = cachedDecode(open, cacheKey, background = true) { renderBitmap(open, page, maxPixels) }
                         if (bitmap == null) continue
                         prefetchedBytes += bitmap.allocationByteCount
+                        // 不为远处预加载淘汰当前页；缓存不能容纳时结束本轮。
+                        if (cachedPage(cacheKey) == null) return
                     } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
                     catch (_: Exception) { /* 可见页负责显示读取错误。 */ }
                     break
@@ -247,9 +254,26 @@ internal class DocumentRenderSession(context: Context) {
         return pageGates[gate].withLock {
             cachedPage(key) ?: decode(open, background) {
                 block()?.also { bitmap ->
+                    bitmap.prepareToDraw()
                     if (bitmap.allocationByteCount <= pages.maxSize()) {
-                        pages.snapshot().keys.filter { it.sameArea(key) && it.pixels < key.pixels }.forEach(pages::remove)
-                        pages.put(key, bitmap)
+                        synchronized(pages) {
+                            val anchor = foregroundPage?.takeIf { it.first == open.key }?.second
+                            if (background && anchor != null) {
+                                val snapshot = pages.snapshot()
+                                val required = bitmap.allocationByteCount - (pages.maxSize() - pages.size())
+                                val candidates = snapshot.keys.filter {
+                                    kotlin.math.abs(it.page.toLong() - anchor) > kotlin.math.abs(key.page.toLong() - anchor)
+                                }.sortedByDescending { kotlin.math.abs(it.page.toLong() - anchor) }
+                                if (candidates.sumOf { snapshot.getValue(it).allocationByteCount.toLong() } < required) return@also
+                                var freed = 0L
+                                for (candidate in candidates) {
+                                    if (freed >= required) break
+                                    freed += pages.remove(candidate)?.allocationByteCount ?: 0
+                                }
+                            }
+                            pages.snapshot().keys.filter { it.sameArea(key) && it.pixels < key.pixels }.forEach(pages::remove)
+                            pages.put(key, bitmap)
+                        }
                     }
                 }
             }
@@ -279,6 +303,7 @@ internal class DocumentRenderSession(context: Context) {
 
     private fun renderPdf(open: OpenSource, number: Int, maxPixels: Int): Bitmap =
         open.renderer!!.openPage(number - 1).use { page ->
+            open.imageSizes[number] = page.width to page.height
             val nativePixels = page.width.toLong() * page.height
             val scale = kotlin.math.sqrt(maxPixels.toDouble() / nativePixels).toFloat().coerceAtMost(3f)
             val width = (page.width * scale).toInt().coerceIn(1, page.width * 3)

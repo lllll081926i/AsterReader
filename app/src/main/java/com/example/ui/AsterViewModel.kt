@@ -529,6 +529,12 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         return repository.cachedPage(book, page, maxPixels)
     }
 
+    fun cachedPageSize(book: BookEntity, page: Int): Pair<Int, Int>? {
+        val state = _uiState.value
+        if (state.isAppLockedNow || (book.isVaultProtected && !state.isVaultUnlocked)) return null
+        return repository.cachedPageSize(book, page)
+    }
+
     suspend fun prepareReadingIndex(bookId: String): BookEntity {
         readerCleanupJob?.join()
         return repository.ensureReadingIndex(bookId)

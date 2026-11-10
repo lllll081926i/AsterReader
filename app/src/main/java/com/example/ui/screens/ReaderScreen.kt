@@ -327,6 +327,7 @@ private fun ReaderContent(
                     zoomCommand = zoomCommand,
                     loadPage = { targetPage, maxPixels -> viewModel.renderPage(book.id, targetPage, maxPixels) },
                     cachedPage = { targetPage, maxPixels -> viewModel.cachedPage(book, targetPage, maxPixels) },
+                    cachedPageSize = { targetPage -> viewModel.cachedPageSize(book, targetPage) },
                     loadRegion = { targetPage, top, bottom, pixels ->
                         viewModel.renderPageRegion(book.id, targetPage, top, bottom, pixels)
                     },

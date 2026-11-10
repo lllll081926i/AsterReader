@@ -22,6 +22,19 @@ import org.robolectric.annotation.Config
 class ComicPageCanvasTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun evictedPageKeepsKnownHeightWhileItsBitmapLoadsAgain() {
+        val bitmap = Bitmap.createBitmap(400, 100, Bitmap.Config.ARGB_8888)
+        compose.setContent {
+            PublicationPageCanvas("尺寸复用", 1, 2, ReaderLayoutMode.VERTICAL_SCROLL, false,
+                cachedPageSize = { 400 to 100 },
+                loadPage = { page, _ -> if (page == 1) awaitCancellation() else bitmap },
+                onPageChanged = {}, onViewportChanged = { _, _, _, _, _ -> }, onToggleChrome = {})
+        }
+        val canvas = compose.onNodeWithTag("publication_canvas").fetchSemanticsNode().boundsInRoot
+        val second = compose.onNodeWithContentDescription("第 2 页").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals("第一页加载期间仍使用原始高度", canvas.width / 4f, second.top - canvas.top, 1f)
+    }
+
     @Test
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     fun prefetchedShortPageDisplaysWithoutAnAsyncLoadOrPlaceholderHeight() {
