@@ -17,6 +17,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.asterreader.core.designsystem.AsterChoice
 import com.asterreader.core.designsystem.AsterLayout
+import com.asterreader.core.designsystem.AsterPreferenceGroup
+import com.asterreader.core.designsystem.AsterPreferenceItem
+import com.asterreader.core.designsystem.AsterPreferenceSwitch
+import com.asterreader.core.designsystem.AsterPreferenceDivider
+import com.asterreader.core.designsystem.AsterPreferenceSlider
+import com.asterreader.core.designsystem.AsterPreferenceLayout
 import com.example.ui.AsterUiState
 import com.example.ui.AsterViewModel
 import com.example.ui.ReaderLayoutMode
@@ -66,45 +72,46 @@ private fun ReaderSettingsContentBody(
     val selectedFit = if (defaults) state.fitModeLabel else fit
     val selectedCover = if (defaults) state.smartSpreadStitch else cover
     val modeLabels = ReaderLayoutMode.entries.map(::readerModeLabel)
-    Column(verticalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AsterPreferenceLayout.SectionSpacing)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TabRow(selectedTabIndex = if (defaults) 1 else 0, modifier = Modifier.weight(1f),
-                containerColor = MaterialTheme.colorScheme.background) {
+                containerColor = MaterialTheme.colorScheme.surface) {
                 Tab(selected = !defaults, onClick = { defaults = false }, text = { Text("本书") })
-                Tab(selected = defaults, onClick = { defaults = true }, text = { Text("全部") })
+                Tab(selected = defaults, onClick = { defaults = true }, text = { Text("默认") })
             }
             IconButton(onClick = onReset, enabled = !defaults) {
-                Icon(Icons.Outlined.RestartAlt, "恢复默认", Modifier.size(AsterLayout.HeaderIconSize))
+                Icon(Icons.Outlined.RestartAlt, "恢复默认", Modifier.size(AsterPreferenceLayout.IconSize),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (defaults) 0.38f else 1f))
             }
         }
-        AsterSettingsGroup("页面") {
-            AsterSettingsRow("翻页", trailingText = modeLabels[ReaderLayoutMode.entries.indexOf(selectedMode)],
+        AsterPreferenceGroup("页面") {
+            AsterPreferenceItem("翻页", trailingText = modeLabels[ReaderLayoutMode.entries.indexOf(selectedMode)],
                 onClick = { picker = "mode" })
-            AsterGroupDivider()
-            AsterSettingsRow("缩放", trailingText = selectedFit, onClick = { picker = "fit" })
-            AsterGroupDivider()
-            AsterSwitchRow("封面单页", checked = selectedCover,
+            AsterPreferenceDivider()
+            AsterPreferenceItem("缩放", trailingText = selectedFit, onClick = { picker = "fit" })
+            AsterPreferenceDivider()
+            AsterPreferenceSwitch("封面单页", checked = selectedCover,
                 onCheckedChange = { if (defaults) model.setSmartSpreadStitch(it) else onCover(it) })
             if (!defaults && selectedMode == ReaderLayoutMode.DUAL_PAGE) {
-                AsterGroupDivider()
-                AsterSwitchRow("从右向左", checked = rightToLeft, onCheckedChange = onRightToLeft)
+                AsterPreferenceDivider()
+                AsterPreferenceSwitch("从右向左", checked = rightToLeft, onCheckedChange = onRightToLeft)
             }
         }
-        AsterSettingsGroup("预加载") {
-            ReaderValueSlider("向前", "${state.preloadBefore} 页", state.preloadBefore.toFloat(),
+        AsterPreferenceGroup("预加载") {
+            AsterPreferenceSlider("向上预加载", "${state.preloadBefore} 页", state.preloadBefore.toFloat(),
                 0f..16f, 15) { model.setPreloadBefore(it.roundToInt()) }
-            AsterGroupDivider()
-            ReaderValueSlider("向后", "${state.preloadAfter} 页", state.preloadAfter.toFloat(),
+            AsterPreferenceDivider()
+            AsterPreferenceSlider("向下预加载", "${state.preloadAfter} 页", state.preloadAfter.toFloat(),
                 0f..16f, 15) { model.setPreloadAfter(it.roundToInt()) }
         }
-        AsterSettingsGroup("屏幕") {
-            ReaderValueSlider("亮度", "${(state.readerBrightness * 100).roundToInt()}%", state.readerBrightness,
+        AsterPreferenceGroup("屏幕") {
+            AsterPreferenceSlider("亮度", "${(state.readerBrightness * 100).roundToInt()}%", state.readerBrightness,
                 0.2f..1f, onChange = model::setReaderBrightness)
-            AsterGroupDivider()
-            AsterSwitchRow("状态条", checked = showStatus, onCheckedChange = onShowStatus)
+            AsterPreferenceDivider()
+            AsterPreferenceSwitch("状态条", checked = showStatus, onCheckedChange = onShowStatus)
         }
-        AsterSettingsGroup("操作") {
-            AsterSwitchRow("音量键翻页", checked = state.volumeKeyPageTurn, onCheckedChange = model::setVolumeKeyPageTurn)
+        AsterPreferenceGroup("操作") {
+            AsterPreferenceSwitch("音量键翻页", checked = state.volumeKeyPageTurn, onCheckedChange = model::setVolumeKeyPageTurn)
         }
         Spacer(Modifier.height(AsterLayout.BottomSpacing))
     }
@@ -119,7 +126,7 @@ private fun ReaderSettingsContentBody(
             text = {
                 Column(Modifier.selectableGroup().verticalScroll(rememberScrollState())) {
                     choices.forEachIndexed { index, choice ->
-                        Row(Modifier.fillMaxWidth().selectable(index == selected, role = Role.RadioButton,
+                        ListItem(modifier = Modifier.fillMaxWidth().selectable(index == selected, role = Role.RadioButton,
                             onClick = {
                                 if (choosingMode) {
                                     if (defaults) model.setReaderLayoutMode(ReaderLayoutMode.entries[index])
@@ -128,31 +135,14 @@ private fun ReaderSettingsContentBody(
                                     if (defaults) model.setFitModeLabel(choice.label) else onFit(choice.label)
                                 }
                                 picker = null
-                            }).heightIn(min = AsterLayout.TouchTarget)
+                            }).heightIn(min = AsterPreferenceLayout.RowHeight)
                             .semantics { contentDescription = choice.description ?: choice.label },
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {
-                            RadioButton(index == selected, onClick = null)
-                            Text(choice.label, style = MaterialTheme.typography.bodyLarge)
-                        }
+                            headlineContent = { Text(choice.label, style = MaterialTheme.typography.bodyLarge) },
+                            leadingContent = { Icon(choice.icon, null, Modifier.size(AsterPreferenceLayout.IconSize)) },
+                            trailingContent = { RadioButton(index == selected, onClick = null) },
+                            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh))
                     }
                 }
             }, confirmButton = { TextButton(onClick = { picker = null }) { Text("取消") } })
-    }
-}
-
-@Composable
-private fun ReaderValueSlider(
-    label: String, valueText: String, value: Float, range: ClosedFloatingPointRange<Float>,
-    steps: Int = 0, onChange: (Float) -> Unit
-) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = AsterLayout.PagePadding, vertical = AsterLayout.ControlSpacing)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {
-            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Text(valueText, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        }
-        Slider(value, onChange, Modifier.fillMaxWidth().semantics { contentDescription = label },
-            valueRange = range, steps = steps)
     }
 }

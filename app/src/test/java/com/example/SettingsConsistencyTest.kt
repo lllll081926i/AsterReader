@@ -96,14 +96,46 @@ open class SettingsConsistencyTest {
         compose.onNodeWithText("诊断与帮助").assertDoesNotExist()
         compose.onNodeWithText("外观").assertIsDisplayed()
         org.junit.Assert.assertTrue(compose.onNodeWithText("外观").fetchSemanticsNode().boundsInRoot.height >=
-            62f * compose.density.density)
+            56f * compose.density.density)
         org.junit.Assert.assertTrue(compose.onNodeWithText("外观").fetchSemanticsNode().boundsInRoot.height <
-            78f * compose.density.density)
+            72f * compose.density.density)
         compose.onNodeWithText("安全").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("关于").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("关于").performClick()
         compose.runOnIdle { check(model.uiState.value.activeSubScreen == com.example.ui.SubScreen.SettingsSection("about")) }
         capture("settings-home-light")
+    }
+
+    @Test fun settingsKeepSystemDensityAndFontScaleWithoutMagnification() {
+        compose.setContent {
+            val density = LocalDensity.current.density
+            CompositionLocalProvider(LocalDensity provides Density(density, 2f)) {
+                com.asterreader.core.designsystem.AsterSettingsScale {
+                    com.asterreader.core.designsystem.AsterSettingsScale {
+                        org.junit.Assert.assertEquals(density, LocalDensity.current.density, 0f)
+                        org.junit.Assert.assertEquals(2f, LocalDensity.current.fontScale, 0f)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test fun settingsHomeIsReachableInDarkModeAtDoubleFontScale() {
+        content(dark = true, fontScale = 2f)
+        compose.onNodeWithText("外观").assertIsDisplayed()
+        capture("md3-settings-dark-font-200-top")
+        compose.onNodeWithText("关于").performScrollTo().assertIsDisplayed()
+        capture("md3-settings-dark-font-200-bottom")
+    }
+
+    @Test fun readerSettingsShowDefaultScopeAndMonetDarkControls() {
+        readerContent(dark = true)
+        compose.onNodeWithText("本书").assertIsDisplayed()
+        compose.onNodeWithText("默认").assertIsDisplayed()
+        compose.onNodeWithContentDescription("恢复默认").assertIsEnabled()
+        capture("md3-reader-settings-dark")
+        compose.onNodeWithText("默认").performClick()
+        compose.onNodeWithContentDescription("恢复默认").assertIsNotEnabled()
     }
 
     @Test fun fileVaultCreationRequiresConfirmationAndRecoveryAcknowledgement() {
@@ -147,7 +179,7 @@ open class SettingsConsistencyTest {
             org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
             model.uiState.value.settingsLoaded
         }
-        for (label in listOf("向前", "向后")) {
+        for (label in listOf("向上预加载", "向下预加载")) {
             compose.onNodeWithContentDescription(label).performScrollTo()
                 .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(16f) }
         }
@@ -339,7 +371,7 @@ open class SettingsConsistencyTest {
         content()
         val first = compose.onNodeWithText("外观").getUnclippedBoundsInRoot()
         val second = compose.onNodeWithText("阅读统计").getUnclippedBoundsInRoot()
-        org.junit.Assert.assertEquals(52f, (first.bottom - first.top).value, 0.5f)
+        org.junit.Assert.assertEquals(56f, (first.bottom - first.top).value, 0.5f)
         org.junit.Assert.assertEquals((first.bottom - first.top).value, (second.bottom - second.top).value, 0.5f)
     }
 
@@ -682,7 +714,7 @@ open class SettingsConsistencyTest {
     @Test fun readerDefaultsDoNotOverwriteTheBookOverride() {
         readerContent()
         chooseReaderMode("从左向右")
-        compose.onNodeWithText("全部", substring = false).performScrollTo().performClick()
+        compose.onNodeWithText("默认", substring = false).performScrollTo().performClick()
         chooseReaderMode("双页")
         compose.runOnIdle { check(model.uiState.value.readerLayoutMode == com.example.ui.ReaderLayoutMode.DUAL_PAGE) }
         compose.onNodeWithText("本书").performScrollTo().performClick()

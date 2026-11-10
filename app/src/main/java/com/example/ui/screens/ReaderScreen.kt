@@ -704,29 +704,13 @@ private fun ReaderContent(
             Column(
                 modifier = Modifier
                     .fillMaxSize().statusBarsPadding().navigationBarsPadding()
-                    .padding(horizontal = com.asterreader.core.designsystem.AsterLayout.PagePadding)
             ) {
-                AsterHeaderRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = { showModeSheet = false }, modifier = Modifier.asterHeaderAction()) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回阅读",
-                            modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize))
-                    }
-                    Text(
-                        text = "阅读设置",
-                        modifier = Modifier.weight(1f),
-                        style = AsterHeaderTitleStyle,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
+                com.asterreader.core.designsystem.AsterPreferenceHeader("阅读设置", { showModeSheet = false }, "返回阅读")
                 Column(Modifier.weight(1f).align(Alignment.CenterHorizontally)
-                    .widthIn(max = com.asterreader.core.designsystem.AsterLayout.SearchContentMaxWidth)
-                    .fillMaxWidth().verticalScroll(rememberScrollState())) {
+                    .widthIn(max = com.asterreader.core.designsystem.AsterPreferenceLayout.ContentMaxWidth)
+                    .fillMaxWidth().verticalScroll(rememberScrollState())
+                    .padding(horizontal = com.asterreader.core.designsystem.AsterLayout.PagePadding)
+                    .padding(top = com.asterreader.core.designsystem.AsterLayout.ControlSpacing)) {
                 ReaderSettingsContent(uiState, viewModel, readerMode, readerFit, readerCover,
                     rtlOverride ?: (readerMode == ReaderLayoutMode.RTL_PAGER),
                     onMode = { modeOverride = it; if (it != ReaderLayoutMode.DUAL_PAGE) rtlOverride = null },

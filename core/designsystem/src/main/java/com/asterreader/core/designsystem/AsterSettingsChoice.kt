@@ -12,7 +12,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -24,8 +23,7 @@ data class AsterChoice(val label: String, val icon: ImageVector, val description
 
 object AsterSettingsColors {
     val container
-        @Composable get() = lerp(MaterialTheme.colorScheme.surfaceContainerLow,
-            MaterialTheme.colorScheme.primaryContainer, 0.30f)
+        @Composable get() = MaterialTheme.colorScheme.surfaceContainerLow
 }
 
 /** 短组使用系统分段按钮；长组及大字体使用整行勾选。 */

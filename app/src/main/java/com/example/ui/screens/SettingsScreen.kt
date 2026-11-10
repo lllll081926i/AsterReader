@@ -18,6 +18,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.asterreader.core.designsystem.AsterSettingsChoice
 import com.asterreader.core.designsystem.AsterChoice
 import com.asterreader.core.designsystem.AsterLayout
+import com.asterreader.core.designsystem.AsterPreferenceGroup as AsterSettingsGroup
+import com.asterreader.core.designsystem.AsterPreferenceItem as AsterSettingsRow
+import com.asterreader.core.designsystem.AsterPreferenceSwitch as AsterSwitchRow
+import com.asterreader.core.designsystem.AsterPreferenceDivider as AsterGroupDivider
+import com.asterreader.core.designsystem.AsterPreferenceHeader
+import com.asterreader.core.designsystem.AsterPreferenceLayout
 import com.example.data.local.RepositoryEntity
 import com.example.data.local.ShelfEntity
 import com.example.ui.*
@@ -78,13 +84,13 @@ private fun SettingsScreenBody(
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).statusBarsPadding()
         .testTag(if (section == null) "settings_screen" else "settings_$section")) {
-        AsterSubScreenHeader(if (section?.startsWith("fileExport:") == true) "加密导出" else if (section in setOf("fileVault", "fileEncrypt")) "文件保险库"
+        AsterPreferenceHeader(if (section?.startsWith("fileExport:") == true) "加密导出" else if (section in setOf("fileVault", "fileEncrypt")) "文件保险库"
             else if (section?.startsWith("license:") == true) "许可" else sectionTitles[section] ?: "设置", onBack)
-        Column(Modifier.weight(1f).widthIn(max = 840.dp).fillMaxWidth()
-            .align(androidx.compose.ui.Alignment.CenterHorizontally).verticalScroll(rememberScrollState())
-            .navigationBarsPadding().imePadding().padding(horizontal = AsterLayout.PagePadding)
-            .padding(top = 4.dp, bottom = AsterLayout.BottomSpacing),
-            verticalArrangement = Arrangement.spacedBy(AsterLayout.GroupSpacing)) {
+        Column(Modifier.weight(1f).widthIn(max = AsterPreferenceLayout.ContentMaxWidth).fillMaxWidth()
+            .align(androidx.compose.ui.Alignment.CenterHorizontally).navigationBarsPadding().imePadding()
+            .verticalScroll(rememberScrollState()).padding(horizontal = AsterLayout.PagePadding)
+            .padding(top = AsterLayout.ControlSpacing, bottom = AsterLayout.PagePadding),
+            verticalArrangement = Arrangement.spacedBy(AsterPreferenceLayout.SectionSpacing)) {
             when (section) {
                 "fileVault", "fileEncrypt" -> FileVaultContent(uiState, viewModel, section)
                 "encryptedExport", "encryptedRestore" -> EncryptedBackupForm(section == "encryptedExport", uiState, viewModel, { onBack?.invoke() })
