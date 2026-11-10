@@ -20,6 +20,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
@@ -362,7 +363,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
                     listOf(book.id, book.filePath, book.sizeBytes.toString(), book.sourceModifiedAt.toString(),
                         book.contentFingerprint, book.coverPage.toString(), book.sourceStatus, book.isVaultProtected.toString())
                 }
-            }.distinctUntilChanged().conflate().collect {
+            }.distinctUntilChanged().flowOn(Dispatchers.Default).conflate().collect {
                 suspend fun awaitBackgroundSlot() {
                     uiState.first { state -> state.settingsLoaded && !state.isAppLockedNow && !state.isScanning &&
                         state.activeSubScreen !is SubScreen.Reader && state.activeSubScreen !is SubScreen.PublicationDetail }
@@ -520,6 +521,12 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun renderPage(id: String, page: Int, maxPixels: Int = LibraryRepository.DEFAULT_PAGE_PIXELS): android.graphics.Bitmap {
         readerCleanupJob?.join()
         return repository.renderPage(id, page, maxPixels)
+    }
+
+    fun cachedPage(book: BookEntity, page: Int, maxPixels: Int): android.graphics.Bitmap? {
+        val state = _uiState.value
+        if (state.isAppLockedNow || (book.isVaultProtected && !state.isVaultUnlocked)) return null
+        return repository.cachedPage(book, page, maxPixels)
     }
 
     suspend fun prepareReadingIndex(bookId: String): BookEntity {

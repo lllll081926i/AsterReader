@@ -83,6 +83,27 @@ class DocumentRenderSessionTest {
         } finally { session.close() }
     }
 
+    @Test fun prefetchedPageCanBeReadSynchronouslyWithoutOpeningSourceAgain() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val opened = AtomicInteger()
+        val source = PageSource.Directory(2) { opened.incrementAndGet(); png.inputStream() }
+        try {
+            assertNull(session.cachedPage("首帧缓存", 1, 2_500_000))
+            session.prefetch("首帧缓存", listOf(1), 2_500_000) { source }
+            val cached = session.cachedPage("首帧缓存", 1, 2_500_000)
+            assertNotNull(cached)
+            assertSame(cached, session.render("首帧缓存", 1, 2_500_000) { error("不得重复打开来源") })
+            assertEquals(1, opened.get())
+            assertNull(session.cachedPage("其他来源", 1, 2_500_000))
+            assertNull(session.cachedPage("首帧缓存", 1, 4_000_000))
+            session.trimMemory()
+            assertNull(session.cachedPage("首帧缓存", 1, 2_500_000))
+            session.render("首帧缓存", 1, 2_500_000) { source }
+            session.close()
+            assertNull(session.cachedPage("首帧缓存", 1, 2_500_000))
+        } finally { session.close() }
+    }
+
     @Test fun queuedLowerResolutionReusesInFlightHigherResolution() = runBlocking {
         val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
         val entered = CompletableDeferred<Unit>()

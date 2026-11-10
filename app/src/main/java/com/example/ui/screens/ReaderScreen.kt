@@ -326,6 +326,7 @@ private fun ReaderContent(
                     nativeSize = viewModel::nativePageSize,
                     zoomCommand = zoomCommand,
                     loadPage = { targetPage, maxPixels -> viewModel.renderPage(book.id, targetPage, maxPixels) },
+                    cachedPage = { targetPage, maxPixels -> viewModel.cachedPage(book, targetPage, maxPixels) },
                     loadRegion = { targetPage, top, bottom, pixels ->
                         viewModel.renderPageRegion(book.id, targetPage, top, bottom, pixels)
                     },

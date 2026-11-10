@@ -22,6 +22,67 @@ import org.robolectric.annotation.Config
 class ComicPageCanvasTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun prefetchedShortPageDisplaysWithoutAnAsyncLoadOrPlaceholderHeight() {
+        val bitmap = Bitmap.createBitmap(400, 100, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(android.graphics.Color.GREEN)
+        var loads = 0
+        lateinit var rootView: android.view.View
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            PublicationPageCanvas("预载首帧", 1, 1, ReaderLayoutMode.VERTICAL_SCROLL, false,
+                cachedPage = { _, _ -> bitmap },
+                loadPage = { _, _ -> loads++; awaitCancellation() },
+                onPageChanged = {}, onViewportChanged = { _, _, _, _, _ -> }, onToggleChrome = {})
+        }
+        val bounds = compose.onNodeWithContentDescription("第 1 页").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals(bounds.width / 4f, bounds.height, 1f)
+        compose.runOnIdle { assertEquals("命中内存缓存不得重新查询或等待解码", 0, loads) }
+        compose.runOnIdle {
+            val image = Bitmap.createBitmap(rootView.width, rootView.height, Bitmap.Config.ARGB_8888)
+            rootView.draw(android.graphics.Canvas(image))
+            val directory = java.io.File("build/ui-review").apply { mkdirs() }
+            java.io.File(directory, "cached-short-page-api${android.os.Build.VERSION.SDK_INT}.png").outputStream().use {
+                image.compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
+            image.recycle()
+        }
+    }
+
+    @Test fun scrollingWithinOnePageUpdatesViewportWithoutRepeatingPageChange() {
+        val bitmap = Bitmap.createBitmap(100, 2000, Bitmap.Config.ARGB_8888)
+        var changes = 0
+        var moved = false
+        compose.setContent {
+            PublicationPageCanvas("页内滚动", 1, 2, ReaderLayoutMode.VERTICAL_SCROLL, false,
+                cachedPage = { _, _ -> bitmap }, loadPage = { _, _ -> bitmap },
+                onPageChanged = { changes++ },
+                onViewportChanged = { _, fraction, _, _, _ -> if (fraction > 0f) moved = true }, onToggleChrome = {})
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { changes = 0 }
+        compose.onNodeWithTag("publication_canvas").performTouchInput { swipeUp() }
+        compose.runOnIdle {
+            org.junit.Assert.assertTrue("仍需保存页内滚动位置", moved)
+            assertEquals("同页滚动不应反复通知换页", 0, changes)
+        }
+    }
+
+    @Test fun cachedPageRestoresItsOffsetWithoutWaitingForAnotherLayoutChange() {
+        val bitmap = Bitmap.createBitmap(100, 1000, Bitmap.Config.ARGB_8888)
+        var restoredFraction = 0f
+        compose.setContent {
+            PublicationPageCanvas("缓存位置恢复", 1, 2, ReaderLayoutMode.VERTICAL_SCROLL, false,
+                initialOffsetFraction = 0.25f,
+                cachedPage = { _, _ -> bitmap }, loadPage = { _, _ -> bitmap },
+                onPageChanged = {},
+                onViewportChanged = { _, fraction, _, _, _ -> restoredFraction = fraction }, onToggleChrome = {})
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(0.25f, restoredFraction, 0.01f) }
+    }
+
     @Test fun openingPageRequestsNormalResolutionOnly() {
         val requests = java.util.concurrent.CopyOnWriteArrayList<Int>()
         val bitmap = Bitmap.createBitmap(4, 6, Bitmap.Config.ARGB_8888)

@@ -61,13 +61,19 @@ internal class DocumentRenderSession(context: Context) {
     private val pages = object : LruCache<PageKey, Bitmap>(budget(context)) {
         override fun sizeOf(key: PageKey, value: Bitmap) = value.allocationByteCount
     }
-    private var source: OpenSource? = null
+    @Volatile private var source: OpenSource? = null
     private val dimensions = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Bitmap, Pair<Int, Int>>())
     fun nativeSize(bitmap: Bitmap): Pair<Int, Int>? = dimensions[bitmap]
     private val inFlight = MutableStateFlow(0)
     private val pageGates = Array(32) { Mutex() }
     private val decodeSlots = Semaphore(2)
     private val foregroundRequests = MutableStateFlow(0)
+
+    /** 仅读取已解码内存，不打开来源；供页面首帧复用预加载结果。 */
+    fun cachedPage(key: String, page: Int, maxPixels: Int): Bitmap? {
+        val open = source?.takeIf { it.key == key } ?: return null
+        return cachedPage(PageKey(open.fingerprint, page, maxPixels))
+    }
 
     suspend fun render(
         key: String,

@@ -110,6 +110,7 @@ fun PublicationPageCanvas(
     initialOffsetFraction: Float = 0f,
     zoomCommand: ReaderZoomCommand = ReaderZoomCommand(),
     loadPage: suspend (Int, Int) -> Bitmap,
+    cachedPage: (Int, Int) -> Bitmap? = { _, _ -> null },
     nativeSize: (Bitmap) -> Pair<Int, Int>? = { null },
     loadRegion: suspend (Int, Float, Float, Int) -> Bitmap? = { _, _, _, _ -> null },
     onPrefetch: (List<Int>) -> Unit = {},
@@ -156,11 +157,15 @@ fun PublicationPageCanvas(
         var restored by remember(publicationId) { mutableStateOf(false) }
 
         // 恢复页内滚动比例：首帧布局完成后按比例跳转
-        LaunchedEffect(page, initialOffsetFraction, list.layoutInfo.totalItemsCount) {
+        LaunchedEffect(publicationId, list, initialOffsetFraction) {
             if (restored || initialOffsetFraction <= 0f) return@LaunchedEffect
-            val info = list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == page - 1 } ?: return@LaunchedEffect
-            if (info.size > 0) {
-                list.scrollToItem(page - 1, (info.size * initialOffsetFraction).toInt())
+            val restorePage = page
+            val (_, offset, info) = snapshotFlow {
+                Triple(list.firstVisibleItemIndex, list.firstVisibleItemScrollOffset,
+                    list.layoutInfo.visibleItemsInfo.firstOrNull { it.index == restorePage - 1 && pageRatios[restorePage] != null })
+            }.first { (index, offset, info) -> index != restorePage - 1 || offset != 0 || info != null }
+            if (info != null && offset == 0 && list.firstVisibleItemIndex == restorePage - 1) {
+                list.scrollToItem(restorePage - 1, (info.size * initialOffsetFraction).toInt())
                 restored = true
             }
         }
@@ -198,9 +203,11 @@ fun PublicationPageCanvas(
                 .collect { (index, offset, size) ->
                     if (programmaticScroll) return@collect
                     val actualPage = index + 1
-                    lastReported = actualPage
                     val fraction = if (size > 0) (offset.toFloat() / size).coerceIn(0f, 0.999f) else 0f
-                    onPageChanged(actualPage)
+                    if (lastReported != actualPage) {
+                        lastReported = actualPage
+                        onPageChanged(actualPage)
+                    }
                     onViewportChanged(actualPage, fraction, zoomScale, panX, panY)
                 }
         }
@@ -215,15 +222,14 @@ fun PublicationPageCanvas(
                     publicationId = publicationId,
                     page = index + 1,
                     load = loadPage,
+                    cachedPage = cachedPage,
                     nativeSize = nativeSize,
                     chromeRange = chromeRange,
                     loadRegion = loadRegion,
                     onToggleChrome = onToggleChrome,
                     onNext = onNextPage,
                     onPrev = onPrevPage,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(if (pageRatios[index + 1] == null) Modifier.heightIn(min = 320.dp) else Modifier),
+                    modifier = Modifier.fillMaxWidth(),
                     knownRatio = pageRatios[index + 1] ?: 0f,
                     onRatio = { pageRatios[index + 1] = it },
                     resetToken = page,
@@ -273,6 +279,7 @@ fun PublicationPageCanvas(
                             publicationId = publicationId,
                             page = number,
                             load = loadPage,
+                            cachedPage = cachedPage,
                             nativeSize = nativeSize,
                             chromeRange = chromeRange,
                             rightToLeft = rightToLeft,
@@ -326,6 +333,7 @@ private fun DocumentPage(
     publicationId: String,
     page: Int,
     load: suspend (Int, Int) -> Bitmap,
+    cachedPage: (Int, Int) -> Bitmap?,
     nativeSize: (Bitmap) -> Pair<Int, Int>?,
     chromeRange: ClosedFloatingPointRange<Float>,
     rightToLeft: Boolean = false,
@@ -433,11 +441,14 @@ private fun DocumentPage(
 
     var attempt by remember { mutableIntStateOf(0) }
     val owner = LocalLifecycleOwner.current
-    val result by produceState<Result<Bitmap>?>(null, publicationId, page, attempt, maxPixels, owner) {
+    val currentCachedPage by rememberUpdatedState(cachedPage)
+    val currentLoad by rememberUpdatedState(load)
+    val initialBitmap = remember(publicationId, page, maxPixels, owner, cachedPage) { cachedPage(page, maxPixels) }
+    val result by produceState<Result<Bitmap>?>(initialBitmap?.let { Result.success(it) }, publicationId, page, attempt, maxPixels, owner) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             try {
                 value = try {
-                    Result.success(load(page, maxPixels))
+                    Result.success(currentCachedPage(page, maxPixels) ?: currentLoad(page, maxPixels))
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
@@ -481,7 +492,7 @@ private fun DocumentPage(
 
     Box(
         modifier = modifier
-            .then(if (vertical && pageRatio > 0f) Modifier.aspectRatio(pageRatio) else Modifier)
+            .then(if (!vertical) Modifier else if (pageRatio > 0f) Modifier.aspectRatio(pageRatio) else Modifier.heightIn(min = 320.dp))
             .clipToBounds()
             .onSizeChanged { viewport = it }
             .onGloballyPositioned { originX = it.positionInRoot().x }

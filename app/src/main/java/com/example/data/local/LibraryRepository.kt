@@ -208,6 +208,11 @@ class LibraryRepository(
     fun observeHiddenCount() = dao.observeHiddenCount()
     fun nativePageSize(bitmap: Bitmap): Pair<Int, Int>? = renderSession.nativeSize(bitmap)
 
+    fun cachedPage(book: BookEntity, page: Int, maxPixels: Int): Bitmap? {
+        if (book.isVaultEncrypted && !fileVault.unlocked) return null
+        return renderSession.cachedPage(sourceKey(book), page, maxPixels)
+    }
+
     /**
      * 智能识别系列名称与卷序
      * 例如："葬送的芙莉莲 卷11" -> ("葬送的芙莉莲", 11)
