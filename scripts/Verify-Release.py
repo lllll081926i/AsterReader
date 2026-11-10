@@ -44,7 +44,7 @@ assert re.fullmatch('[a-f0-9]{64}', expected), '预期证书无效'
 metadata_path = root / 'app/build/outputs/apk/release/output-metadata.json'
 metadata = json.loads(metadata_path.read_text('utf-8'))
 elements = metadata['elements']
-abis = {'universal', 'arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86'}
+abis = {'universal', 'arm64-v8a', 'armeabi-v7a'}
 assert len(elements) == len(abis), '缺少 APK 变体'
 version = elements[0]['versionName']
 gradle = (root / 'app/build.gradle.kts').read_text('utf-8')
@@ -52,7 +52,6 @@ expected_version = re.search(r'versionName\s*=\s*"([^"]+)"', gradle)[1]
 expected_code = int(re.search(r'versionCode\s*=\s*(\d+)', gradle)[1])
 assert all(item['versionName'] == expected_version and item['versionCode'] == expected_code for item in elements)
 found = set()
-certificates = []
 notices = None
 files = []
 for item in elements:
@@ -85,28 +84,12 @@ for item in elements:
     destination = delivery / f'AsterReader-{version}-{abi}.apk'
     shutil.copy2(source, destination)
     files.append(destination)
-    certificates.append(destination.name + '\n' + certificate)
 assert found == abis
-aab = root / 'app/build/outputs/bundle/release/app-release.aab'
-run(['jarsigner', '-verify', aab])
-bundle_certificate = run(['keytool', '-J-Duser.language=en', '-J-Duser.country=US', '-printcert', '-jarfile', aab])
-actual = re.search(r'SHA256:\s*([0-9a-fA-F:]+)', bundle_certificate)
-assert actual and actual[1].replace(':', '').lower() == expected, 'AAB 证书不符'
-destination = delivery / f'AsterReader-{version}.aab'
-shutil.copy2(aab, destination)
-files.append(destination)
-certificate_file = delivery / 'release-certificate.txt'
-certificate_file.write_text('\n\n'.join(certificates) + '\n\n' + bundle_certificate, encoding='utf-8')
-files.append(certificate_file)
-notice_file = delivery / 'THIRD_PARTY_NOTICES.txt'
-notice_file.write_text('\n\n'.join(entry['id'] + '\n' + entry['license'] + '\n' + entry['notice'] for entry in notices), encoding='utf-8')
-files.append(notice_file)
-for name, source in [('RELEASE_NOTES.md', root / f'docs/releases/{version}.md'), ('PRIVACY.md', root / 'docs/PRIVACY.md')]:
-    destination = delivery / name
-    shutil.copy2(source, destination)
-    files.append(destination)
-(delivery / 'SHA256SUMS.txt').write_text(''.join(hashlib.sha256(file.read_bytes()).hexdigest() + '  ' + file.name + '\n' for file in sorted(files)), encoding='utf-8')
-mapping = delivery / 'mapping.txt'
-shutil.copy2(root / 'app/build/outputs/mapping/release/mapping.txt', mapping)
-(delivery / 'mapping-SHA256.txt').write_text(hashlib.sha256(mapping.read_bytes()).hexdigest() + '  mapping.txt\n', encoding='utf-8')
-print('校验成功：5 个 APK、1 个 AAB；证书、版本、ABI、16 KB 对齐与离线许可均通过。')
+report = root / 'build/reports/release-verification.json'
+report.parent.mkdir(parents=True, exist_ok=True)
+report.write_text(json.dumps([
+    {'file': file.name, 'version': version, 'versionCode': expected_code,
+     'certificate': expected, 'sha256': hashlib.sha256(file.read_bytes()).hexdigest()}
+    for file in sorted(files)
+], ensure_ascii=False, indent=2), encoding='utf-8')
+print('校验成功：3 个 APK；证书、版本、ABI、16 KB 对齐与离线许可均通过。')

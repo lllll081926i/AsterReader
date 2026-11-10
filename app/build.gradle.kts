@@ -25,8 +25,8 @@ android {
     applicationId = "com.asterreader.app"
     minSdk = 31
     targetSdk = 37
-    versionCode = 3
-    versionName = "1.0.0"
+    versionCode = 4
+    versionName = "1.0.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -69,7 +69,7 @@ android {
     abi {
       isEnable = providers.gradleProperty("aster.splitApks").orNull == "true"
       reset()
-      include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+      include("arm64-v8a", "armeabi-v7a")
       isUniversalApk = true
     }
   }

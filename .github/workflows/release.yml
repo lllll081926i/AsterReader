@@ -62,7 +62,7 @@ jobs:
               environment = os.environ.copy()
               environment.pop('KEYSTORE_BASE64', None)
               environment['KEYSTORE_PATH'] = str(key)
-              for tasks in ([':app:bundleRelease'], [':app:assembleRelease', '-Paster.splitApks=true']):
+              for tasks in ([':app:assembleRelease', '-Paster.splitApks=true'],):
                   subprocess.run(['bash', './gradlew', *tasks, '--console=plain', '--no-configuration-cache', '--no-daemon'], env=environment, check=True)
           PY
       - name: 校验签名与产物
@@ -80,13 +80,15 @@ jobs:
             app/build/reports/
             core/database/build/reports/tests/
             core/vault/build/reports/tests/
+            build/reports/release-verification.json
+            app/build/outputs/mapping/release/mapping.txt
           if-no-files-found: warn
           retention-days: 14
-      - name: 保存正式包与混淆映射
+      - name: 保存三个正式安装包
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: signed-release
-          path: build/release-delivery/
+          path: build/release-delivery/*.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -98,6 +100,10 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: 检出发布说明
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: 取回已校验产物
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
@@ -116,6 +122,6 @@ jobs:
               exit 1
             fi
           else
-            gh release create "$RELEASE_TAG" --verify-tag --draft --title "Aster Reader ${RELEASE_TAG#v}" --notes-file release/RELEASE_NOTES.md
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "Aster Reader ${RELEASE_TAG#v}" --notes-file "docs/releases/${RELEASE_TAG#v}.md"
           fi
-          gh release upload "$RELEASE_TAG" release/*.apk release/*.aab release/SHA256SUMS.txt release/release-certificate.txt release/THIRD_PARTY_NOTICES.txt release/PRIVACY.md release/RELEASE_NOTES.md --clobber
+          gh release upload "$RELEASE_TAG" release/*.apk --clobber

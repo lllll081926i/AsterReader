@@ -1,5 +1,7 @@
 # 本地签名与 GitHub 发包
 
+> 1.0.1 更新：按用户要求，云端仅构建通用、arm64-v8a、armeabi-v7a 三个正式 APK，不构建 AAB 或 x86 分包。发布附件只有这三个 APK；发布说明直接使用 docs/releases/1.0.1.md。签名、版本、ABI、16 KB 对齐和离线许可检查保留，校验报告及混淆映射仅保存在 Actions 内部产物中。以下 1.0.0 包型和附件记录为历史。
+
 > 1.0.0 更新：本地与云端先构建 AAB，再以 `-Paster.splitApks=true` 构建四种 ABI 和通用 APK。最终分发文件命名为 `AsterReader-版本-ABI.apk` 与 `AsterReader-版本.aab`。`scripts/Verify-Release.py` 统一检查版本、固定证书、ABI、16 KB ZIP/64 位 ELF 对齐与离线许可。标签工作流仍先创建草稿；完成核验后由已获授权的发布操作公开。旧记录中的 `app-release.apk` 是历史单包名称。
 
 日期：2026-11-07。用户授权自行分发签名，并把同一签名注入 GitHub 发包流程。不依赖应用商店或购买证书。签名用于证明同一发布者和允许后续覆盖升级，不证明程序没有漏洞。上线审查尚未关闭的问题仍见 docs/49。
