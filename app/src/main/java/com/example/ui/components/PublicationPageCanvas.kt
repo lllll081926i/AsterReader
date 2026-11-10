@@ -112,6 +112,7 @@ fun PublicationPageCanvas(
     loadPage: suspend (Int, Int) -> Bitmap,
     cachedPage: (Int, Int) -> Bitmap? = { _, _ -> null },
     cachedPageSize: (Int) -> Pair<Int, Int>? = { null },
+    seekSequence: Int = 0,
     nativeSize: (Bitmap) -> Pair<Int, Int>? = { null },
     loadRegion: suspend (Int, Float, Float, Int) -> Bitmap? = { _, _, _, _ -> null },
     onPrefetch: (List<Int>) -> Unit = {},
@@ -172,19 +173,24 @@ fun PublicationPageCanvas(
         }
 
         var programmaticScroll by remember(publicationId) { mutableStateOf(false) }
-        LaunchedEffect(page) {
-            if (page != lastReported) {
+        var consumedSeek by remember(publicationId) { mutableIntStateOf(seekSequence) }
+        LaunchedEffect(page, seekSequence) {
+            if (page != lastReported || consumedSeek != seekSequence) {
+                consumedSeek = seekSequence
                 programmaticScroll = true
                 try {
                     val target = (page - 1).coerceIn(0, totalPages - 1)
-                    if (reduceMotion) list.scrollToItem(target)
-                    else list.animateScrollToItem(target)
-                    // 首次布局可能仍用加载占位高度，解码后的真实尺寸不能使跳页退回前页。
-                    kotlinx.coroutines.withTimeoutOrNull(2_000) {
-                        snapshotFlow { pageRatios[target + 1] }.filterNotNull().first()
-                    }
-                    androidx.compose.runtime.withFrameNanos { }
                     list.scrollToItem(target)
+                    // 首次布局可能仍用加载占位高度，解码后的真实尺寸不能使跳页退回前页。
+                    val settled = kotlinx.coroutines.withTimeoutOrNull(2_000) {
+                        snapshotFlow {
+                            Triple(list.isScrollInProgress, list.firstVisibleItemIndex, pageRatios[target + 1])
+                        }.first { (scrolling, index, ratio) -> scrolling || index != target || ratio != null }
+                    }
+                    if (settled != null && !settled.first && settled.second == target && settled.third != null) {
+                        androidx.compose.runtime.withFrameNanos { }
+                        if (!list.isScrollInProgress && list.firstVisibleItemIndex == target) list.scrollToItem(target)
+                    }
                 } finally {
                     lastReported = page
                     programmaticScroll = false

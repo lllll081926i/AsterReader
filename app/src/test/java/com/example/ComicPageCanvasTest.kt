@@ -22,6 +22,43 @@ import org.robolectric.annotation.Config
 class ComicPageCanvasTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun seekingAcrossThousandsOfPagesLoadsOnlyTheDestinationNeighborhood() {
+        val page = mutableIntStateOf(1)
+        val bitmap = Bitmap.createBitmap(100, 400, Bitmap.Config.ARGB_8888)
+        val loaded = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
+        compose.setContent {
+            PublicationPageCanvas("大文件跳页", page.intValue, 10_000, ReaderLayoutMode.VERTICAL_SCROLL, false,
+                loadPage = { number, _ -> loaded.add(number); bitmap },
+                onPageChanged = { page.intValue = it },
+                onViewportChanged = { _, _, _, _, _ -> }, onToggleChrome = {})
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { loaded.clear(); page.intValue = 8_000 }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("第 8000 页").assertIsDisplayed()
+        compose.runOnIdle {
+            org.junit.Assert.assertTrue("不得加载跨越的中间页", loaded.all { it <= 3 || it in 7_998..8_003 })
+            assertEquals(8_000, page.intValue)
+        }
+    }
+
+    @Test fun seekingTheCurrentPageReturnsDirectlyToItsTop() {
+        val sequence = mutableIntStateOf(0)
+        val bitmap = Bitmap.createBitmap(100, 1000, Bitmap.Config.ARGB_8888)
+        compose.setContent {
+            PublicationPageCanvas("同页跳转", 1, 1, ReaderLayoutMode.VERTICAL_SCROLL, false,
+                initialOffsetFraction = 0.25f, seekSequence = sequence.intValue,
+                cachedPage = { _, _ -> bitmap }, loadPage = { _, _ -> bitmap },
+                onPageChanged = {}, onViewportChanged = { _, _, _, _, _ -> }, onToggleChrome = {})
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { sequence.intValue++ }
+        compose.waitForIdle()
+        val root = compose.onNodeWithTag("publication_canvas").fetchSemanticsNode().boundsInRoot
+        val image = compose.onNodeWithContentDescription("第 1 页").fetchSemanticsNode().boundsInRoot
+        assertEquals(root.top, image.top, 1f)
+    }
+
     @Test fun evictedPageKeepsKnownHeightWhileItsBitmapLoadsAgain() {
         val bitmap = Bitmap.createBitmap(400, 100, Bitmap.Config.ARGB_8888)
         compose.setContent {

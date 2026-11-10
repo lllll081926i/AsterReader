@@ -118,6 +118,13 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
                     if (foregroundRequests.value > 0) continue
                     if (page > open.pageCount) break
                     val cacheKey = PageKey(open.fingerprint, page, maxPixels)
+                    val knownSize = open.imageSizes[page]
+                    if (cachedPage(cacheKey) == null && knownSize != null && open.renderer == null) {
+                        val sample = sampleFor(knownSize.first, knownSize.second, maxPixels)
+                        val estimatedBytes = ((knownSize.first.toLong() + sample - 1) / sample) *
+                            ((knownSize.second.toLong() + sample - 1) / sample) * 4
+                        if (!backgroundFits(open, cacheKey, estimatedBytes)) return
+                    }
                     try {
                         val bitmap = cachedDecode(open, cacheKey, background = true) { renderBitmap(open, page, maxPixels) }
                         if (bitmap == null) continue
@@ -247,14 +254,24 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
         return pages.get(compatible)
     }
 
-    private suspend fun cachedDecode(open: OpenSource, key: PageKey, background: Boolean = false, block: () -> Bitmap?): Bitmap? {
+    private fun backgroundFits(open: OpenSource, key: PageKey, bytes: Long): Boolean = synchronized(pages) {
+        if (bytes > pages.maxSize()) return@synchronized false
+        val available = pages.maxSize().toLong() - pages.size()
+        if (available >= bytes) return@synchronized true
+        val anchor = foregroundPage?.takeIf { it.first == open.key }?.second ?: return@synchronized true
+        available + pages.snapshot().filterKeys {
+            kotlin.math.abs(it.page.toLong() - anchor) > kotlin.math.abs(key.page.toLong() - anchor)
+        }.values.sumOf { it.allocationByteCount.toLong() } >= bytes
+    }
+
+    private suspend fun cachedDecode(open: OpenSource, key: PageKey, background: Boolean = false, block: suspend () -> Bitmap?): Bitmap? {
         cachedPage(key)?.let { return it }
         // 同一页的不同清晰度共用门锁，高清完成后预览直接复用，不再排队重复解码。
         val gate = (31 * key.source.hashCode() + key.page).and(Int.MAX_VALUE) % pageGates.size
         return pageGates[gate].withLock {
             cachedPage(key) ?: decode(open, background) {
                 block()?.also { bitmap ->
-                    bitmap.prepareToDraw()
+                    currentCoroutineContext().ensureActive()
                     if (bitmap.allocationByteCount <= pages.maxSize()) {
                         synchronized(pages) {
                             val anchor = foregroundPage?.takeIf { it.first == open.key }?.second
@@ -272,15 +289,16 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
                                 }
                             }
                             pages.snapshot().keys.filter { it.sameArea(key) && it.pixels < key.pixels }.forEach(pages::remove)
+                            bitmap.prepareToDraw()
                             pages.put(key, bitmap)
                         }
-                    }
+                    } else if (!background) bitmap.prepareToDraw()
                 }
             }
         }
     }
 
-    private suspend fun decode(open: OpenSource, background: Boolean, block: () -> Bitmap?): Bitmap? {
+    private suspend fun decode(open: OpenSource, background: Boolean, block: suspend () -> Bitmap?): Bitmap? {
         suspend fun admitted(): Bitmap? = withContext(Dispatchers.IO) {
             currentCoroutineContext().ensureActive()
             if (background && foregroundRequests.value > 0) null else block()
@@ -289,7 +307,7 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
             else open.gate.withLock { admitted() }
     }
 
-    private fun renderBitmap(open: OpenSource, page: Int, maxPixels: Int): Bitmap = try {
+    private suspend fun renderBitmap(open: OpenSource, page: Int, maxPixels: Int): Bitmap = try {
         if (open.renderer != null) renderPdf(open, page, maxPixels) else renderImage(open, page, maxPixels)
     } catch (_: OutOfMemoryError) {
         pages.evictAll()
@@ -319,8 +337,9 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
             }
         }
 
-    private fun renderImage(open: OpenSource, number: Int, maxPixels: Int): Bitmap {
-        fun stream() = java.io.BufferedInputStream(openStream(open, number), 64 * 1024)
+    private suspend fun renderImage(open: OpenSource, number: Int, maxPixels: Int): Bitmap {
+        val cancellation = currentCoroutineContext()
+        fun stream() = java.io.BufferedInputStream(CancellablePageInputStream(openStream(open, number), cancellation), 64 * 1024)
         var input = stream()
         try {
             val original = open.imageSizes[number] ?: run {
@@ -328,17 +347,20 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
                 input.mark(64 * 1024)
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 BitmapFactory.decodeStream(input, null, bounds)
+                cancellation.ensureActive()
                 require(bounds.outWidth > 0 && bounds.outHeight > 0) { "图像已损坏" }
                 try { input.reset() } catch (_: IOException) { input.close(); input = stream() }
                 (bounds.outWidth to bounds.outHeight).also { open.imageSizes[number] = it }
             }
-            return (BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
+            val bitmap = BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
                 inSampleSize = sampleFor(original.first, original.second, maxPixels)
-            }) ?: error("图像无法解码")).also { dimensions[it] = original }
+            })
+            cancellation.ensureActive()
+            return (bitmap ?: error("图像无法解码")).also { dimensions[it] = original }
         } finally { input.close() }
     }
 
-    private fun renderRegionBitmap(
+    private suspend fun renderRegionBitmap(
         open: OpenSource,
         number: Int,
         top: Float,
@@ -371,13 +393,14 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
             }
         }
 
+        val cancellation = currentCoroutineContext()
         return synchronized(open.regionGate) {
             if (open.regionPage != number) {
                 open.regionDecoder?.recycle()
                 open.regionDecoder = null
                 open.regionPage = -1
             }
-            val decoder = open.regionDecoder ?: openStream(open, number).use {
+            val decoder = open.regionDecoder ?: CancellablePageInputStream(openStream(open, number), cancellation).use {
                 BitmapRegionDecoder.newInstance(it, false)
             }?.also { open.regionDecoder = it; open.regionPage = number } ?: return@synchronized null
             val width = decoder.width

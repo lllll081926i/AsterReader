@@ -29,6 +29,41 @@ import java.util.zip.ZipOutputStream
 class DocumentRenderSessionTest {
     @Test
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun cancelledInFlightPageClosesItsStreamWithoutReadingOrCaching() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val entered = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val reads = AtomicInteger()
+        val closes = AtomicInteger()
+        val source = PageSource.Directory(1) {
+            entered.complete(Unit)
+            check(release.await(10, TimeUnit.SECONDS))
+            object : java.io.ByteArrayInputStream(png) {
+                override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                    reads.incrementAndGet()
+                    return super.read(buffer, offset, length)
+                }
+                override fun close() { closes.incrementAndGet(); super.close() }
+            }
+        }
+        try {
+            withTimeout(15_000) {
+                val task = async { session.render("过期页", 1, 1000) { source } }
+                entered.await()
+                task.cancel()
+                release.countDown()
+                task.join()
+                assertTrue(task.isCancelled)
+                assertEquals(0, reads.get())
+                assertEquals(1, closes.get())
+                assertEquals(0, session.cachedBytes())
+                session.close()
+            }
+        } finally { release.countDown(); session.close() }
+    }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     fun distantPrefetchCannotEvictCurrentAndNearbyPages() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<Application>()
         val bitmap = android.graphics.Bitmap.createBitmap(4, 4, android.graphics.Bitmap.Config.ARGB_8888)
@@ -43,6 +78,8 @@ class DocumentRenderSessionTest {
         try {
             val current = session.render("大图集", 1, 1000) { source }
             session.prefetch("大图集", (2..16).toList(), 1000) { source }
+            session.prefetch("大图集", (2..16).toList(), 1000) { source }
+            assertEquals("已知放不下的远页不得重复读取", 4, reads.get())
             assertSame(current, session.cachedPage("大图集", 1, 1000))
             assertNotNull(session.cachedPage("大图集", 2, 1000))
             assertNotNull(session.cachedPage("大图集", 3, 1000))

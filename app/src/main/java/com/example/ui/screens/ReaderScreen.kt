@@ -267,6 +267,7 @@ private fun ReaderContent(
     }
 
     var sliderPreview by remember(book.id) { mutableStateOf<Float?>(null) }
+    var seekSequence by remember(book.id) { mutableIntStateOf(0) }
     var zoomCommand by remember(book.id) { mutableStateOf(ReaderZoomCommand()) }
     val activeChapterTitle = remember(chapters, currentPage) {
         if (storedChapters.isEmpty()) "第 $currentPage 页"
@@ -311,6 +312,7 @@ private fun ReaderContent(
                 } else PublicationPageCanvas(
                     publicationId = book.id,
                     page = currentPage,
+                    seekSequence = seekSequence,
                     totalPages = totalPages,
                     mode = readerMode,
                     expanded = isExpandedTablet,
@@ -574,7 +576,10 @@ private fun ReaderContent(
                             value = sliderPreview ?: currentPage.toFloat(),
                             onValueChange = { sliderPreview = it },
                             onValueChangeFinished = {
-                                sliderPreview?.let { currentPage = it.roundToInt().coerceIn(1, totalPages) }
+                                sliderPreview?.let {
+                                    currentPage = it.roundToInt().coerceIn(1, totalPages)
+                                    seekSequence++
+                                }
                                 sliderPreview = null
                             },
                             valueRange = 1f..totalPages.toFloat(),

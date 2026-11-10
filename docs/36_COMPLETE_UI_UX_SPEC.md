@@ -644,6 +644,8 @@ Ready → ExitPending (persist progress) → PreviousScreen
 
 2026-11-10 连续滚动校正：位图淘汰后仍复用当前授权会话的原始尺寸，避免已知图片回到固定高度占位。预加载优先保留前台页与近页，预算不足则停止远页读取，细节与验收见 docs/64_LARGE_COMIC_SCROLL_AND_DOCK_2026_11_10.md。
 
+2026-11-10 进度条跳页：拖动只更新预选，松手直接定位目标页顶部，不播放跨页滚动；选择当前页同样返回页顶。大图集取消读取与预加载容量检查见 docs/65_DIRECT_SEEK_AND_LARGE_FILE_2026_11_10.md。
+
 ### R-10 PDF 漫画 阅读
 
 **布局**：PDF 作为漫画页阅读，支持单页、条漫、双页和页码跳转。与 CBZ 共用 Reader Shell，不另建文档阅读模式。
