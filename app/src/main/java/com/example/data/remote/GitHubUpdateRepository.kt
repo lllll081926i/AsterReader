@@ -11,10 +11,12 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-data class UpdateCheckState(val loading: Boolean = false, val message: String? = null,
-    val openReleases: Boolean = false)
+data class UpdateAsset(val version: String, val name: String, val url: String, val size: Long)
 
-/** 仅在用户点击时匿名查询正式 Release，不携带云端账号或仓库凭据。 */
+data class UpdateCheckState(val loading: Boolean = false, val message: String? = null,
+    val openReleases: Boolean = false, val asset: UpdateAsset? = null)
+
+/** 匿名查询正式 Release，不携带云端账号或仓库凭据。 */
 class GitHubUpdateRepository(private val clientFactory: () -> OkHttpClient = {
         OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
             .connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS)
@@ -51,7 +53,8 @@ class GitHubUpdateRepository(private val clientFactory: () -> OkHttpClient = {
         const val RELEASES_URL = "https://github.com/lllll081926i/AsterReader/releases"
         private const val MAX_RESPONSE_BYTES = 256 * 1024
 
-        internal fun parseRelease(json: String, currentVersion: String): UpdateCheckState {
+        internal fun parseRelease(json: String, currentVersion: String,
+            supportedAbis: List<String> = android.os.Build.SUPPORTED_ABIS.toList()): UpdateCheckState {
             val release = JSONObject(json)
             require(!release.optBoolean("draft") && !release.optBoolean("prerelease"))
             val tag = release.getString("tag_name")
@@ -61,8 +64,29 @@ class GitHubUpdateRepository(private val clientFactory: () -> OkHttpClient = {
             if (latest == null || current == null) return UpdateCheckState(message = "最新发布：$tag，请核对版本", openReleases = true)
             val comparison = latest.zip(current).firstOrNull { it.first != it.second }
             return if (comparison != null && comparison.first > comparison.second) {
-                UpdateCheckState(message = "发现新版本 $tag", openReleases = true)
+                UpdateCheckState(message = "发现新版本 $tag", openReleases = true,
+                    asset = selectAsset(release, tag, supportedAbis))
             } else UpdateCheckState(message = "已是最新版本")
+        }
+
+        private fun selectAsset(release: JSONObject, tag: String, abis: List<String>): UpdateAsset? {
+            val assets = release.optJSONArray("assets") ?: return null
+            val candidates = (0 until assets.length()).mapNotNull { index ->
+                val item = assets.optJSONObject(index) ?: return@mapNotNull null
+                val name = item.optString("name")
+                val url = item.optString("browser_download_url")
+                val uri = android.net.Uri.parse(url)
+                val size = item.optLong("size")
+                if (!name.matches(Regex("[A-Za-z0-9._-]+\\.apk", RegexOption.IGNORE_CASE)) || size <= 0 || uri.scheme != "https" ||
+                    uri.host != "github.com" || uri.port != -1 || uri.userInfo != null ||
+                    uri.query != null || uri.fragment != null ||
+                    uri.path != "/lllll081926i/AsterReader/releases/download/$tag/$name" ||
+                    uri.lastPathSegment != name) null else UpdateAsset(tag, name, url, size)
+            }
+            return (abis.filter { it in listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86") } + "universal")
+                .firstNotNullOfOrNull { abi -> candidates.firstOrNull {
+                    Regex("(^|[-_])${Regex.escape(abi)}([-_.]|$)", RegexOption.IGNORE_CASE).containsMatchIn(it.name)
+                } }
         }
 
         private fun versionParts(value: String): List<Long>? {

@@ -206,13 +206,94 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private val updateRepository by lazy { com.example.data.remote.GitHubUpdateRepository() }
     private val _updateCheck = MutableStateFlow(com.example.data.remote.UpdateCheckState())
     val updateCheck = _updateCheck.asStateFlow()
+    private val updateDownloads by lazy { com.example.data.remote.UpdateDownloadRepository(appContext) }
+    private val _updateDownload = MutableStateFlow(com.example.data.remote.UpdateDownloadState())
+    val updateDownload = _updateDownload.asStateFlow()
+    private val _showUpdate = MutableStateFlow(false)
+    val showUpdate = _showUpdate.asStateFlow()
+    private var updateOperation: kotlinx.coroutines.Job? = null
+    private var nextAutomaticUpdateCheck = 0L
+    private var awaitingInstallPermission = false
+
+    fun dismissUpdate() { _showUpdate.value = false }
+
+    suspend fun refreshUpdateOnForeground() {
+        if (updateOperation?.isActive != true) {
+            try {
+                val operation = updateOperation
+                val state = updateDownloads.refresh()
+                if (updateOperation === operation && updateOperation?.isActive != true) {
+                    if (state.ready && !_updateDownload.value.ready) _showUpdate.value = true
+                    _updateDownload.value = state
+                }
+            }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { _updateDownload.value = _updateDownload.value.copy(message = "无法读取下载任务，请重试") }
+        }
+        if (awaitingInstallPermission && updateDownloads.canInstall()) {
+            awaitingInstallPermission = false
+            installUpdate()
+        }
+        if (System.currentTimeMillis() >= nextAutomaticUpdateCheck) {
+            val nextCheck = withContext(Dispatchers.IO) {
+                val prefs = appContext.getSharedPreferences("app_update_check", 0)
+                val now = System.currentTimeMillis()
+                val last = prefs.getLong("last_attempt", 0)
+                if (last == 0L || now < last || now - last >= 24 * 60 * 60 * 1000L) {
+                    0L
+                } else last + 24 * 60 * 60 * 1000L
+            }
+            nextAutomaticUpdateCheck = if (nextCheck == 0L) System.currentTimeMillis() + 24 * 60 * 60 * 1000L else nextCheck
+            if (nextCheck == 0L) checkForUpdate()
+        }
+    }
+
+    fun downloadUpdate() {
+        if (updateOperation?.isActive == true) return
+        val asset = _updateCheck.value.asset ?: _updateDownload.value.asset ?: return
+        updateOperation = viewModelScope.launch {
+            try { _updateDownload.value = updateDownloads.start(asset) }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { _updateDownload.value = com.example.data.remote.UpdateDownloadState(
+                asset = asset, message = "无法开始下载，请重试") }
+        }
+    }
+
+    fun cancelUpdateDownload() {
+        if (updateOperation?.isActive == true) return
+        updateOperation = viewModelScope.launch {
+            try { updateDownloads.cancel(); _updateDownload.value = com.example.data.remote.UpdateDownloadState() }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { showSnackbar("无法取消下载，请重试") }
+        }
+    }
+
+    fun installUpdate() {
+        if (updateOperation?.isActive == true) return
+        updateOperation = viewModelScope.launch {
+            try {
+                val intent = updateDownloads.installationIntent()
+                awaitingInstallPermission = intent.action == android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES
+                appContext.startActivity(intent)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { awaitingInstallPermission = false; showSnackbar("无法打开安装界面，请重新下载后重试") }
+        }
+    }
 
     fun checkForUpdate() {
         if (_updateCheck.value.loading) return
+        nextAutomaticUpdateCheck = System.currentTimeMillis() + 24 * 60 * 60 * 1000L
         _updateCheck.value = com.example.data.remote.UpdateCheckState(loading = true)
         viewModelScope.launch {
             try {
+                withContext(Dispatchers.IO) {
+                    appContext.getSharedPreferences("app_update_check", 0).edit()
+                        .putLong("last_attempt", System.currentTimeMillis()).apply()
+                }
                 _updateCheck.value = updateRepository.check(com.example.BuildConfig.VERSION_NAME)
+                if (_updateCheck.value.asset != null && !_updateDownload.value.downloading && !_updateDownload.value.ready) {
+                    _showUpdate.value = true
+                }
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
             catch (_: Exception) {
                 _updateCheck.value = com.example.data.remote.UpdateCheckState(

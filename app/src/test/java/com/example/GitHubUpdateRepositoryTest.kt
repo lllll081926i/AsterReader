@@ -63,6 +63,43 @@ class GitHubUpdateRepositoryTest {
         } catch (_: IllegalArgumentException) { }
     }
 
+    @Test fun choosesMatchingArchitectureBeforeUniversal() {
+        assertEquals("AsterReader-3.0.0-arm64-v8a.apk", assets(listOf("arm64-v8a", "armeabi-v7a")).asset?.name)
+        assertEquals("AsterReader-3.0.0-armeabi-v7a.apk", assets(listOf("armeabi-v7a")).asset?.name)
+        assertEquals("AsterReader-3.0.0-universal.apk", assets(listOf("x86_64")).asset?.name)
+    }
+
+    @Test fun rejectsExternalAndOtherRepositoryDownloads() {
+        for (url in listOf("http://github.com/lllll081926i/AsterReader/releases/download/v3.0.0/app-universal.apk",
+            "https://evil.example/app-universal.apk",
+            "https://github.com/other/repo/releases/download/v3.0.0/app-universal.apk",
+            "https://github.com/lllll081926i/AsterReader/releases/download/v3.0.0/sub/app-universal.apk",
+            "https://github.com/lllll081926i/AsterReader/releases/download/v2.0.0/app-universal.apk")) {
+            val json = """{"tag_name":"v3.0.0","assets":[{"name":"app-universal.apk","size":123,"browser_download_url":"$url"}]}"""
+            assertNull(GitHubUpdateRepository.parseRelease(json, "2.4.0").asset)
+        }
+    }
+
+    @Test fun doesNotOfferScriptsWrongArchitectureOrEmptyFiles() {
+        val json = """{"tag_name":"v3.0.0","assets":[
+            {"name":"app-arm64-v8a.apk","size":123,"browser_download_url":"https://github.com/lllll081926i/AsterReader/releases/download/v3.0.0/app-arm64-v8a.apk"},
+            {"name":"app-universal.apk","size":0,"browser_download_url":"https://github.com/lllll081926i/AsterReader/releases/download/v3.0.0/app-universal.apk"},
+            {"name":"setup-universal.sh","size":123,"browser_download_url":"https://github.com/lllll081926i/AsterReader/releases/download/v3.0.0/setup-universal.sh"}]}"""
+        assertNull(GitHubUpdateRepository.parseRelease(json, "2.4.0", listOf("armeabi-v7a")).asset)
+    }
+
+    @Test fun alreadyInstalledReleaseDoesNotOfferDownload() {
+        assertNull(assets(listOf("arm64-v8a"), "3.0.0").asset)
+    }
+
+    private fun assets(abis: List<String>, current: String = "2.4.0"): com.example.data.remote.UpdateCheckState {
+        val assets = listOf("universal", "armeabi-v7a", "arm64-v8a").joinToString(",") { abi ->
+            val name = "AsterReader-3.0.0-$abi.apk"
+            """{"name":"$name","size":123,"browser_download_url":"https://github.com/lllll081926i/AsterReader/releases/download/v3.0.0/$name"}"""
+        }
+        return GitHubUpdateRepository.parseRelease("""{"tag_name":"v3.0.0","assets":[$assets]}""", current, abis)
+    }
+
     private fun repository(code: Int, body: String = "") = GitHubUpdateRepository {
         OkHttpClient.Builder().addInterceptor { chain ->
             assertNull(chain.request().header("Authorization"))

@@ -28,6 +28,7 @@ import com.example.ui.components.*
 @Composable
 fun AboutSettingsContent(model: AsterViewModel, onOpenLicenses: () -> Unit) {
     val update by model.updateCheck.collectAsStateWithLifecycle()
+    val download by model.updateDownload.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     AsterSettingsGroup {
         Row(Modifier.fillMaxWidth().padding(AsterLayout.PagePadding),
@@ -45,6 +46,12 @@ fun AboutSettingsContent(model: AsterViewModel, onOpenLicenses: () -> Unit) {
         AsterSettingsRow(if (update.loading) "正在检查…" else "检查更新",
             leadingIcon = Icons.Outlined.SystemUpdate, trailingText = "GitHub", onClick = model::checkForUpdate)
         if (update.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        Column(Modifier.fillMaxWidth().padding(horizontal = AsterLayout.PagePadding),
+            verticalArrangement = Arrangement.spacedBy(AsterLayout.ControlSpacing)) {
+            UpdateDownloadStatus(download)
+            UpdateDownloadAction(download, update.asset != null,
+                model::downloadUpdate, model::cancelUpdateDownload, model::installUpdate)
+        }
         update.message?.let { message ->
             Column(Modifier.fillMaxWidth().padding(horizontal = AsterLayout.PagePadding)
                 .padding(bottom = AsterLayout.ControlSpacing)) {

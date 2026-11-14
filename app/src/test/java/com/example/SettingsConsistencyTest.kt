@@ -766,6 +766,36 @@ open class SettingsConsistencyTest {
         compose.runOnIdle { check(model.uiState.value.activeSubScreen == com.example.ui.SubScreen.SettingsSection("licenses")) }
     }
 
+    @Test fun updateControlsAllowCancelRetryAndInstallation() {
+        var state by androidx.compose.runtime.mutableStateOf(com.example.data.remote.UpdateDownloadState(
+            downloading = true, progress = 0.5f, message = "正在下载"))
+        var downloads = 0
+        var cancels = 0
+        var installs = 0
+        compose.setContent {
+            rootView = androidx.compose.ui.platform.LocalView.current.rootView
+            AsterReaderTheme(darkTheme = true) {
+                androidx.compose.foundation.layout.Column(Modifier.fillMaxSize()
+                    .background(androidx.compose.material3.MaterialTheme.colorScheme.surface)
+                    .padding(com.asterreader.core.designsystem.AsterLayout.PagePadding)) {
+                    com.example.ui.components.UpdateDownloadStatus(state)
+                    com.example.ui.components.UpdateDownloadAction(state, true,
+                        { downloads++ }, { cancels++ }, { installs++ })
+                }
+            }
+        }
+        compose.onNodeWithText("正在下载 50%").assertIsDisplayed()
+        compose.onNodeWithText("取消下载").performClick()
+        org.junit.Assert.assertEquals(1, cancels)
+        compose.runOnIdle { state = state.copy(downloading = false, message = "下载失败，请重试") }
+        compose.onNodeWithText("重新下载").performClick()
+        org.junit.Assert.assertEquals(1, downloads)
+        compose.runOnIdle { state = state.copy(ready = true, message = "下载完成，可以安装") }
+        compose.onNodeWithText("安装更新").performClick()
+        org.junit.Assert.assertEquals(1, installs)
+        capture("update-ready")
+    }
+
     @Test fun aboutLicensesRemainReachableInDarkLargeFont() {
         content(section = "about", dark = true, fontScale = 2f)
         compose.onNodeWithText("检查更新").performScrollTo().assertIsDisplayed()

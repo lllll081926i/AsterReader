@@ -347,6 +347,9 @@ fun AsterReaderAppRoot(
         }
         return
     }
+    com.example.ui.components.AppUpdatePrompt(viewModel,
+        enabled = uiState.activeSubScreen !is SubScreen.Reader &&
+            uiState.activeSubScreen !is SubScreen.PublicationDetail && !uiState.isScanning)
     val needsAnnotations = uiState.activeSubScreen is SubScreen.Search ||
         uiState.activeSubScreen == null && uiState.currentTab in setOf(MainNavDestination.SEARCH, MainNavDestination.STATS, MainNavDestination.SHELVES)
     val allAnnotations = if (needsAnnotations) {
