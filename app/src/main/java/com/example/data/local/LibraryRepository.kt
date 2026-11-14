@@ -378,6 +378,18 @@ class LibraryRepository(
         refreshExisting: Boolean = false,
         replaceId: String? = null,
         includeCover: Boolean = true
+    ): BookEntity = importImageFolder(treeUri, folderUri, repositoryName, repositoryId,
+        refreshExisting, replaceId, includeCover, null)
+
+    private suspend fun importImageFolder(
+        treeUri: Uri,
+        folderUri: Uri,
+        repositoryName: String,
+        repositoryId: String,
+        refreshExisting: Boolean,
+        replaceId: String?,
+        includeCover: Boolean,
+        scannedImages: List<ImagePage>?
     ): BookEntity = withContext(Dispatchers.IO) {
         if (fileVault.configured) {
             val tag = fileVault.sourceTag(folderUri.toString())
@@ -385,7 +397,7 @@ class LibraryRepository(
                 return@withContext fileVault.records.value[shell.id]?.book ?: shell
             }
         }
-        val images = listImages(treeUri, folderUri)
+        val images = scannedImages ?: listImages(treeUri, folderUri)
         require(images.isNotEmpty()) { "目录内没有图片" }
         val linked = dao.getBookByUri(folderUri.toString())
         require(replaceId == null || linked == null || linked.id == replaceId) { "此来源已关联另一部漫画" }
@@ -496,27 +508,31 @@ class LibraryRepository(
             kotlinx.coroutines.coroutineScope {
                 val queue = ArrayDeque<String>()
                 val visited = mutableSetOf<String>()
-                var enumerated = 0
                 queue.add(DocumentsContract.getTreeDocumentId(uri))
                 while (queue.isNotEmpty()) {
                     currentCoroutineContext().ensureActive()
                     val parent = queue.removeFirst()
                     if (!visited.add(parent)) continue
                     val parentUri = DocumentsContract.buildDocumentUriUsingTree(uri, parent).toString()
-                    val children = queryChildren(uri, parent, MAX_SCAN_ITEMS - enumerated)
-                    enumerated += children.size
+                    val children = queryChildren(uri, parent)
                     onProgress(processed, discoveredWorks)
-                    check(enumerated <= MAX_SCAN_ITEMS) { "单次扫描最多处理 $MAX_SCAN_ITEMS 项，请缩小授权范围" }
-                    children.filter { it.isDirectory }.forEach { queue.add(it.documentId) }
-                    val classified = children.filter { !it.isDirectory }.map { child ->
+                    val archives = ArrayList<Pair<ChildEntry, String>>()
+                    val images = ArrayList<ChildEntry>()
+                    for (child in children) {
                         currentCoroutineContext().ensureActive()
-                        child to detectFormat(child.name, child.mimeType)
+                        if (child.isDirectory) {
+                            queue.add(child.documentId)
+                            continue
+                        }
+                        val format = detectFormat(child.name, child.mimeType)
+                        when {
+                            format in ARCHIVE_EXTENSIONS -> archives.add(child to format)
+                            format == "IMAGE" -> images.add(child)
+                            format != "ERROR" -> ignored++
+                        }
                     }
-                    val archives = classified.filter { it.second in ARCHIVE_EXTENSIONS }
-                    val images = classified.filter { it.second == "IMAGE" }.map { it.first }
                     discoveredWorks += archives.size + if (images.isEmpty()) 0 else 1
                     onProgress(processed, discoveredWorks)
-                    ignored += classified.count { it.second !in ARCHIVE_EXTENSIONS && it.second != "IMAGE" && it.second != "ERROR" }
                     for ((child, format) in archives) {
                         currentCoroutineContext().ensureActive()
                         seen.add(child.uriString)
@@ -547,7 +563,10 @@ class LibraryRepository(
                         seen.add(parentUri)
                         try {
                             val before = dao.getBookByUri(parentUri)
-                            val after = importImageFolder(uri, Uri.parse(parentUri), repoName, repoId, refreshExisting = true, includeCover = false)
+                            images.sortWith { a, b -> naturalCompare(a.name, b.name) }
+                            val after = importImageFolder(uri, Uri.parse(parentUri), repoName, repoId,
+                                refreshExisting = true, replaceId = null, includeCover = false,
+                                scannedImages = images.map { ImagePage(it.uri, it.name, it.size, it.modifiedAt, it.fingerprint) })
                             when {
                                 before == null -> imported++
                                 after.contentFingerprint != before.contentFingerprint -> updated++
@@ -1159,11 +1178,10 @@ class LibraryRepository(
             if (cursor.moveToFirst()) cursor.getString(0) else null
         }
 
-    private suspend fun queryChildren(treeUri: Uri, parentId: String, limit: Int = MAX_SCAN_ITEMS): List<ChildEntry> =
+    private suspend fun queryChildren(treeUri: Uri, parentId: String): List<ChildEntry> =
         if (WebDavRepository.isRemote(treeUri)) {
             val (id, path) = WebDavRepository.decodeId(parentId)
             val entries = remoteSource.list(id, path)
-            check(entries.size <= limit) { "单次扫描项数超限，请缩小目录" }
             entries.map { entry -> ChildEntry(WebDavRepository.documentId(id, entry.path), entry.name,
                 if (entry.directory) DocumentsContract.Document.MIME_TYPE_DIR else entry.mime, entry.size.coerceAtLeast(0), entry.modifiedAt,
                 DocumentsContract.buildDocumentUriUsingTree(treeUri, WebDavRepository.documentId(id, entry.path)).toString(), entry.revision) }
@@ -1192,7 +1210,6 @@ class LibraryRepository(
                     check(idIndex >= 0 || cursor.count == 0) { "文件提供者没有返回文件标识，无法扫描此目录" }
                     while (cursor.moveToNext()) {
                         continuation.context.ensureActive()
-                        check(result.size < limit) { "单次扫描最多处理 $MAX_SCAN_ITEMS 项，请缩小授权范围" }
                         val documentId = if (idIndex >= 0) cursor.getString(idIndex) else null
                         if (documentId == null) continue
                         val mime = if (mimeIndex >= 0) cursor.getString(mimeIndex).orEmpty() else ""
@@ -1556,7 +1573,6 @@ class LibraryRepository(
         const val DEFAULT_PAGE_PIXELS = 2_500_000
         const val ZOOMED_PAGE_PIXELS = 6_000_000
         private const val MAX_LOCAL_COPY_BYTES = 1024L * 1024 * 1024
-        private const val MAX_SCAN_ITEMS = 10_000
 
         /** UI 与扫描实现共享，避免两处硬编码规则字符串不一致。 */
         const val DEFAULT_SCAN_RULE = "每个文件作为作品"

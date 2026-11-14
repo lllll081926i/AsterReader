@@ -46,6 +46,9 @@ class LibraryRepositoryTest {
     private var rejectModifiedColumn = false
     private val opened = java.util.concurrent.atomic.AtomicInteger()
     private var onOpen: (() -> Unit)? = null
+    private var childrenQueried = 0
+    private var childrenClosed = 0
+    private var onChildrenQuery: (() -> Unit)? = null
 
     @Before
     fun setup() {
@@ -59,14 +62,20 @@ class LibraryRepositoryTest {
                 if (rejectModifiedColumn && projection?.contains(android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED) == true)
                     throw IllegalArgumentException("提供者不支持 last_modified")
                 if (uri.lastPathSegment == "children") {
-                    return MatrixCursor(arrayOf(android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    childrenQueried++
+                    return object : MatrixCursor(arrayOf(android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                         android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE,
                         android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME,
                         android.provider.DocumentsContract.Document.COLUMN_SIZE,
-                        android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED)).apply {
+                        android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED)) {
+                        override fun close() { super.close(); childrenClosed++ }
+                    }.apply {
                         files.forEach { (name, file) -> addRow(arrayOf<Any?>(name, mimeTypes[name] ?: "application/octet-stream", name,
                             if (reportedSizes.containsKey(name)) reportedSizes[name] else file.length(), file.lastModified())) }
-                    }
+                    }.also { onChildrenQuery?.invoke() }
+                }
+                if (uri.lastPathSegment == "root") {
+                    return MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME)).apply { addRow(arrayOf("散图目录")) }
                 }
                 val file = files.getValue(uri.lastPathSegment!!)
                 return MatrixCursor(arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE, android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED)).apply {
@@ -190,6 +199,63 @@ class LibraryRepositoryTest {
         onOpen = null
         assertTrue(runCatching { repository.ensureReadingIndex(book.id) }.isFailure)
         assertEquals(0, repository.getBookById(book.id)!!.totalPages)
+    }
+
+    @Test fun scanAcceptsMoreThanTenThousandEntriesWithoutReadingContents() = runBlocking {
+        document("大目录.zip", byteArrayOf(1))
+        val metadataFile = files.getValue("大目录.zip")
+        repeat(10_001) { files["忽略$it.bin"] = metadataFile }
+        onOpen = { error("扫描不得读取文件内容") }
+        val report = repository.scanRepository(Uri.parse("content://audit.documents/tree/root"), "大目录",
+            LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(1, report.imported)
+        assertEquals(10_001, report.ignored)
+        assertEquals(0, report.failed)
+        assertEquals(0, opened.get())
+        assertEquals(1, childrenQueried)
+        assertEquals(childrenQueried, childrenClosed)
+    }
+
+    @Test fun imageScanReusesMetadataWithoutOpeningImagesAndPreservesNaturalOrderAndProgress() = runBlocking {
+        for (name in listOf("10.png", "2.png", "1.png")) document(name, png)
+        onOpen = { error("扫描不得读取图片头或封面") }
+        val tree = Uri.parse("content://audit.documents/tree/root")
+        val first = repository.scanRepository(tree, "散图", LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(1, first.imported)
+        assertEquals(0, first.failed)
+        val book = repository.observeAllBooks().first().single()
+        assertEquals(3, book.totalPages)
+        assertEquals("", book.coverUrl)
+        assertEquals(listOf("1.png", "2.png", "10.png"), db.asterDao().getComicPages(book.id).map { it.name })
+        assertEquals(1, childrenQueried)
+        db.asterDao().updateBook(book.copy(currentPage = 2, progressPercent = 66))
+        document("3.png", png)
+        val second = repository.scanRepository(tree, "散图", LibraryRepository.DEFAULT_SCAN_RULE)
+        assertEquals(1, second.updated)
+        assertEquals(listOf("1.png", "2.png", "3.png", "10.png"), db.asterDao().getComicPages(book.id).map { it.name })
+        assertEquals(2, repository.getBookById(book.id)!!.currentPage)
+        assertEquals(50, repository.getBookById(book.id)!!.progressPercent)
+        assertEquals(2, childrenQueried)
+        assertEquals(childrenQueried, childrenClosed)
+        assertEquals(0, opened.get())
+    }
+
+    @Test fun cancellationDuringEnumerationClosesCursorWithoutMarkingUnvisitedSourcesMissing() = runBlocking {
+        document("仍存在1.zip", byteArrayOf(1))
+        document("仍存在2.zip", byteArrayOf(1))
+        val tree = Uri.parse("content://audit.documents/tree/root")
+        repository.scanRepository(tree, "取消枚举", LibraryRepository.DEFAULT_SCAN_RULE)
+        files.remove("仍存在2.zip")
+        val job = launch(kotlinx.coroutines.Dispatchers.IO) {
+            val scanJob = kotlin.coroutines.coroutineContext[kotlinx.coroutines.Job]!!
+            onChildrenQuery = { scanJob.cancel() }
+            repository.scanRepository(tree, "取消枚举", LibraryRepository.DEFAULT_SCAN_RULE)
+        }
+        job.join()
+        assertTrue(job.isCancelled)
+        assertEquals(childrenQueried, childrenClosed)
+        assertTrue(repository.observeAllBooks().first().all { it.sourceStatus == "AVAILABLE" })
+        assertEquals("扫描已取消", repository.observeAllRepositories().first().single().lastScanText)
     }
 
     @Test fun changedSourceDefersIndexWithoutOverwritingUserState() = runBlocking {
