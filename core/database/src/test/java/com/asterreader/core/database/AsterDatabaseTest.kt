@@ -23,6 +23,43 @@ class AsterDatabaseTest {
     private lateinit var database: AsterDatabase
     private lateinit var dao: AsterDao
 
+    @Test fun scrollingWithinPageSavesViewportWithoutUpdatingTheLibrary() = runBlocking {
+        val book = comicFixture().copy(totalPages = 100)
+        dao.insertBook(book)
+        dao.saveReadingPosition(book.id, 5, "正文", null, 1_000L)
+        database.openHelper.writableDatabase.execSQL("CREATE TABLE book_writes (count INTEGER NOT NULL)")
+        database.openHelper.writableDatabase.execSQL("INSERT INTO book_writes VALUES (0)")
+        database.openHelper.writableDatabase.execSQL("CREATE TRIGGER count_book_writes AFTER UPDATE ON books BEGIN UPDATE book_writes SET count = count + 1; END")
+        repeat(20) { index ->
+            dao.saveReadingPosition(book.id, 5, null,
+                com.asterreader.core.model.ReaderViewport(5, offsetFraction = (index + 1) / 25f), 2_000L + index * 900L)
+        }
+        database.openHelper.readableDatabase.query("SELECT count FROM book_writes").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+        }
+        assertEquals(0.8f, dao.getReaderState(book.id)!!.offsetFraction, 0f)
+        assertEquals(1_000L, dao.getBookById(book.id)!!.lastReadTimestamp)
+        dao.saveReadingPosition(book.id, 5, null, null, 31_000L)
+        assertEquals(31_000L, dao.getBookById(book.id)!!.lastReadTimestamp)
+        dao.saveReadingPosition(book.id, 6, "下一章", null, 31_001L)
+        val next = dao.getBookById(book.id)!!
+        assertEquals(6, next.currentPage)
+        assertEquals("下一章", next.currentChapterTitle)
+        assertEquals(31_001L, next.lastReadTimestamp)
+    }
+
+    @Test fun chapterChangesAndClockRollbackStillUpdateRecentReading() = runBlocking {
+        val book = comicFixture().copy(totalPages = 100)
+        dao.insertBook(book)
+        dao.saveReadingPosition(book.id, 5, "正文", null, 50_000L)
+        dao.saveReadingPosition(book.id, 5, "新章节", null, 50_001L)
+        assertEquals("新章节", dao.getBookById(book.id)!!.currentChapterTitle)
+        assertEquals(50_001L, dao.getBookById(book.id)!!.lastReadTimestamp)
+        dao.saveReadingPosition(book.id, 5, null, null, 10_000L)
+        assertEquals(10_000L, dao.getBookById(book.id)!!.lastReadTimestamp)
+    }
+
     @Test fun completedStatusSurvivesSavingTheFirstPageOfTheLastSpreadAndReopening() = runBlocking {
         val book = comicFixture().copy(totalPages = 4)
         dao.insertBook(book)

@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
@@ -358,12 +359,16 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            combine(allBooks, coverRevision) { books, revision ->
-                revision to books.sortedBy { it.id }.map { book ->
+            val backgroundAllowed = uiState.map { state ->
+                state.settingsLoaded && !state.isAppLockedNow && !state.isScanning &&
+                    state.activeSubScreen !is SubScreen.Reader && state.activeSubScreen !is SubScreen.PublicationDetail
+            }.distinctUntilChanged()
+            combine(allBooks, coverRevision, backgroundAllowed) { books, revision, allowed ->
+                if (!allowed) null else revision to books.sortedBy { it.id }.map { book ->
                     listOf(book.id, book.filePath, book.sizeBytes.toString(), book.sourceModifiedAt.toString(),
                         book.contentFingerprint, book.coverPage.toString(), book.sourceStatus, book.isVaultProtected.toString())
                 }
-            }.distinctUntilChanged().flowOn(Dispatchers.Default).conflate().collect {
+            }.filterNotNull().distinctUntilChanged().flowOn(Dispatchers.Default).conflate().collect {
                 suspend fun awaitBackgroundSlot() {
                     uiState.first { state -> state.settingsLoaded && !state.isAppLockedNow && !state.isScanning &&
                         state.activeSubScreen !is SubScreen.Reader && state.activeSubScreen !is SubScreen.PublicationDetail }

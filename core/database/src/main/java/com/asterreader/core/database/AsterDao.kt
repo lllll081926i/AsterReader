@@ -351,10 +351,18 @@ interface AsterDao {
         val position = (viewport ?: com.asterreader.core.model.ReaderViewport(page)).copy(page = page).sanitized(book.totalPages)
         val percent = if (book.statusBadge == "已读完") 100 else
             (position.page.toLong() * 100 / book.totalPages.coerceAtLeast(1)).toInt().coerceIn(0, 99)
-        updateProgress(id, position.page, percent, if (percent == 100) "已读完" else "在读", chapter, timestamp)
-        val previous = getReaderState(id) ?: ReaderStateEntity(id)
-        saveReaderState(previous.copy(page = position.page, offsetFraction = position.offsetFraction,
-            scale = position.scale, panX = position.panX, panY = position.panY))
+        val badge = if (percent == 100) "已读完" else "在读"
+        // 页内滚动只保存视口，避免每次都使整个书库查询失效；最近阅读时间最多间隔 30 秒更新。
+        if (book.currentPage != position.page || book.progressPercent != percent || book.statusBadge != badge ||
+            (chapter != null && chapter != book.currentChapterTitle) || book.lastReadTimestamp == 0L ||
+            timestamp < book.lastReadTimestamp || timestamp - book.lastReadTimestamp >= 30_000L) {
+            updateProgress(id, position.page, percent, badge, chapter, timestamp)
+        }
+        val saved = getReaderState(id)
+        val previous = saved ?: ReaderStateEntity(id)
+        val next = previous.copy(page = position.page, offsetFraction = position.offsetFraction,
+            scale = position.scale, panX = position.panX, panY = position.panY)
+        if (next != saved) saveReaderState(next)
     }
 
     @Query("UPDATE books SET progressPercent = 100, statusBadge = '已读完' WHERE id = :id AND isVaultEncrypted = 0")

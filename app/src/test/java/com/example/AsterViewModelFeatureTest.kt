@@ -82,6 +82,34 @@ class AsterViewModelFeatureTest {
         assertNull(viewModel.uiState.value.activeSubScreen)
     }
 
+    @Test fun missingCoversWaitUntilReaderAndDetailHaveClosed() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val dao = com.example.data.local.AsterDatabase.getDatabase(app).asterDao()
+        val file = java.io.File(app.cacheDir, "阅读后补全封面.cbz")
+        val png = java.util.Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=")
+        java.util.zip.ZipOutputStream(file.outputStream()).use { zip ->
+            zip.putNextEntry(java.util.zip.ZipEntry("01.png"))
+            zip.write(png)
+            zip.closeEntry()
+        }
+        for (screen in listOf(SubScreen.Reader("当前阅读"), SubScreen.PublicationDetail("当前详情"))) {
+            viewModel.pushSubScreen(screen)
+            val book = comicFixture("等待封面-${java.util.UUID.randomUUID()}").copy(
+                filePath = android.net.Uri.fromFile(file).toString(), totalPages = 0)
+            dao.insertBook(book)
+            assertNull(kotlinx.coroutines.withTimeoutOrNull(400) {
+                dao.observeBookById(book.id).first { !it?.coverUrl.isNullOrBlank() }
+            })
+            assertTrue(viewModel.popSubScreen())
+            val updated = withTimeout(10000) {
+                dao.observeBookById(book.id).first { !it?.coverUrl.isNullOrBlank() }
+            }!!
+            assertTrue(java.io.File(updated.coverUrl).length() > 0)
+            assertEquals(0, updated.totalPages)
+        }
+    }
+
     @Test
     fun testInitialEmptyLibraryState() = runBlocking {
         val uiState = viewModel.uiState.value
