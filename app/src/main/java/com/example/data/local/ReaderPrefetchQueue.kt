@@ -18,7 +18,7 @@ internal class ReaderPrefetchQueue(
         val current = plan
         if (bookId == id && current != null && job?.isActive == true && current.update(pages, visiblePage)) return
         cancel()
-        val next = ReaderPrefetchPlan(pages)
+        val next = ReaderPrefetchPlan(pages, visiblePage)
         bookId = id
         plan = next
         job = scope.launch {
@@ -45,17 +45,21 @@ internal class ReaderPrefetchQueue(
 }
 
 /** 解码线程与主线程之间只交换页码，不持有位图或文件资源。 */
-internal class ReaderPrefetchPlan(pages: List<Int>) {
+internal class ReaderPrefetchPlan(pages: List<Int>, visiblePage: Int? = null) {
     private var pages = pages.filter { it > 0 }.distinct()
+    private var visiblePage = visiblePage?.takeIf { it > 0 }
     private var activePage: Int? = null
     private var revision = 0L
 
     @Synchronized fun revision(): Long = revision
+    @Synchronized fun visiblePage(): Int? = visiblePage
 
     @Synchronized fun update(nextPages: List<Int>, visiblePage: Int): Boolean {
         val next = nextPages.filter { it > 0 }.distinct()
-        if (next != pages) {
+        val nextVisible = visiblePage.takeIf { it > 0 }
+        if (next != pages || nextVisible != this.visiblePage) {
             pages = next
+            this.visiblePage = nextVisible
             revision++
         }
         return activePage == null || activePage == visiblePage || activePage in pages

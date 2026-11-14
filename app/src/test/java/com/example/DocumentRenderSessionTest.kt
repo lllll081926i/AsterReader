@@ -27,6 +27,76 @@ import java.util.zip.ZipOutputStream
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [31, 35])
 class DocumentRenderSessionTest {
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun visiblePageRemainsCachedWhenNeighborCompositionChangesTheLastCacheLookup() = runBlocking {
+        val bitmap = android.graphics.Bitmap.createBitmap(4, 4, android.graphics.Bitmap.Config.ARGB_8888)
+        val encoded = java.io.ByteArrayOutputStream().also {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }.toByteArray()
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>(), bitmap.allocationByteCount * 3)
+        bitmap.recycle()
+        val completed = CompletableDeferred<Unit>()
+        val source = PageSource.Directory(10_000) { encoded.inputStream() }
+        val queue = com.example.data.local.ReaderPrefetchQueue(this) { key, plan ->
+            session.prefetch(key, plan, 1000) { source }
+            completed.complete(Unit)
+        }
+        try {
+            val current = session.render("可见页", 1, 1000) { source }
+            session.prefetch("可见页", listOf(2, 3), 1000) { source }
+            assertNotNull(session.cachedPage("可见页", 3, 1000))
+            queue.update("可见页", listOf(4), 1)
+            withTimeout(10_000) { completed.await() }
+            assertSame(current, session.cachedPage("可见页", 1, 1000))
+            assertNull(session.cachedPage("可见页", 4, 1000))
+            assertTrue(session.cachedBytes() <= session.maxCacheBytes())
+        } finally { queue.cancel(); session.close() }
+    }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun inFlightPrefetchUsesTheLatestVisiblePageWhenAdmittingItsBitmap() = runBlocking {
+        val bitmap = android.graphics.Bitmap.createBitmap(4, 4, android.graphics.Bitmap.Config.ARGB_8888)
+        val encoded = java.io.ByteArrayOutputStream().also {
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }.toByteArray()
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>(), bitmap.allocationByteCount * 3)
+        bitmap.recycle()
+        val entered = CompletableDeferred<Unit>()
+        val completed = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val reads = AtomicInteger()
+        val source = PageSource.Directory(10_000) { page ->
+            if (page == 4) {
+                reads.incrementAndGet()
+                entered.complete(Unit)
+                check(release.await(10, TimeUnit.SECONDS))
+            }
+            encoded.inputStream()
+        }
+        val queue = com.example.data.local.ReaderPrefetchQueue(this) { key, plan ->
+            session.prefetch(key, plan, 1000) { source }
+            completed.complete(Unit)
+        }
+        try {
+            withTimeout(15_000) {
+                val current = session.render("更新锚点", 1, 1000) { source }
+                session.prefetch("更新锚点", listOf(2, 3), 1000) { source }
+                assertNotNull(session.cachedPage("更新锚点", 3, 1000))
+                queue.update("更新锚点", listOf(4), 3)
+                entered.await()
+                queue.update("更新锚点", listOf(4), 1)
+                release.countDown()
+                completed.await()
+                assertSame(current, session.cachedPage("更新锚点", 1, 1000))
+                assertNull(session.cachedPage("更新锚点", 4, 1000))
+                assertEquals(1, reads.get())
+                assertTrue(session.cachedBytes() <= session.maxCacheBytes())
+            }
+        } finally { release.countDown(); queue.cancel(); session.close() }
+    }
+
     @Test fun distantInFlightPrefetchDoesNotBlockAnUnrelatedVisiblePage() = runBlocking {
         val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
         val entered = CompletableDeferred<Unit>()

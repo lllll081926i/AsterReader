@@ -12,6 +12,19 @@ import org.junit.Test
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ReaderPrefetchQueueTest {
+    @Test fun visiblePageChangeReachesTheLoaderEvenWhenNeighborsStayTheSame() = runTest {
+        val visiblePages = mutableListOf<Int?>()
+        lateinit var queue: ReaderPrefetchQueue
+        queue = ReaderPrefetchQueue(this) { _, plan ->
+            visiblePages.add(plan.visiblePage())
+            if (visiblePages.size == 1) queue.update("作品", listOf(2), 3)
+        }
+        queue.update("作品", listOf(2), 1)
+        runCurrent()
+        assertEquals(listOf(1, 3), visiblePages)
+        queue.cancel()
+    }
+
     @Test fun movingOntoTheLoadingPageKeepsItsDecodeAndUsesTheLatestNeighbors() = runTest {
         val release = CompletableDeferred<Unit>()
         val decoded = mutableListOf<Int>()

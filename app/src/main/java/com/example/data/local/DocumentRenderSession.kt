@@ -138,10 +138,11 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
                             val sample = sampleFor(knownSize.first, knownSize.second, maxPixels)
                             val estimatedBytes = ((knownSize.first.toLong() + sample - 1) / sample) *
                                 ((knownSize.second.toLong() + sample - 1) / sample) * 4
-                            if (!backgroundFits(open, cacheKey, estimatedBytes)) return
+                            if (!backgroundFits(open, cacheKey, estimatedBytes, plan.visiblePage())) return
                         }
                         try {
-                            val bitmap = cachedDecode(open, cacheKey, background = true) { renderBitmap(open, page, maxPixels) }
+                            val bitmap = cachedDecode(open, cacheKey, background = true,
+                                backgroundAnchor = plan::visiblePage) { renderBitmap(open, page, maxPixels) }
                             if (bitmap == null) continue
                             prefetchedBytes += bitmap.allocationByteCount
                             // 不为远处预加载淘汰当前页；缓存不能容纳时结束本轮。
@@ -270,17 +271,18 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
         return pages.get(compatible)
     }
 
-    private fun backgroundFits(open: OpenSource, key: PageKey, bytes: Long): Boolean = synchronized(pages) {
+    private fun backgroundFits(open: OpenSource, key: PageKey, bytes: Long, visiblePage: Int? = null): Boolean = synchronized(pages) {
         if (bytes > pages.maxSize()) return@synchronized false
         val available = pages.maxSize().toLong() - pages.size()
         if (available >= bytes) return@synchronized true
-        val anchor = foregroundPage?.takeIf { it.first == open.key }?.second ?: return@synchronized true
+        val anchor = visiblePage ?: foregroundPage?.takeIf { it.first == open.key }?.second ?: return@synchronized true
         available + pages.snapshot().filterKeys {
             kotlin.math.abs(it.page.toLong() - anchor) > kotlin.math.abs(key.page.toLong() - anchor)
         }.values.sumOf { it.allocationByteCount.toLong() } >= bytes
     }
 
-    private suspend fun cachedDecode(open: OpenSource, key: PageKey, background: Boolean = false, block: suspend () -> Bitmap?): Bitmap? {
+    private suspend fun cachedDecode(open: OpenSource, key: PageKey, background: Boolean = false,
+        backgroundAnchor: (() -> Int?)? = null, block: suspend () -> Bitmap?): Bitmap? {
         cachedPage(key)?.let { return it }
         // 同一页的不同清晰度共用门锁，高清完成后预览直接复用，不再排队重复解码。
         val gateKey = key.source to key.page
@@ -294,7 +296,7 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
                     currentCoroutineContext().ensureActive()
                     if (bitmap.allocationByteCount <= pages.maxSize()) {
                         synchronized(pages) {
-                            val anchor = foregroundPage?.takeIf { it.first == open.key }?.second
+                            val anchor = backgroundAnchor?.invoke() ?: foregroundPage?.takeIf { it.first == open.key }?.second
                             if (background && anchor != null) {
                                 val snapshot = pages.snapshot()
                                 val required = bitmap.allocationByteCount - (pages.maxSize() - pages.size())
