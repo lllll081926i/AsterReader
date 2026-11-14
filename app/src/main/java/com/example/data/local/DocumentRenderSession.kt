@@ -65,7 +65,11 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
     private val dimensions = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Bitmap, Pair<Int, Int>>())
     fun nativeSize(bitmap: Bitmap): Pair<Int, Int>? = dimensions[bitmap]
     private val inFlight = MutableStateFlow(0)
-    private val pageGates = Array(32) { Mutex() }
+    private class PageGate {
+        val mutex = Mutex()
+        var users = 0
+    }
+    private val pageGates = mutableMapOf<Pair<String, Int>, PageGate>()
     private val decodeSlots = Semaphore(2)
     private val foregroundRequests = MutableStateFlow(0)
     @Volatile private var foregroundPage: Pair<String, Int>? = null
@@ -279,8 +283,12 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
     private suspend fun cachedDecode(open: OpenSource, key: PageKey, background: Boolean = false, block: suspend () -> Bitmap?): Bitmap? {
         cachedPage(key)?.let { return it }
         // 同一页的不同清晰度共用门锁，高清完成后预览直接复用，不再排队重复解码。
-        val gate = (31 * key.source.hashCode() + key.page).and(Int.MAX_VALUE) % pageGates.size
-        return pageGates[gate].withLock {
+        val gateKey = key.source to key.page
+        val gate = synchronized(pageGates) {
+            pageGates.getOrPut(gateKey) { PageGate() }.also { it.users++ }
+        }
+        try {
+        return gate.mutex.withLock {
             cachedPage(key) ?: decode(open, background) {
                 block()?.also { bitmap ->
                     currentCoroutineContext().ensureActive()
@@ -306,6 +314,11 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
                         }
                     } else if (!background) bitmap.prepareToDraw()
                 }
+            }
+        }
+        } finally {
+            synchronized(pageGates) {
+                if (--gate.users == 0) pageGates.remove(gateKey)
             }
         }
     }

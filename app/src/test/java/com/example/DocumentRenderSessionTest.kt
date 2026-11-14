@@ -27,6 +27,65 @@ import java.util.zip.ZipOutputStream
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [31, 35])
 class DocumentRenderSessionTest {
+    @Test fun distantInFlightPrefetchDoesNotBlockAnUnrelatedVisiblePage() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val entered = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val visibleStreams = AtomicInteger()
+        val source = PageSource.Directory(10_000) { page ->
+            if (page == 1) {
+                entered.complete(Unit)
+                check(release.await(15, TimeUnit.SECONDS))
+            } else {
+                assertEquals(33, page)
+                visibleStreams.incrementAndGet()
+            }
+            png.inputStream()
+        }
+        try {
+            withTimeout(20_000) {
+                val warming = async { session.prefetch("远页", listOf(1), 1000) { source } }
+                entered.await()
+                try {
+                    withTimeout(5_000) {
+                        val first = async(start = CoroutineStart.UNDISPATCHED) { session.render("远页", 33, 1000) { source } }
+                        val second = async(start = CoroutineStart.UNDISPATCHED) { session.render("远页", 33, 1000) { source } }
+                        assertSame(first.await(), second.await())
+                        assertEquals(1, visibleStreams.get())
+                        assertEquals(1L, release.count)
+                    }
+                } finally { release.countDown() }
+                warming.await()
+            }
+        } finally { release.countDown(); session.close() }
+    }
+
+    @Test fun cancellingASamePageWaiterPreservesTheActiveDecodeAndRemainingWaiters() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val entered = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val streams = AtomicInteger()
+        val source = PageSource.Directory(1) {
+            streams.incrementAndGet()
+            entered.complete(Unit)
+            check(release.await(10, TimeUnit.SECONDS))
+            png.inputStream()
+        }
+        try {
+            withTimeout(15_000) {
+                val active = async { session.render("同页取消", 1, 1000) { source } }
+                entered.await()
+                val cancelled = async(start = CoroutineStart.UNDISPATCHED) { session.render("同页取消", 1, 1000) { source } }
+                cancelled.cancelAndJoin()
+                val remaining = async(start = CoroutineStart.UNDISPATCHED) { session.render("同页取消", 1, 1000) { source } }
+                release.countDown()
+                assertSame(active.await(), remaining.await())
+                assertTrue(cancelled.isCancelled)
+                assertEquals(1, streams.get())
+            }
+        } finally { release.countDown(); session.close() }
+    }
+
     @Test
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     fun scrollingOntoAnInFlightPrefetchSharesItsStreamAndSkipsOldNeighbors() = runBlocking {
