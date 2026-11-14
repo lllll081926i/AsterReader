@@ -53,9 +53,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.boundsInRoot
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
@@ -74,6 +74,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.ui.ReaderLayoutMode
+import com.asterreader.core.model.ReaderViewport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
@@ -84,6 +85,25 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 data class ReaderZoomCommand(val sequence: Int = 0, val delta: Float = 0f)
+
+private enum class ReaderTapZone { LEFT, CENTER, RIGHT }
+
+/** 只保留布局引用，触摸时查询实时坐标，不向组合回写滚动位置。 */
+private class ReaderCoordinates {
+    var layout: LayoutCoordinates? = null
+
+    fun rootX(localX: Float): Float = layout?.takeIf { it.isAttached }
+        ?.localToRoot(Offset(localX, 0f))?.x ?: localX
+
+    fun tapZone(rootX: Float): ReaderTapZone {
+        val bounds = layout?.takeIf { it.isAttached }?.boundsInRoot() ?: return ReaderTapZone.CENTER
+        return when {
+            rootX < bounds.left + bounds.width * 0.25f -> ReaderTapZone.LEFT
+            rootX > bounds.left + bounds.width * 0.75f -> ReaderTapZone.RIGHT
+            else -> ReaderTapZone.CENTER
+        }
+    }
+}
 
 /**
  * 漫画渲染画布：
@@ -127,8 +147,13 @@ fun PublicationPageCanvas(
     var zoomScale by remember(publicationId, page) { mutableFloatStateOf(initialScale.coerceIn(1f, 4f)) }
     var panX by remember(publicationId, page) { mutableFloatStateOf(initialPanX) }
     var panY by remember(publicationId, page) { mutableFloatStateOf(initialPanY) }
-    var canvasBounds by remember { mutableStateOf(Rect.Zero) }
-    val chromeRange = canvasBounds.left + canvasBounds.width * 0.25f..canvasBounds.left + canvasBounds.width * 0.75f
+    val canvasCoordinates = remember { ReaderCoordinates() }
+    val currentZoomScale by rememberUpdatedState(zoomScale)
+    val currentPanX by rememberUpdatedState(panX)
+    val currentPanY by rememberUpdatedState(panY)
+    val reportPage by rememberUpdatedState(onPageChanged)
+    val reportViewport by rememberUpdatedState(onViewportChanged)
+    val reportEnd by rememberUpdatedState(onReachedEnd)
 
     val pageRatios = remember(publicationId) { mutableStateMapOf<Int, Float>() }
     var previousPage by remember(publicationId) { mutableIntStateOf(page) }
@@ -145,7 +170,7 @@ fun PublicationPageCanvas(
     }
 
     Box(Modifier.fillMaxSize().testTag("publication_canvas")
-        .onGloballyPositioned { canvasBounds = it.boundsInRoot() }
+        .onPlaced { canvasCoordinates.layout = it }
         .readerCenterTap(onToggleChrome)) {
     if (mode == ReaderLayoutMode.VERTICAL_SCROLL) {
         val list = rememberLazyListState(initialFirstVisibleItemIndex = (page - 1).coerceIn(0, totalPages - 1))
@@ -154,7 +179,7 @@ fun PublicationPageCanvas(
             snapshotFlow {
                 list.layoutInfo.totalItemsCount == totalPages &&
                     list.layoutInfo.visibleItemsInfo.lastOrNull()?.index == totalPages - 1 && !list.canScrollForward
-            }.distinctUntilChanged().collect { onReachedEnd(it) }
+            }.distinctUntilChanged().collect { reportEnd(it) }
         }
         var restored by remember(publicationId) { mutableStateOf(false) }
 
@@ -197,25 +222,29 @@ fun PublicationPageCanvas(
                 }
             }
         }
-        LaunchedEffect(list, zoomScale, panX, panY) {
+        LaunchedEffect(list, totalPages) {
             snapshotFlow {
+                if (programmaticScroll) return@snapshotFlow null
                 val visibleItems = list.layoutInfo.visibleItemsInfo
                 val atLastPage = list.layoutInfo.totalItemsCount == totalPages &&
                     visibleItems.lastOrNull()?.index == totalPages - 1 && !list.canScrollForward
                 val visible = if (atLastPage) visibleItems.lastOrNull() else visibleItems.firstOrNull()
-                Triple(visible?.index ?: list.firstVisibleItemIndex,
-                    if (atLastPage) 0 else list.firstVisibleItemScrollOffset, visible?.size ?: 0)
+                val size = visible?.size ?: 0
+                val offset = if (atLastPage) 0 else list.firstVisibleItemScrollOffset
+                ReaderViewport(
+                    page = (visible?.index ?: list.firstVisibleItemIndex) + 1,
+                    offsetFraction = if (size > 0) (offset.toFloat() / size).coerceIn(0f, 0.999f) else 0f,
+                    scale = currentZoomScale, panX = currentPanX, panY = currentPanY
+                )
             }
+                .filterNotNull()
                 .distinctUntilChanged()
-                .collect { (index, offset, size) ->
-                    if (programmaticScroll) return@collect
-                    val actualPage = index + 1
-                    val fraction = if (size > 0) (offset.toFloat() / size).coerceIn(0f, 0.999f) else 0f
-                    if (lastReported != actualPage) {
-                        lastReported = actualPage
-                        onPageChanged(actualPage)
+                .collect { position ->
+                    if (lastReported != position.page) {
+                        lastReported = position.page
+                        reportPage(position.page)
                     }
-                    onViewportChanged(actualPage, fraction, zoomScale, panX, panY)
+                    reportViewport(position.page, position.offsetFraction, position.scale, position.panX, position.panY)
                 }
         }
         LazyColumn(
@@ -231,7 +260,7 @@ fun PublicationPageCanvas(
                     load = loadPage,
                     cachedPage = cachedPage,
                     nativeSize = nativeSize,
-                    chromeRange = chromeRange,
+                    tapZone = canvasCoordinates::tapZone,
                     loadRegion = loadRegion,
                     onToggleChrome = onToggleChrome,
                     onNext = onNextPage,
@@ -241,7 +270,7 @@ fun PublicationPageCanvas(
                         it.first.toFloat() / it.second
                     } ?: 0f,
                     onRatio = { pageRatios[index + 1] = it },
-                    resetToken = page,
+                    resetToken = if (index + 1 == page) page else 0,
                     zoomCommand = zoomCommand,
                     active = index + 1 == page,
                     fitMode = fitMode,
@@ -265,13 +294,19 @@ fun PublicationPageCanvas(
         LaunchedEffect(page, spreads) {
             if (page != lastReported) pager.scrollToPage(spreads.indexOf(page))
         }
-        LaunchedEffect(pager, spreads, zoomScale, panX, panY) {
-            snapshotFlow { pager.settledPage }.distinctUntilChanged().collect {
-                val actualPage = spreads.firstPage(it)
-                lastReported = actualPage
-                onPageChanged(actualPage)
-                onViewportChanged(actualPage, 0f, zoomScale, panX, panY)
-                onReachedEnd(it == spreads.count - 1)
+        LaunchedEffect(pager, spreads) {
+            var reportedPage: Int? = null
+            snapshotFlow {
+                ReaderViewport(spreads.firstPage(pager.settledPage), scale = currentZoomScale,
+                    panX = currentPanX, panY = currentPanY)
+            }.distinctUntilChanged().collect { position ->
+                lastReported = position.page
+                if (reportedPage != position.page) {
+                    reportedPage = position.page
+                    reportPage(position.page)
+                    reportEnd(spreads.indexOf(position.page) == spreads.count - 1)
+                }
+                reportViewport(position.page, 0f, position.scale, position.panX, position.panY)
             }
         }
         HorizontalPager(
@@ -290,7 +325,7 @@ fun PublicationPageCanvas(
                             load = loadPage,
                             cachedPage = cachedPage,
                             nativeSize = nativeSize,
-                            chromeRange = chromeRange,
+                            tapZone = canvasCoordinates::tapZone,
                             rightToLeft = rightToLeft,
                             loadRegion = loadRegion,
                             onToggleChrome = onToggleChrome,
@@ -317,7 +352,7 @@ fun PublicationPageCanvas(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxSize(),
-                            resetToken = page,
+                            resetToken = if (number == page) page else 0,
                             zoomCommand = zoomCommand,
                             active = number == page,
                             fitMode = fitMode,
@@ -344,7 +379,7 @@ private fun DocumentPage(
     load: suspend (Int, Int) -> Bitmap,
     cachedPage: (Int, Int) -> Bitmap?,
     nativeSize: (Bitmap) -> Pair<Int, Int>?,
-    chromeRange: ClosedFloatingPointRange<Float>,
+    tapZone: (Float) -> ReaderTapZone,
     rightToLeft: Boolean = false,
     loadRegion: suspend (Int, Float, Float, Int) -> Bitmap?,
     onToggleChrome: () -> Unit,
@@ -366,8 +401,8 @@ private fun DocumentPage(
     var scale by remember(publicationId, page, resetToken) { mutableFloatStateOf(startScale.coerceIn(1f, 4f)) }
     var translation by remember(publicationId, page, resetToken) { mutableStateOf(Offset.Zero) }
     var viewport by remember { mutableStateOf(IntSize.Zero) }
-    var originX by remember { mutableFloatStateOf(0f) }
-    val currentChromeRange by rememberUpdatedState(chromeRange)
+    val coordinates = remember { ReaderCoordinates() }
+    val currentTapZone by rememberUpdatedState(tapZone)
     val currentRightToLeft by rememberUpdatedState(rightToLeft)
     val nextPage by rememberUpdatedState(onNext)
     val previousPage by rememberUpdatedState(onPrev)
@@ -387,11 +422,14 @@ private fun DocumentPage(
             }
         }
     }
-    LaunchedEffect(scale, translation, viewport) {
-        val limitX = viewport.width * (scale - 1f) / 2f
-        val limitY = viewport.height * (scale - 1f) / 2f
-        onZoomChanged(scale, if (limitX > 0f) translation.x / limitX else 0f,
-            if (limitY > 0f) translation.y / limitY else 0f)
+    val reportZoom by rememberUpdatedState(onZoomChanged)
+    LaunchedEffect(publicationId, page, resetToken) {
+        snapshotFlow {
+            val limitX = viewport.width * (scale - 1f) / 2f
+            val limitY = viewport.height * (scale - 1f) / 2f
+            Triple(scale, if (limitX > 0f) translation.x / limitX else 0f,
+                if (limitY > 0f) translation.y / limitY else 0f)
+        }.distinctUntilChanged().collect { (zoom, x, y) -> reportZoom(zoom, x, y) }
     }
 
     // 缩放后的像素预算：放大越多，请求越高分辨率，避免位图被拉伸糊化
@@ -410,7 +448,7 @@ private fun DocumentPage(
     val transformModifier = Modifier.pointerInput(publicationId, page, resetToken) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
-            val physicalX = originX + down.position.x
+            val physicalX = coordinates.rootX(down.position.x)
             if (physicalX < gestureEdges.first || physicalX > view.width - gestureEdges.second) return@awaitEachGesture
             do {
                 val event = awaitPointerEvent()
@@ -505,12 +543,12 @@ private fun DocumentPage(
             .then(if (!vertical) Modifier else if (pageRatio > 0f) Modifier.aspectRatio(pageRatio) else Modifier.heightIn(min = 320.dp))
             .clipToBounds()
             .onSizeChanged { viewport = it }
-            .onGloballyPositioned { originX = it.positionInRoot().x }
+            .onPlaced { coordinates.layout = it }
             .then(transformModifier)
             .pointerInput(publicationId, page, resetToken) {
                 detectTapGestures(
                     onDoubleTap = { tapOffset ->
-                        if (originX + tapOffset.x in currentChromeRange) {
+                        if (currentTapZone(coordinates.rootX(tapOffset.x)) == ReaderTapZone.CENTER) {
                             // 中央连续点击逐次切换工具栏，不进入双击缩放判定。
                         } else if (scale > 1.01f) {
                             scale = 1f
@@ -527,9 +565,10 @@ private fun DocumentPage(
                         }
                     },
                     onTap = { tapOffset ->
-                        val x = originX + tapOffset.x
-                        if (x !in currentChromeRange && scale <= 1.01f && !vertical) {
-                            val left = x < currentChromeRange.start
+                        val x = coordinates.rootX(tapOffset.x)
+                        val zone = currentTapZone(x)
+                        if (zone != ReaderTapZone.CENTER && scale <= 1.01f && !vertical) {
+                            val left = zone == ReaderTapZone.LEFT
                             if (left == currentRightToLeft) nextPage() else previousPage()
                         }
                     }

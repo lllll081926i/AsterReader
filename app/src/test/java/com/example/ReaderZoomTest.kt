@@ -26,6 +26,42 @@ import org.robolectric.annotation.GraphicsMode
 class ReaderZoomTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun pagerZoomUpdatesViewportWithoutRepeatingPageChanges() = verifyZoomReports(ReaderLayoutMode.LTR_PAGER)
+
+    @Test fun verticalZoomUpdatesViewportWithoutRepeatingPageChanges() = verifyZoomReports(ReaderLayoutMode.VERTICAL_SCROLL)
+
+    private fun verifyZoomReports(mode: ReaderLayoutMode) {
+        var pageChanges = 0
+        var reportedScale = 1f
+        var reportedPanX = 0f
+        val bitmap = Bitmap.createBitmap(20, 60, Bitmap.Config.ARGB_8888)
+        compose.setContent {
+            AsterReaderTheme {
+                PublicationPageCanvas("持续视口-$mode", 1, 2, mode, false,
+                    cachedPage = { _, _ -> bitmap }, loadPage = { _, _ -> bitmap },
+                    onPageChanged = { pageChanges++ },
+                    onViewportChanged = { _, _, scale, x, _ -> reportedScale = scale; reportedPanX = x },
+                    onToggleChrome = {})
+            }
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { pageChanges = 0 }
+        val canvas = compose.onNodeWithTag("publication_canvas")
+        canvas.performTouchInput { doubleClick(androidx.compose.ui.geometry.Offset(width * 0.85f, height * 0.2f)) }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.runOnIdle {
+            assertEquals(2.2f, reportedScale, 0.01f)
+            org.junit.Assert.assertTrue("触点缩放后的平移需要保存", reportedPanX < 0f)
+            assertEquals("缩放不应重复发送换页通知", 0, pageChanges)
+        }
+        canvas.performTouchInput { swipeLeft() }
+        compose.runOnIdle {
+            assertEquals(2.2f, reportedScale, 0.01f)
+            org.junit.Assert.assertTrue(reportedPanX <= -0.9f)
+            assertEquals(0, pageChanges)
+        }
+    }
+
     @Test fun explicitZoomAffectsCurrentPageAndResetClearsPan() {
         var reportedScale = 1f
         var reportedX = 0f
