@@ -29,6 +29,40 @@ import java.util.zip.ZipOutputStream
 class DocumentRenderSessionTest {
     @Test
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun anOversizedKnownPageDoesNotPreventSmallerNeighborsFromPrefetching() = runBlocking {
+        fun encoded(width: Int): ByteArray {
+            val bitmap = android.graphics.Bitmap.createBitmap(width, width, android.graphics.Bitmap.Config.ARGB_8888)
+            return try {
+                java.io.ByteArrayOutputStream().also {
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+                }.toByteArray()
+            } finally { bitmap.recycle() }
+        }
+        val small = encoded(4)
+        val large = encoded(8)
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>(), 4 * 4 * 4 * 3)
+        val opened = mutableListOf<Int>()
+        val source = PageSource.Directory(10_000) { page ->
+            synchronized(opened) { opened.add(page) }
+            (if (page == 2) large else small).inputStream()
+        }
+        try {
+            val oversized = session.render("混合尺寸", 2, 1000) { source }
+            assertTrue(oversized.allocationByteCount > session.maxCacheBytes())
+            assertNull(session.cachedPage("混合尺寸", 2, 1000))
+            val current = session.render("混合尺寸", 1, 1000) { source }
+            repeat(2) {
+                session.prefetch("混合尺寸", listOf(2, 3), 1000) { source }
+                assertNotNull(session.cachedPage("混合尺寸", 3, 1000))
+                assertSame(current, session.cachedPage("混合尺寸", 1, 1000))
+            }
+            assertEquals(listOf(2, 1, 3), opened)
+            assertTrue(session.cachedBytes() <= session.maxCacheBytes())
+        } finally { session.close() }
+    }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     fun visiblePageRemainsCachedWhenNeighborCompositionChangesTheLastCacheLookup() = runBlocking {
         val bitmap = android.graphics.Bitmap.createBitmap(4, 4, android.graphics.Bitmap.Config.ARGB_8888)
         val encoded = java.io.ByteArrayOutputStream().also {

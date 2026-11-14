@@ -138,6 +138,7 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
                             val sample = sampleFor(knownSize.first, knownSize.second, maxPixels)
                             val estimatedBytes = ((knownSize.first.toLong() + sample - 1) / sample) *
                                 ((knownSize.second.toLong() + sample - 1) / sample) * 4
+                            if (estimatedBytes > pages.maxSize()) break
                             if (!backgroundFits(open, cacheKey, estimatedBytes, plan.visiblePage())) return
                         }
                         try {
