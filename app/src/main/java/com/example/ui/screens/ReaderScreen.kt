@@ -333,7 +333,7 @@ private fun ReaderContent(
                     loadRegion = { targetPage, top, bottom, pixels ->
                         viewModel.renderPageRegion(book.id, targetPage, top, bottom, pixels)
                     },
-                    onPrefetch = { pages -> viewModel.prefetchPages(book.id, pages) },
+                    onPrefetch = { pages -> viewModel.prefetchPages(book.id, pages, currentPage) },
                     onPageChanged = { currentPage = it },
                     onReachedEnd = { end ->
                         if (end && !isAtEnd) viewModel.markReadingCompleted(book.id)

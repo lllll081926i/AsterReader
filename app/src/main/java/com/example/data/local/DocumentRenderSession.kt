@@ -105,37 +105,49 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
         pagesToLoad: List<Int>,
         maxPixels: Int,
         prepare: suspend () -> PageSource
+    ) = prefetch(key, ReaderPrefetchPlan(pagesToLoad), maxPixels, prepare)
+
+    suspend fun prefetch(
+        key: String,
+        plan: ReaderPrefetchPlan,
+        maxPixels: Int,
+        prepare: suspend () -> PageSource
     ) {
         var prefetchedBytes = 0L
-        for (page in pagesToLoad.distinct()) {
-            if (page < 1) continue
-            while (true) {
-                currentCoroutineContext().ensureActive()
-                // 等待时不持有来源租约，换书不会与可见页互相等待。
-                foregroundRequests.first { it == 0 }
-                val open = ensureSource(key, prepare)
-                try {
-                    if (foregroundRequests.value > 0) continue
-                    if (page > open.pageCount) break
-                    val cacheKey = PageKey(open.fingerprint, page, maxPixels)
-                    val knownSize = open.imageSizes[page]
-                    if (cachedPage(cacheKey) == null && knownSize != null && open.renderer == null) {
-                        val sample = sampleFor(knownSize.first, knownSize.second, maxPixels)
-                        val estimatedBytes = ((knownSize.first.toLong() + sample - 1) / sample) *
-                            ((knownSize.second.toLong() + sample - 1) / sample) * 4
-                        if (!backgroundFits(open, cacheKey, estimatedBytes)) return
-                    }
+        val attempted = HashSet<Int>()
+        while (true) {
+            currentCoroutineContext().ensureActive()
+            val page = plan.nextPage(attempted) ?: break
+            attempted.add(page)
+            try {
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    // 等待时不持有来源租约，换书不会与可见页互相等待。
+                    foregroundRequests.first { it == 0 }
+                    val open = ensureSource(key, prepare)
                     try {
-                        val bitmap = cachedDecode(open, cacheKey, background = true) { renderBitmap(open, page, maxPixels) }
-                        if (bitmap == null) continue
-                        prefetchedBytes += bitmap.allocationByteCount
-                        // 不为远处预加载淘汰当前页；缓存不能容纳时结束本轮。
-                        if (cachedPage(cacheKey) == null) return
-                    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-                    catch (_: Exception) { /* 可见页负责显示读取错误。 */ }
-                    break
-                } finally { inFlight.update { it - 1 } }
-            }
+                        if (foregroundRequests.value > 0) continue
+                        if (page > open.pageCount) break
+                        val cacheKey = PageKey(open.fingerprint, page, maxPixels)
+                        val knownSize = open.imageSizes[page]
+                        if (cachedPage(cacheKey) == null && knownSize != null && open.renderer == null) {
+                            val sample = sampleFor(knownSize.first, knownSize.second, maxPixels)
+                            val estimatedBytes = ((knownSize.first.toLong() + sample - 1) / sample) *
+                                ((knownSize.second.toLong() + sample - 1) / sample) * 4
+                            if (!backgroundFits(open, cacheKey, estimatedBytes)) return
+                        }
+                        try {
+                            val bitmap = cachedDecode(open, cacheKey, background = true) { renderBitmap(open, page, maxPixels) }
+                            if (bitmap == null) continue
+                            prefetchedBytes += bitmap.allocationByteCount
+                            // 不为远处预加载淘汰当前页；缓存不能容纳时结束本轮。
+                            if (cachedPage(cacheKey) == null) return
+                        } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                        catch (_: Exception) { /* 可见页负责显示读取错误。 */ }
+                        break
+                    } finally { inFlight.update { it - 1 } }
+                }
+            } finally { plan.finishPage(page) }
             if (prefetchedBytes >= pages.maxSize() * 3L / 4) break
         }
     }

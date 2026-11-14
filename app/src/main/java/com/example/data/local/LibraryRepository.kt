@@ -696,11 +696,11 @@ class LibraryRepository(
     }
 
     /** 预热相邻页。失败不影响阅读，只让翻页少一次等待。 */
-    suspend fun prefetchPages(id: String, pages: List<Int>, maxPixels: Int = DEFAULT_PAGE_PIXELS) =
+    internal suspend fun prefetchPages(id: String, plan: ReaderPrefetchPlan, maxPixels: Int = DEFAULT_PAGE_PIXELS) =
         withContext(Dispatchers.IO) {
             val book = getBookById(id) ?: return@withContext
             if (book.isVaultEncrypted && !fileVault.unlocked) return@withContext
-            renderSession.prefetch(sourceKey(book), pages, maxPixels) { prepareSource(book) }
+            renderSession.prefetch(sourceKey(book), plan, maxPixels) { prepareSource(book) }
         }
 
     /** 放大后按可见纵向条带取原始分辨率；不支持时返回 null，UI 退回整页位图。 */

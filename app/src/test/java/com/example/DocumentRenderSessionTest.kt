@@ -29,6 +29,52 @@ import java.util.zip.ZipOutputStream
 class DocumentRenderSessionTest {
     @Test
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun scrollingOntoAnInFlightPrefetchSharesItsStreamAndSkipsOldNeighbors() = runBlocking {
+        val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
+        val image = android.graphics.Bitmap.createBitmap(4, 4, android.graphics.Bitmap.Config.ARGB_8888)
+        val encoded = java.io.ByteArrayOutputStream().also {
+            image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }.toByteArray()
+        image.recycle()
+        val entered = CompletableDeferred<Unit>()
+        val completed = CompletableDeferred<Unit>()
+        val release = CountDownLatch(1)
+        val opened = java.util.Collections.synchronizedList(mutableListOf<Int>())
+        val source = PageSource.Directory(10_000) { page ->
+            opened.add(page)
+            if (page == 2) {
+                entered.complete(Unit)
+                check(release.await(10, TimeUnit.SECONDS))
+            }
+            encoded.inputStream()
+        }
+        val queue = com.example.data.local.ReaderPrefetchQueue(this) { key, plan ->
+            session.prefetch(key, plan, 1000) { source }
+            completed.complete(Unit)
+        }
+        try {
+            withTimeout(15_000) {
+                queue.update("大图集", listOf(2, 3, 4), 1)
+                entered.await()
+                queue.update("大图集", listOf(5, 3), 2)
+                val foreground = async(start = CoroutineStart.UNDISPATCHED) {
+                    session.render("大图集", 2, 1000) { source }
+                }
+                release.countDown()
+                val bitmap = foreground.await()
+                completed.await()
+                assertSame(bitmap, session.cachedPage("大图集", 2, 1000))
+                assertEquals(listOf(2, 5, 3), opened.toList())
+            }
+        } finally {
+            release.countDown()
+            queue.cancel()
+            session.close()
+        }
+    }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     fun cancelledInFlightPageClosesItsStreamWithoutReadingOrCaching() = runBlocking {
         val session = DocumentRenderSession(ApplicationProvider.getApplicationContext<Application>())
         val entered = CompletableDeferred<Unit>()

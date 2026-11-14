@@ -246,7 +246,10 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     private var preparingReaderBook: String? = null
     private var preparingReaderPage: Int? = null
     private var readerCleanupJob: kotlinx.coroutines.Job? = null
-    private var prefetchJob: kotlinx.coroutines.Job? = null
+    private val prefetchQueue = com.example.data.local.ReaderPrefetchQueue(viewModelScope) { id, plan ->
+        readerCleanupJob?.join()
+        repository.prefetchPages(id, plan)
+    }
     private val coverRevision = MutableStateFlow(0L)
     private val navigationRevision = java.util.concurrent.atomic.AtomicLong()
     private var backgroundAt: Long? = null
@@ -557,14 +560,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     fun setPreloadBefore(pages: Int) { _uiState.update { it.copy(preloadBefore = pages.coerceIn(0, 16)) } }
     fun setPreloadAfter(pages: Int) { _uiState.update { it.copy(preloadAfter = pages.coerceIn(0, 16)) } }
 
-    fun prefetchPages(id: String, pages: List<Int>) {
-        prefetchJob?.cancel()
-        prefetchJob = viewModelScope.launch {
-            try { readerCleanupJob?.join(); repository.prefetchPages(id, pages) }
-            catch (cancelled: CancellationException) { throw cancelled }
-            catch (_: Exception) { /* 可见页负责显示加载错误。 */ }
-        }
-    }
+    fun prefetchPages(id: String, pages: List<Int>, visiblePage: Int) = prefetchQueue.update(id, pages, visiblePage)
 
     fun prepareReaderFromDetail(bookId: String, page: Int) {
         val state = _uiState.value
@@ -1336,8 +1332,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         val cleanup = readerCleanupJob
         preparingReaderBook = null
         preparingReaderPage = null
-        prefetchJob?.cancel()
-        prefetchJob = null
+        prefetchQueue.cancel()
         repository.trimPageMemory()
         readerCleanupJob = cleanupScope.launch {
             cleanup?.join()
