@@ -127,7 +127,14 @@ internal class ReaderChannel(private val reader: VaultCryptography.Reader) : See
         check(open)
         if (!dst.hasRemaining()) return 0
         if (location >= reader.length) return -1
-        val bytes = reader.read(location, minOf(dst.remaining().toLong(), reader.length - location, VaultCryptography.CHUNK_SIZE.toLong()).toInt())
+        val count = minOf(dst.remaining().toLong(), reader.length - location, VaultCryptography.CHUNK_SIZE.toLong()).toInt()
+        if (dst.hasArray()) {
+            reader.readInto(location, dst.array(), dst.arrayOffset() + dst.position(), count)
+            dst.position(dst.position() + count)
+            location += count
+            return count
+        }
+        val bytes = reader.read(location, count)
         try { dst.put(bytes); location += bytes.size; return bytes.size } finally { bytes.fill(0) }
     }
     @Synchronized override fun position() = location

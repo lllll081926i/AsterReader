@@ -118,6 +118,66 @@ class VaultCryptographyTest {
         assertThrows(Exception::class.java) { VaultCryptography.write(file, key, 0, byteArrayOf().inputStream()) { error("已取消") } }
     }
 
+    @Test fun directReadsCrossChunksWithoutChangingBytesOutsideDestination() {
+        val plain = ByteArray(VaultCryptography.CHUNK_SIZE + 40) { (it % 251).toByte() }
+        val file = temporary.newFile()
+        VaultCryptography.write(file, key, plain.size.toLong(), plain.inputStream())
+        VaultCryptography.Reader(file, key).use { reader ->
+            val destination = ByteArray(80) { 77 }
+            val start = VaultCryptography.CHUNK_SIZE - 20L
+            assertEquals(50, reader.readInto(start, destination, 10, 50))
+            assertArrayEquals(plain.copyOfRange(start.toInt(), start.toInt() + 50), destination.copyOfRange(10, 60))
+            assertTrue(destination.take(10).all { it == 77.toByte() })
+            assertTrue(destination.drop(60).all { it == 77.toByte() })
+            assertEquals(2L, reader.authenticatedChunkReads)
+            assertThrows(IllegalArgumentException::class.java) { reader.readInto(0, destination, 70, 20) }
+        }
+    }
+
+    @Test fun directReadsClearPartialPlaintextWhenNextChunkFailsAuthentication() {
+        val plain = ByteArray(VaultCryptography.CHUNK_SIZE + 40) { 77 }
+        val file = temporary.newFile()
+        VaultCryptography.write(file, key, plain.size.toLong(), plain.inputStream())
+        RandomAccessFile(file, "rw").use {
+            it.seek(file.length() - 1)
+            val last = it.read()
+            it.seek(file.length() - 1)
+            it.write(last xor 1)
+        }
+        VaultCryptography.Reader(file, key).use { reader ->
+            val destination = ByteArray(80) { 99 }
+            assertThrows(Exception::class.java) {
+                reader.readInto(VaultCryptography.CHUNK_SIZE - 20L, destination, 10, 50)
+            }
+            assertTrue(destination.copyOfRange(10, 60).all { it == 0.toByte() })
+            assertTrue(destination.take(10).all { it == 99.toByte() })
+            assertEquals(0, reader.cachedPlainBytes())
+        }
+    }
+
+    @Test fun streamsSkipWithoutDecryptingSkippedChunksAndRespectRevocationAndClose() {
+        val plain = ByteArray(VaultCryptography.CHUNK_SIZE * 3 + 7) { (it % 251).toByte() }
+        val file = temporary.newFile()
+        VaultCryptography.write(file, key, plain.size.toLong(), plain.inputStream())
+        var valid = true
+        VaultCryptography.Reader(file, key, checkActive = { check(valid) }).use { reader ->
+            val stream = reader.stream()
+            assertEquals(0L, stream.skip(-1))
+            assertEquals(VaultCryptography.CHUNK_SIZE * 3L, stream.skip(VaultCryptography.CHUNK_SIZE * 3L))
+            assertEquals(0L, reader.authenticatedChunkReads)
+            assertEquals(7, stream.available())
+            assertEquals(plain[VaultCryptography.CHUNK_SIZE * 3].toInt() and 255, stream.read())
+            assertEquals(1L, reader.authenticatedChunkReads)
+            valid = false
+            assertThrows(IllegalStateException::class.java) { stream.skip(1) }
+            assertEquals(0, reader.cachedPlainBytes())
+            valid = true
+            stream.close()
+            assertThrows(IllegalStateException::class.java) { stream.read() }
+            assertEquals(plain[0], reader.read(0, 1)[0])
+        }
+    }
+
     @Test fun passwordEnvelopeAuthenticatesParametersAndRequiresStrongCreationPassword() {
         val password = "pM7-Vc2_Je9-Tx4_kR8".toCharArray()
         val header = VaultPassword.wrap(key, password)

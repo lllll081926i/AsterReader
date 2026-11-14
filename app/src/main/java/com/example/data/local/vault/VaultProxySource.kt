@@ -27,9 +27,7 @@ internal class VaultProxySource(context: Context, private val store: FileVaultSt
                             require(offset >= 0)
                             if (offset >= reader.length) return 0
                             val count = minOf(size.toLong(), reader.length - offset, VaultCryptography.CHUNK_SIZE.toLong()).toInt()
-                            val bytes = reader.read(offset, count)
-                            try { bytes.copyInto(data) } finally { bytes.fill(0) }
-                            return count
+                            return reader.readInto(offset, data, 0, count)
                         } catch (_: Exception) { data.fill(0); throw ErrnoException("vault-read", OsConstants.EIO) }
                     }
                     override fun onRelease() { store.release(reader); thread.quitSafely() }

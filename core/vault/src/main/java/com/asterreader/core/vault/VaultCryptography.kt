@@ -36,11 +36,12 @@ object VaultCryptography {
         return crypt(Cipher.DECRYPT_MODE, key, value.copyOfRange(0, 12), aad, value.copyOfRange(12, value.size))
     }
 
-    internal fun crypt(mode: Int, key: ByteArray, nonce: ByteArray, aad: ByteArray, value: ByteArray): ByteArray {
+    internal fun crypt(mode: Int, key: ByteArray, nonce: ByteArray, aad: ByteArray, value: ByteArray,
+        offset: Int = 0, count: Int = value.size - offset): ByteArray {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(mode, SecretKeySpec(key, "AES"), GCMParameterSpec(128, nonce))
         cipher.updateAAD(aad)
-        return cipher.doFinal(value)
+        return cipher.doFinal(value, offset, count)
     }
 
     /** 返回源摘要；调用者必须重读已落盘密文再发布。 */
@@ -65,9 +66,8 @@ object VaultCryptography {
                     val count = minOf(CHUNK_SIZE.toLong(), remaining).toInt()
                     readFully(input, buffer, count)
                     digest.update(buffer, 0, count)
-                    val plain = buffer.copyOf(count)
-                    try { output.write(crypt(Cipher.ENCRYPT_MODE, dek, nonce(prefix, index), aad(header, index, count), plain)) }
-                    finally { plain.fill(0) }
+                    output.write(crypt(Cipher.ENCRYPT_MODE, dek, nonce(prefix, index), aad(header, index, count), buffer, 0, count))
+                    buffer.fill(0, 0, count)
                     remaining -= count
                     index++
                 }
@@ -83,13 +83,17 @@ object VaultCryptography {
         checkActive: () -> Unit = {}) {
         Reader(file, master, offset, checkActive).use { reader ->
             val digest = MessageDigest.getInstance("SHA-256")
+            val buffer = ByteArray(CHUNK_SIZE)
             var position = 0L
-            while (position < reader.length) {
-                checkActive()
-                val bytes = reader.read(position, minOf(CHUNK_SIZE.toLong(), reader.length - position).toInt())
-                try { digest.update(bytes) } finally { bytes.fill(0) }
-                position += minOf(CHUNK_SIZE.toLong(), reader.length - position)
-            }
+            try {
+                while (position < reader.length) {
+                    checkActive()
+                    val count = minOf(CHUNK_SIZE.toLong(), reader.length - position).toInt()
+                    reader.readInto(position, buffer, 0, count)
+                    digest.update(buffer, 0, count)
+                    position += count
+                }
+            } finally { buffer.fill(0) }
             if (expectedDigest != null) require(MessageDigest.isEqual(expectedDigest, digest.digest())) { "密文内容校验失败" }
         }
     }
@@ -127,11 +131,16 @@ object VaultCryptography {
         }
 
         @Synchronized fun read(position: Long, count: Int): ByteArray {
+            require(count in 0..CHUNK_SIZE) { "读取范围无效" }
+            return ByteArray(count).also { readInto(position, it, 0, count) }
+        }
+
+        @Synchronized fun readInto(position: Long, destination: ByteArray, destinationOffset: Int, count: Int): Int {
             check(!closed) { "保险库会话已关闭" }
-            try { checkActive() } catch (failure: Throwable) { clearChunks(); throw failure }
             require(position in 0..length && count in 0..CHUNK_SIZE && count.toLong() <= length - position) { "读取范围无效" }
-            val result = ByteArray(count)
+            require(destinationOffset >= 0 && destinationOffset <= destination.size - count) { "目标范围无效" }
             try {
+                checkActive()
                 var copied = 0
                 while (copied < count) {
                     checkActive()
@@ -141,12 +150,16 @@ object VaultCryptography {
                     val plainLength = minOf(CHUNK_SIZE.toLong(), length - index.toLong() * CHUNK_SIZE).toInt()
                     val plain = authenticatedChunk(index, plainLength)
                     val take = minOf(count - copied, plain.size - within)
-                    plain.copyInto(result, copied, within, within + take)
+                    plain.copyInto(destination, destinationOffset + copied, within, within + take)
                     copied += take
                 }
                 checkActive()
-                return result
-            } catch (failure: Throwable) { result.fill(0); clearChunks(); throw failure }
+                return count
+            } catch (failure: Throwable) {
+                destination.fill(0, destinationOffset, destinationOffset + count)
+                clearChunks()
+                throw failure
+            }
         }
 
         private fun authenticatedChunk(index: Int, plainLength: Int): ByteArray {
@@ -173,20 +186,34 @@ object VaultCryptography {
             return object : InputStream() {
                 var position = start
                 var remaining = size
+                private var streamClosed = false
+                private val single = ByteArray(1)
+                private fun ensureOpen() {
+                    check(!streamClosed) { "读取流已关闭" }
+                    this@Reader.readInto(position, single, 0, 0)
+                }
                 override fun read(): Int {
-                    val one = ByteArray(1)
-                    return if (read(one) < 0) -1 else one[0].toInt() and 255
+                    return if (read(single) < 0) -1 else (single[0].toInt() and 255).also { single.fill(0) }
                 }
                 override fun read(bytes: ByteArray, off: Int, len: Int): Int {
                     require(off >= 0 && len >= 0 && off <= bytes.size - len)
+                    ensureOpen()
                     if (len == 0) return 0
                     if (remaining == 0L) return -1
                     val count = minOf(len.toLong(), remaining, CHUNK_SIZE.toLong()).toInt()
-                    val plain = this@Reader.read(position, count)
-                    try { plain.copyInto(bytes, off) } finally { plain.fill(0) }
+                    this@Reader.readInto(position, bytes, off, count)
                     position += count; remaining -= count
                     return count
                 }
+                override fun skip(count: Long): Long {
+                    ensureOpen()
+                    val skipped = count.coerceIn(0, remaining)
+                    position += skipped
+                    remaining -= skipped
+                    return skipped
+                }
+                override fun available(): Int { ensureOpen(); return minOf(remaining, Int.MAX_VALUE.toLong()).toInt() }
+                override fun close() { streamClosed = true; single.fill(0) }
             }
         }
 

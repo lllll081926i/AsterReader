@@ -197,6 +197,7 @@ internal class FileVaultStore private constructor(
     fun release(reader: Crypto.Reader) { synchronized(guard) { readers.remove(reader) }; reader.close() }
 
     fun export(id: String, password: CharArray, destination: OutputStream, active: () -> Unit = {}) {
+        val check = operationCheck(active)
         val record = records.value[id] ?: error("请先解锁文件保险库")
         val metadata = record.encode()
         val exportKey = Crypto.randomKey()
@@ -207,30 +208,34 @@ internal class FileVaultStore private constructor(
                 try {
                     val length = 4L + metadata.size + reader.length
                     val prefix = java.nio.ByteBuffer.allocate(4).putInt(metadata.size).array() + metadata
-                    SequenceInputStream(prefix.inputStream(), reader.stream()).use { stream ->
-                        val digest = Crypto.write(objectFile, exportKey, length, stream, checkActive = active)
-                        try { Crypto.verify(objectFile, exportKey, digest, checkActive = active) } finally { digest.fill(0) }
-                    }
+                    try {
+                        SequenceInputStream(prefix.inputStream(), reader.stream()).use { stream ->
+                            val digest = Crypto.write(objectFile, exportKey, length, stream, checkActive = check)
+                            try { Crypto.verify(objectFile, exportKey, digest, checkActive = check) } finally { digest.fill(0) }
+                        }
+                    } finally { prefix.fill(0) }
                 } finally { release(reader) }
             }
-            active()
+            check()
             destination.write(header)
-            objectFile.inputStream().use { input -> copyChecked(input, destination, active) }
+            objectFile.inputStream().use { input -> copyChecked(input, destination, check) }
+            check()
             destination.flush()
         } finally { metadata.fill(0); exportKey.fill(0); objectFile.delete() }
     }
 
     fun restore(source: InputStream, password: CharArray, active: () -> Unit = {}): VaultRecord {
+        val check = operationCheck(active)
         reserveAttempt()
         val staging = File(root, "${UUID.randomUUID()}.import-part")
         try {
-            FileOutputStream(staging).use { output -> copyChecked(source, output, active); output.fd.sync() }
+            FileOutputStream(staging).use { output -> copyChecked(source, output, check); output.fd.sync() }
             val header = ByteArray(VaultPassword.HEADER_SIZE)
             staging.inputStream().use { DataInputStream(it).readFully(header) }
             val exportKey = VaultPassword.unwrap(header, password)
             try {
-                Crypto.verify(staging, exportKey, offset = header.size.toLong(), checkActive = active)
-                Crypto.Reader(staging, exportKey, header.size.toLong(), active).use { reader ->
+                Crypto.verify(staging, exportKey, offset = header.size.toLong(), checkActive = check)
+                Crypto.Reader(staging, exportKey, header.size.toLong(), check).use { reader ->
                     val size = java.nio.ByteBuffer.wrap(reader.read(0, 4)).int
                     require(size in 1..VaultRecord.MAX_METADATA && 4L + size <= reader.length)
                     val bytes = reader.stream(4, size.toLong()).use { it.readBytes() }
@@ -241,7 +246,7 @@ internal class FileVaultStore private constructor(
                         annotations = imported.annotations.map { it.copy(bookId = id, id = nextAnnotationId()) })
                     val length = reader.length - 4 - size
                     require(record.pageSizes.isEmpty() || record.pageSizes.sum() == length)
-                    val saved = create(record, length, { reader.stream(4L + size, length) }, active)
+                    val saved = create(record, length, { reader.stream(4L + size, length) }, check)
                     resetAttempts()
                     return saved
                 }
@@ -250,6 +255,10 @@ internal class FileVaultStore private constructor(
     }
 
     private val noteSequence = java.util.concurrent.atomic.AtomicInteger(-1)
+    private fun operationCheck(active: () -> Unit): () -> Unit {
+        val token = generation.get()
+        return { active(); check(isSessionValid(token)) { "保险库会话已撤销" } }.also { it() }
+    }
     fun nextAnnotationId(): Int {
         val occupied = records.value.values.flatMap { it.annotations }.map { it.id }.toSet()
         var next: Int

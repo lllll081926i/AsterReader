@@ -186,6 +186,67 @@ class FileVaultStoreTest {
         assertTrue(source.exists()); assertEquals(1000L, source.length()); assertTrue(store.committedIds().isEmpty())
     }
 
+    @Test fun encryptedChannelSupportsSlicedAndDirectBuffers() {
+        val key = VaultCryptography.randomKey()
+        val data = ByteArray(VaultCryptography.CHUNK_SIZE + 80) { (it % 251).toByte() }
+        val file = temporary.newFile()
+        VaultCryptography.write(file, key, data.size.toLong(), data.inputStream())
+        VaultCryptography.Reader(file, key).use { reader ->
+            ReaderChannel(reader).use { channel ->
+                val backing = ByteArray(100) { 99 }
+                val destination = java.nio.ByteBuffer.wrap(backing, 10, 70).slice().apply { position(5); limit(55) }
+                val offset = VaultCryptography.CHUNK_SIZE - 20
+                channel.position(offset.toLong())
+                assertEquals(50, channel.read(destination))
+                assertArrayEquals(data.copyOfRange(offset, offset + 50), backing.copyOfRange(15, 65))
+                assertTrue(backing.take(15).all { it == 99.toByte() })
+                val direct = java.nio.ByteBuffer.allocateDirect(20)
+                assertEquals(20, channel.read(direct))
+                direct.flip()
+                assertArrayEquals(data.copyOfRange(offset + 50, offset + 70), ByteArray(20).also(direct::get))
+            }
+        }
+        key.fill(0)
+    }
+
+    @Test fun exportCannotResumeAfterVaultIsLockedAndUnlockedDuringOutput() {
+        val store = FileVaultStore.forTest(context(temporary.newFolder()), Device()) {}
+        store.open(password, true)
+        val saved = store.create(record(), 10, { ByteArray(10) { 7 }.inputStream() })
+        val destination = object : ByteArrayOutputStream() {
+            override fun write(bytes: ByteArray, offset: Int, length: Int) {
+                super.write(bytes, offset, length)
+                store.lock()
+                store.open(password, false)
+            }
+        }
+        assertThrows(IllegalStateException::class.java) { store.export(saved.book.id, password, destination) }
+        assertEquals(com.asterreader.core.vault.VaultPassword.HEADER_SIZE, destination.size())
+        assertTrue(store.unlocked)
+    }
+
+    @Test fun restoreCannotResumeAfterVaultIsLockedAndUnlockedDuringInput() {
+        val store = FileVaultStore.forTest(context(temporary.newFolder()), Device()) {}
+        store.open(password, true)
+        val saved = store.create(record(), 10, { ByteArray(10) { 7 }.inputStream() })
+        val exported = ByteArrayOutputStream()
+        store.export(saved.book.id, password, exported)
+        var changed = false
+        val source = object : java.io.ByteArrayInputStream(exported.toByteArray()) {
+            override fun read(bytes: ByteArray, offset: Int, length: Int): Int {
+                val count = super.read(bytes, offset, length)
+                if (!changed) {
+                    changed = true
+                    store.lock()
+                    store.open(password, false)
+                }
+                return count
+            }
+        }
+        assertThrows(IllegalStateException::class.java) { store.restore(source, password) }
+        assertEquals(setOf(saved.book.id), store.committedIds())
+    }
+
     @Test fun repeatedAttemptsPersistAcrossStoreRecreation() {
         val directory = temporary.newFolder()
         val device = Device()
