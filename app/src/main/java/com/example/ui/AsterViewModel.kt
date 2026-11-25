@@ -1334,7 +1334,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun beginReadingSession() {
+    fun beginReadingSession(bookId: String? = null) {
         if (!_uiState.value.showReadingStats) return
         if (readingHeartbeatJob?.isActive == true) return
         if (readingStartedAt == 0L) readingStartedAt = android.os.SystemClock.elapsedRealtime()
@@ -1348,7 +1348,9 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun endReadingSession() {
+    fun endReadingSession(bookId: String? = null) {
+        val currentReader = (_uiState.value.activeSubScreen as? SubScreen.Reader)?.bookId
+        if (bookId != null && currentReader != null && currentReader != bookId) return
         readingHeartbeatJob?.cancel()
         readingHeartbeatJob = null
         val started = readingStartedAt
@@ -1408,6 +1410,12 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun releaseReaderResources(bookId: String? = null) {
+        val currentReader = (_uiState.value.activeSubScreen as? SubScreen.Reader)?.bookId
+        val isCurrentSession = bookId == null || currentReader == null || currentReader == bookId
+        if (!isCurrentSession) {
+            cleanupScope.launch { runCatching { repository.closeReadSession(bookId) } }
+            return
+        }
         val preparation = readerPreparationJob
         preparation?.cancel()
         val cleanup = readerCleanupJob

@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.selection.toggleable
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.selected
 import com.asterreader.core.designsystem.AsterMotion
 import com.asterreader.core.designsystem.LocalAsterReduceMotion
@@ -104,6 +107,7 @@ fun AppleFloatingBottomDock(
 ) {
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
+    val reduceMotion = LocalAsterReduceMotion.current
     val dockItems = MainNavDestination.entries.filter { showStatsTab || it != MainNavDestination.STATS }
 
     Box(
@@ -132,54 +136,104 @@ fun AppleFloatingBottomDock(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(com.asterreader.core.designsystem.AsterLayout.FloatingDockTabGap)
             ) {
-                dockItems.forEach { dest ->
-                    val selected = dest == currentDestination
-                    val pillBg by animateColorAsState(
-                        targetValue = if (selected) colorScheme.secondaryContainer else Color.Transparent,
-                        animationSpec = AsterMotion.effectsSpec(LocalAsterReduceMotion.current),
-                        label = "dock_bg_${dest.name}"
-                    )
-                    val contentColor by animateColorAsState(
-                        targetValue = if (selected) colorScheme.onSecondaryContainer else colorScheme.onSurfaceVariant,
-                        animationSpec = AsterMotion.effectsSpec(LocalAsterReduceMotion.current),
-                        label = "dock_fg_${dest.name}"
-                    )
-                    val iconTint by animateColorAsState(
-                        targetValue = if (selected) colorScheme.primary else colorScheme.onSurfaceVariant,
-                        animationSpec = AsterMotion.effectsSpec(LocalAsterReduceMotion.current),
-                        label = "dock_icon_${dest.name}"
-                    )
-
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .widthIn(min = com.asterreader.core.designsystem.AsterLayout.FloatingDockTabWidth)
-                            .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
-                            .clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(pillBg)
-                            .asterBounceClick { onSelectDestination(dest) }
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                            .semantics(mergeDescendants = true) { this.selected = selected; role = Role.Tab }
-                            .testTag("nav_dock_${dest.route}"),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                val selectedIndex = dockItems.indexOf(currentDestination).coerceAtLeast(0)
+                val tabCount = dockItems.size.coerceAtLeast(1)
+                val pillPosition = androidx.compose.runtime.remember {
+                    androidx.compose.animation.core.Animatable(selectedIndex.toFloat())
+                }
+                androidx.compose.runtime.LaunchedEffect(selectedIndex, tabCount, reduceMotion) {
+                    val target = selectedIndex.toFloat().coerceIn(0f, (tabCount - 1).coerceAtLeast(0).toFloat())
+                    if (reduceMotion) {
+                        pillPosition.snapTo(target)
+                    } else {
+                        pillPosition.animateTo(
+                            targetValue = target,
+                            animationSpec = AsterMotion.dockPillSpringSpec
+                        )
+                    }
+                }
+                val pillColor = colorScheme.secondaryContainer
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .drawBehind {
+                            val tabGapPx = com.asterreader.core.designsystem.AsterLayout.FloatingDockTabGap.toPx()
+                            val totalGapPx = tabGapPx * (tabCount - 1)
+                            val tabWidth = ((size.width - totalGapPx) / tabCount).coerceAtLeast(0f)
+                            val rawOffset = pillPosition.value * (tabWidth + tabGapPx)
+                            val x = if (layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl) {
+                                (size.width - tabWidth - rawOffset).coerceIn(0f, (size.width - tabWidth).coerceAtLeast(0f))
+                            } else {
+                                rawOffset.coerceIn(0f, (size.width - tabWidth).coerceAtLeast(0f))
+                            }
+                            val radius = size.height / 2f
+                            drawRoundRect(
+                                color = pillColor,
+                                topLeft = androidx.compose.ui.geometry.Offset(x, 0f),
+                                size = androidx.compose.ui.geometry.Size(tabWidth, size.height),
+                                cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius, radius)
+                            )
+                        }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(com.asterreader.core.designsystem.AsterLayout.FloatingDockTabGap)
                     ) {
-                        Icon(
-                            imageVector = if (selected) dest.filledIcon else dest.outlinedIcon,
-                            contentDescription = null,
-                            tint = iconTint,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = dest.label,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 11.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                            ),
-                            color = contentColor,
-                            maxLines = 2,
-                            softWrap = true
-                        )
+                        dockItems.forEach { dest ->
+                            val selected = dest == currentDestination
+                            val contentColor by animateColorAsState(
+                                targetValue = if (selected) colorScheme.onSecondaryContainer else colorScheme.onSurfaceVariant,
+                                animationSpec = AsterMotion.themeEffectsSpec(reduceMotion),
+                                label = "dock_fg_${dest.name}"
+                            )
+                            val iconTint by animateColorAsState(
+                                targetValue = if (selected) colorScheme.primary else colorScheme.onSurfaceVariant,
+                                animationSpec = AsterMotion.themeEffectsSpec(reduceMotion),
+                                label = "dock_icon_${dest.name}"
+                            )
+                            val iconScale by animateFloatAsState(
+                                targetValue = if (selected && !reduceMotion) 1.08f else 1f,
+                                animationSpec = AsterMotion.fastSpatialSpec,
+                                label = "dock_scale_${dest.name}"
+                            )
+
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .widthIn(min = com.asterreader.core.designsystem.AsterLayout.FloatingDockTabWidth)
+                                    .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
+                                    .clip(androidx.compose.foundation.shape.CircleShape)
+                                    .asterBounceClick { onSelectDestination(dest) }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    .semantics(mergeDescendants = true) { this.selected = selected; role = Role.Tab }
+                                    .testTag("nav_dock_${dest.route}"),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (selected) dest.filledIcon else dest.outlinedIcon,
+                                    contentDescription = null,
+                                    tint = iconTint,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .graphicsLayer {
+                                            scaleX = iconScale
+                                            scaleY = iconScale
+                                        }
+                                )
+                                Text(
+                                    text = dest.label,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = 11.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = contentColor,
+                                    maxLines = 2,
+                                    softWrap = true
+                                )
+                            }
+                        }
                     }
                 }
 

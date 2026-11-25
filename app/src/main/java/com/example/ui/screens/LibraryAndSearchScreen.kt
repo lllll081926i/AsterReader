@@ -26,7 +26,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import com.asterreader.core.designsystem.AsterMotion
+import com.asterreader.core.designsystem.AsterSharedScopes
+import com.asterreader.core.designsystem.asterBounceClick
+import com.asterreader.core.designsystem.asterSharedElement
+import com.asterreader.core.designsystem.rememberAsterSharedScopes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -148,6 +154,7 @@ import com.example.ui.LibraryLayoutMode
 import com.example.ui.SortOption
 import com.example.ui.SubScreen
 import com.asterreader.core.designsystem.LocalAsterReduceMotion
+import com.asterreader.core.designsystem.asterContentReveal
 import com.asterreader.core.designsystem.asterCardInteraction
 import com.example.ui.components.AsterBookCover
 import com.example.ui.components.AsterEmptyState
@@ -168,6 +175,7 @@ fun LibraryHomeScreen(
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
     val scanProgress by viewModel.scanProgress.collectAsStateWithLifecycle()
+    val sharedScopes = rememberAsterSharedScopes()
 
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showAddContentSheet by remember { mutableStateOf(false) }
@@ -430,6 +438,7 @@ fun LibraryHomeScreen(
                     ),
                     modifier = Modifier
                         .fillMaxSize()
+                        .asterContentReveal(contentKey = uiState.libraryLayoutMode, ready = true)
                         .testTag("library_publication_grid")
                 ) {
                     // 扫描进行中：一行细进度条，可点击取消
@@ -604,7 +613,20 @@ fun LibraryHomeScreen(
                             }
                         }
                     } else {
-                        items(filteredBooks, key = { it.id }) { book ->
+                        items(
+                            items = filteredBooks,
+                            key = { it.id },
+                            contentType = { book ->
+                                if (book.isVaultProtected && !uiState.isVaultUnlocked) "protected_${uiState.libraryLayoutMode}"
+                                else "book_${uiState.libraryLayoutMode}"
+                            }
+                        ) { book ->
+                            val itemModifier = Modifier.animateItem(
+                                fadeInSpec = null,
+                                fadeOutSpec = null,
+                                placementSpec = if (sharedScopes.reduceMotion) null else AsterMotion.intOffsetSpatialSpec
+                            )
+                            val shareCover = !isExpandedTablet && !book.isVaultProtected && !book.isVaultEncrypted && book.sourceStatus != "MISSING"
                             val onBookTap = {
                                 if (book.isVaultProtected && !uiState.isVaultUnlocked) {
                                     viewModel.requestVaultUnlock {
@@ -622,10 +644,10 @@ fun LibraryHomeScreen(
                             if (book.isVaultProtected && !uiState.isVaultUnlocked) {
                                 when (uiState.libraryLayoutMode) {
                                     LibraryLayoutMode.LIST -> {
-                                        HiddenBookListRow(onClick = onBookTap)
+                                        HiddenBookListRow(onClick = onBookTap, modifier = itemModifier)
                                     }
                                     else -> {
-                                        SafeProtectedBookCard(onClick = onBookTap)
+                                        SafeProtectedBookCard(onClick = onBookTap, modifier = itemModifier)
                                     }
                                 }
                             } else {
@@ -639,8 +661,11 @@ fun LibraryHomeScreen(
                                             isSelectedRing = isTabletSelected || isBatchSelected,
                                             showBatchCheck = uiState.isBatchSelectionMode,
                                             isBatchChecked = isBatchSelected,
+                                            sharedScopes = sharedScopes,
+                                            shareCover = shareCover,
                                             onClick = onBookTap,
-                                            onLongClick = { viewModel.enterBatchSelection(book.id) }
+                                            onLongClick = { viewModel.enterBatchSelection(book.id) },
+                                            modifier = itemModifier
                                         )
                                     }
                                     LibraryLayoutMode.GRID_3 -> {
@@ -650,34 +675,43 @@ fun LibraryHomeScreen(
                                             isSelectedRing = isTabletSelected || isBatchSelected,
                                             showBatchCheck = uiState.isBatchSelectionMode,
                                             isBatchChecked = isBatchSelected,
+                                            sharedScopes = sharedScopes,
+                                            shareCover = shareCover,
                                             onClick = onBookTap,
-                                            onLongClick = { viewModel.enterBatchSelection(book.id) }
+                                            onLongClick = { viewModel.enterBatchSelection(book.id) },
+                                            modifier = itemModifier
                                         )
                                     }
                                     LibraryLayoutMode.LIST -> {
                                         PublicationListRowCard(
                                             book = book,
                                             isSelectedRing = isTabletSelected || isBatchSelected,
+                                            sharedScopes = sharedScopes,
+                                            shareCover = shareCover,
                                             onClick = onBookTap,
                                             onReadClick = {
                                                 viewModel.openBookReader(
                                                     bookId = book.id,
                                                     preferDualPageOnTablet = isExpandedTablet
                                                 )
-                                            }
+                                            },
+                                            modifier = itemModifier
                                         )
                                     }
                                     LibraryLayoutMode.GALLERY -> {
                                         PublicationGalleryCard(
                                             book = book,
                                             isSelectedRing = isTabletSelected || isBatchSelected,
+                                            sharedScopes = sharedScopes,
+                                            shareCover = shareCover,
                                             onClick = onBookTap,
                                             onReadClick = {
                                                 viewModel.openBookReader(
                                                     bookId = book.id,
                                                     preferDualPageOnTablet = isExpandedTablet
                                                 )
-                                            }
+                                            },
+                                            modifier = itemModifier
                                         )
                                     }
                                 }
@@ -700,7 +734,7 @@ fun LibraryHomeScreen(
                     .padding(end = 16.dp, bottom = 16.dp)
                     .size(52.dp)
                     .clip(MaterialTheme.shapes.medium)
-                    .clickable { showAddContentSheet = true }
+                    .asterBounceClick(targetScale = 0.92f, onClick = { showAddContentSheet = true })
                     .testTag("library_add_fab")
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -945,14 +979,17 @@ private fun PublicationGridCard(
     isSelectedRing: Boolean,
     showBatchCheck: Boolean,
     isBatchChecked: Boolean,
+    sharedScopes: AsterSharedScopes,
+    shareCover: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clip(MaterialTheme.shapes.medium)
             .then(
                 if (isSelectedRing) {
@@ -974,6 +1011,13 @@ private fun PublicationGridCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
+                .asterSharedElement(
+                    key = "cover_${book.id}",
+                    scopes = sharedScopes,
+                    enabled = shareCover,
+                    visibleOnly = true,
+                    clipShape = MaterialTheme.shapes.medium
+                )
                 .clip(MaterialTheme.shapes.medium)
                 .background(asterColors.surfaceContainerLow)
         ) {
@@ -1117,8 +1161,11 @@ private fun PublicationGridCard(
 private fun PublicationListRowCard(
     book: BookEntity,
     isSelectedRing: Boolean,
+    sharedScopes: AsterSharedScopes,
+    shareCover: Boolean,
     onClick: () -> Unit,
-    onReadClick: () -> Unit
+    onReadClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
@@ -1128,7 +1175,7 @@ private fun PublicationListRowCard(
         color = asterColors.surfaceContainerLow,
         border = if (isSelectedRing) BorderStroke(2.dp, colorScheme.primary)
         else BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.3f)),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
             .asterCardInteraction(onClick = onClick)
@@ -1145,6 +1192,13 @@ private fun PublicationListRowCard(
                 modifier = Modifier
                     .width(64.dp)
                     .aspectRatio(2f / 3f)
+                    .asterSharedElement(
+                        key = "cover_${book.id}",
+                        scopes = sharedScopes,
+                        enabled = shareCover,
+                        visibleOnly = true,
+                        clipShape = MaterialTheme.shapes.small
+                    )
                     .clip(MaterialTheme.shapes.small)
             )
 
@@ -1218,8 +1272,11 @@ private fun PublicationListRowCard(
 private fun PublicationGalleryCard(
     book: BookEntity,
     isSelectedRing: Boolean,
+    sharedScopes: AsterSharedScopes,
+    shareCover: Boolean,
     onClick: () -> Unit,
-    onReadClick: () -> Unit
+    onReadClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
@@ -1229,10 +1286,10 @@ private fun PublicationGalleryCard(
         color = asterColors.surfaceContainerLow,
         border = if (isSelectedRing) BorderStroke(2.dp, colorScheme.primary)
         else BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.large)
-            .clickable { onClick() }
+            .asterCardInteraction(onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -1246,6 +1303,13 @@ private fun PublicationGalleryCard(
                 modifier = Modifier
                     .width(96.dp)
                     .aspectRatio(2f / 3f)
+                    .asterSharedElement(
+                        key = "cover_${book.id}",
+                        scopes = sharedScopes,
+                        enabled = shareCover,
+                        visibleOnly = true,
+                        clipShape = MaterialTheme.shapes.medium
+                    )
                     .clip(MaterialTheme.shapes.medium)
             )
 
@@ -1321,7 +1385,7 @@ private fun PublicationGalleryCard(
 }
 
 @Composable
-private fun HiddenBookListRow(onClick: () -> Unit) {
+private fun HiddenBookListRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
 
@@ -1329,7 +1393,7 @@ private fun HiddenBookListRow(onClick: () -> Unit) {
         shape = MaterialTheme.shapes.medium,
         color = asterColors.surfaceContainerLow,
         border = BorderStroke(1.dp, colorScheme.outlineVariant.copy(alpha = 0.35f)),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
             .asterCardInteraction(onClick = onClick)
@@ -1393,10 +1457,14 @@ private fun TabletSupportingDetailPane(
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
 
-    Box(
-        modifier = modifier
-            .background(asterColors.surfaceContainerLow)
-    ) {
+    val reduceMotion = LocalAsterReduceMotion.current
+    AnimatedContent(
+        targetState = book to chapters,
+        contentKey = { it.first.id },
+        transitionSpec = { AsterMotion.tabTransition(reduceMotion, direction = 1) },
+        modifier = modifier.background(asterColors.surfaceContainerLow),
+        label = "tablet_supporting_pane"
+    ) { (animatedBook, animatedChapters) ->
         Column(modifier = Modifier.fillMaxSize()) {
             // Top Action Row inside Inspection Pane
             Row(
@@ -1416,9 +1484,9 @@ private fun TabletSupportingDetailPane(
                 Row {
                     IconButton(onClick = onToggleFavorite) {
                         Icon(
-                            imageVector = if (book.isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                            imageVector = if (animatedBook.isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
                             contentDescription = "收藏",
-                            tint = if (book.isFavorite) colorScheme.primary else colorScheme.onSurfaceVariant
+                            tint = if (animatedBook.isFavorite) colorScheme.primary else colorScheme.onSurfaceVariant
                         )
                     }
                     IconButton(onClick = onOpenFullDetail) {
@@ -1451,9 +1519,9 @@ private fun TabletSupportingDetailPane(
                             .background(asterColors.surfaceContainerHighest)
                     ) {
                         AsterBookCover(
-                            coverUrl = book.altCoverUrl.ifBlank { book.coverUrl },
-                            title = book.title,
-                            format = book.format,
+                            coverUrl = animatedBook.altCoverUrl.ifBlank { animatedBook.coverUrl },
+                            title = animatedBook.title,
+                            format = animatedBook.format,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -1463,21 +1531,21 @@ private fun TabletSupportingDetailPane(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = book.title,
+                            text = animatedBook.title,
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = colorScheme.onSurface,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
-                        if (book.author.isNotBlank()) Text(
-                            text = book.author,
+                        if (animatedBook.author.isNotBlank()) Text(
+                            text = animatedBook.author,
                             style = MaterialTheme.typography.bodyMedium,
                             color = colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "${book.fileSizeText} · ${book.totalPages} 页",
+                            text = "${animatedBook.fileSizeText} · ${animatedBook.totalPages} 页",
                             style = MaterialTheme.typography.labelSmall,
                             color = colorScheme.outline,
                             maxLines = 1,
@@ -1487,21 +1555,21 @@ private fun TabletSupportingDetailPane(
                 }
 
                 // Publication Synopsis
-                if (book.synopsis.isNotBlank()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (animatedBook.synopsis.isNotBlank()) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
                         text = "简介",
                         style = MaterialTheme.typography.titleSmall,
                         color = colorScheme.onSurface
                     )
                     Text(
-                        text = book.synopsis,
+                        text = animatedBook.synopsis,
                         style = MaterialTheme.typography.bodyMedium,
                         color = colorScheme.onSurfaceVariant
                     )
                 }
 
                 // Quick Chapter List
-                if (chapters.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (animatedChapters.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -1512,7 +1580,7 @@ private fun TabletSupportingDetailPane(
                             color = colorScheme.onSurface
                         )
                         Text(
-                            text = "共 ${chapters.size} 话",
+                            text = "共 ${animatedChapters.size} 话",
                             style = MaterialTheme.typography.labelSmall,
                             color = colorScheme.outline
                         )
@@ -1523,7 +1591,7 @@ private fun TabletSupportingDetailPane(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column {
-                            chapters.take(5).forEachIndexed { idx, ch ->
+                            animatedChapters.take(5).forEachIndexed { idx, ch ->
                                 if (idx > 0) {
                                     HorizontalDivider(
                                         thickness = 0.5.dp,
@@ -1599,14 +1667,14 @@ private fun TabletSupportingDetailPane(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "第 ${book.currentPage} / ${book.totalPages} 页",
+                            text = "第 ${animatedBook.currentPage} / ${animatedBook.totalPages} 页",
                             style = MaterialTheme.typography.labelSmall,
                             color = colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             softWrap = false
                         )
                         Text(
-                            text = "${book.progressPercent}%",
+                            text = "${animatedBook.progressPercent}%",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = colorScheme.primary,
                             maxLines = 1,
@@ -1614,7 +1682,7 @@ private fun TabletSupportingDetailPane(
                         )
                     }
                     LinearProgressIndicator(
-                        progress = { (book.progressPercent / 100f).coerceIn(0f, 1f) },
+                        progress = { (animatedBook.progressPercent / 100f).coerceIn(0f, 1f) },
                         color = colorScheme.primary,
                         trackColor = colorScheme.surfaceVariant,
                         modifier = Modifier
@@ -1635,7 +1703,7 @@ private fun TabletSupportingDetailPane(
                                 .weight(1f)
                                 .heightIn(min = AsterLayout.TouchTarget)
                                 .clip(CircleShape)
-                                .clickable { onStartReading(book.currentPage) }
+                                .clickable { onStartReading(animatedBook.currentPage) }
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -1649,7 +1717,7 @@ private fun TabletSupportingDetailPane(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (book.progressPercent > 0) "继续阅读" else "开始阅读",
+                                    text = if (animatedBook.progressPercent > 0) "继续阅读" else "开始阅读",
                                     style = MaterialTheme.typography.labelLarge,
                                     maxLines = 1,
                                     softWrap = false
@@ -1688,6 +1756,7 @@ fun SearchAndFilterScreen(
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
 
+    val sharedScopes = rememberAsterSharedScopes()
     var showFilterSheet by rememberSaveable { mutableStateOf(openFilterInitially) }
     var searchScopeTab by rememberSaveable(initialScope) { mutableStateOf(initialScope) } // 全部, 漫画, 书签与笔记
     val keyboard = LocalSoftwareKeyboardController.current
@@ -1837,6 +1906,10 @@ fun SearchAndFilterScreen(
                 .widthIn(max = AsterLayout.SearchContentMaxWidth)
                 .fillMaxSize()
                 .align(Alignment.CenterHorizontally)
+                .asterContentReveal(
+                    contentKey = Triple(searchScopeTab, uiState.searchQuery, uiState.activeFilterCount),
+                    ready = currentResult != null
+                )
                 .testTag("search_results"),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1985,10 +2058,15 @@ fun SearchAndFilterScreen(
                         )
                     }
                 } else {
-                    items(matchingBooks, key = { it.id }) { book ->
+                    items(
+                        items = matchingBooks,
+                        key = { it.id },
+                        contentType = { "search_book" }
+                    ) { book ->
                         SearchBookResultCard(
                             book = book,
                             highlightQuery = uiState.searchQuery,
+                            sharedScopes = sharedScopes,
                             onClick = {
                                 viewModel.commitSearchHistory(uiState.searchQuery)
                                 viewModel.openBookDetail(book.id)
@@ -1996,7 +2074,12 @@ fun SearchAndFilterScreen(
                             onQuickRead = {
                                 viewModel.commitSearchHistory(uiState.searchQuery)
                                 viewModel.openBookReader(book.id)
-                            }
+                            },
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = null,
+                                fadeOutSpec = null,
+                                placementSpec = if (sharedScopes.reduceMotion) null else AsterMotion.intOffsetSpatialSpec
+                            )
                         )
                     }
                 }
@@ -2287,17 +2370,20 @@ private fun FilterSheetPill(
 private fun SearchBookResultCard(
     book: BookEntity,
     highlightQuery: String,
+    sharedScopes: AsterSharedScopes,
     onClick: () -> Unit,
-    onQuickRead: () -> Unit
+    onQuickRead: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
+    val canShareCover = !book.isVaultProtected && !book.isVaultEncrypted && book.sourceStatus != "MISSING"
 
     Surface(
         shape = MaterialTheme.shapes.large,
         color = asterColors.surfaceContainerLow,
         border = BorderStroke(0.8.dp, colorScheme.outlineVariant.copy(alpha = 0.3f)),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.large)
             .asterCardInteraction(onClick = onClick)
@@ -2312,6 +2398,13 @@ private fun SearchBookResultCard(
                 modifier = Modifier
                     .width(72.dp)
                     .height(104.dp)
+                    .asterSharedElement(
+                        key = "cover_${book.id}",
+                        scopes = sharedScopes,
+                        enabled = canShareCover,
+                        visibleOnly = true,
+                        clipShape = MaterialTheme.shapes.small
+                    )
                     .clip(MaterialTheme.shapes.small)
                     .background(asterColors.surfaceContainerHigh)
             ) {

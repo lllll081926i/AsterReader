@@ -1,34 +1,57 @@
 package com.example.ui.components
 
 import androidx.activity.BackEventCompat
-import androidx.activity.compose.PredictiveBackHandler
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.animation.core.Animatable
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.LocalSaveableStateRegistry
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.ui.LocalNavAnimatedContentScope
+import androidx.navigation3.ui.NavDisplay
 import com.asterreader.core.designsystem.AsterMotion
+import com.asterreader.core.designsystem.AsterSharedTransitionLayout
 import com.asterreader.core.designsystem.LocalAsterReduceMotion
+import com.asterreader.core.designsystem.ProvideAsterAnimatedScope
 import com.example.ui.SubScreen
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.launch
 
-internal data class NavigationFrame(val screen: SubScreen?, val tab: MainNavDestination, val depth: Int)
+internal data class NavigationFrame(
+    val screen: SubScreen?,
+    val tab: MainNavDestination,
+    val depth: Int
+) : NavKey
+
 internal val LocalRootHandlesBack = staticCompositionLocalOf { false }
 
-private val NavigationFrame.stateKey: String get() = "${tab.name}/$depth/$screen"
+private const val FRAME_META_KEY = "aster_navigation_frame"
+
+internal val NavigationFrame.stateKey: String get() = "${tab.name}/$depth/$screen"
 
 internal fun isReturning(previous: NavigationFrame, current: NavigationFrame): Boolean =
     current.depth < previous.depth
 
-/** 只组合当前页面；保留在栈页面的可恢复状态，不保留旧页面的返回处理和资源。 */
+/**
+ * 基于 Jetpack Navigation 3 (`NavDisplay`) + `SharedTransitionLayout` 的根导航容器：
+ * - 完整支持入栈、出栈、方向性 Tab 切换、预测性返回与共享元素过渡。
+ * - 按主标签与在栈条目保留可恢复状态，出栈及受保护页面自动清理状态。
+ * - 仅栈顶当前页面获得 `LocalRootHandlesBack`，防止退场动画中的页面重复拦截返回。
+ */
 @Composable
 internal fun AsterNavigation(
     current: NavigationFrame,
@@ -42,63 +65,135 @@ internal fun AsterNavigation(
     val reduceMotion = LocalAsterReduceMotion.current
     val holder = rememberSaveableStateHolder()
     var retainedKeys by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
+
+    val activeStack = remember(current, backStack) {
+        val raw = if (!backStack.isNullOrEmpty()) {
+            if (backStack.last() == current) backStack
+            else {
+                val filtered = backStack.filterNot { it == current }
+                val base = if (filtered.isEmpty() && current.screen != null) {
+                    listOf(NavigationFrame(null, MainNavDestination.LIBRARY, 0))
+                } else {
+                    filtered
+                }
+                base + current
+            }
+        } else if (current.screen == null && current.tab == MainNavDestination.LIBRARY) {
+            listOf(current)
+        } else if (current.screen == null) {
+            listOf(NavigationFrame(null, MainNavDestination.LIBRARY, 0), current)
+        } else {
+            listOf(NavigationFrame(null, MainNavDestination.LIBRARY, 0), current)
+        }
+        raw.distinctBy { it.stateKey }
+    }
+
     SideEffect {
-        val validKeys = backStack?.map { it.stateKey }?.toSet()
+        val tabBaseKeys = MainNavDestination.entries.map { NavigationFrame(null, it, 0).stateKey }
+        val validKeys = (tabBaseKeys + activeStack.map { it.stateKey }).toSet()
         val removed = retainedKeys.filter {
-            validKeys != null && it !in validKeys || !retainState && it == current.stateKey
+            it !in validKeys || (!retainState && it == current.stateKey)
         }
         removed.forEach(holder::removeState)
-        retainedKeys = ArrayList((retainedKeys - removed + if (retainState) listOf(current.stateKey) else emptyList()).distinct())
+        retainedKeys = ArrayList(
+            (retainedKeys - removed.toSet() + if (retainState) listOf(current.stateKey) else emptyList()).distinct()
+        )
     }
-    val progress = remember(current) { Animatable(0f) }
-    var edge by remember(current) { mutableIntStateOf(BackEventCompat.EDGE_LEFT) }
-    val scope = rememberCoroutineScope()
-    val latestFrame by rememberUpdatedState(current)
-    val latestBack by rememberUpdatedState(onBack)
-    val latestEnabled by rememberUpdatedState(enabled)
-    var recovering by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
-    PredictiveBackHandler(enabled = enabled) { events ->
-        val startedAt = latestFrame
-        recovering?.cancel()
-        try {
-            events.collect { event ->
-                edge = event.swipeEdge
-                progress.snapTo(if (reduceMotion || !animateBack) 0f else event.progress.coerceIn(0f, 1f))
-            }
-            if (latestEnabled && latestFrame == startedAt) latestBack()
-            progress.snapTo(0f)
-        } catch (cancelled: CancellationException) {
-            recovering = scope.launch { progress.animateTo(0f, AsterMotion.fastEffectsSpec) }
-            throw cancelled
-        }
-    }
-    var presented by remember { mutableStateOf(current) }
-    val opacity = remember(current) {
-        Animatable(if (current != presented && !isReturning(presented, current) && !reduceMotion) 0f else 1f)
-    }
-    SideEffect { presented = current }
-    LaunchedEffect(current, reduceMotion) {
-        if (reduceMotion) opacity.snapTo(1f)
-        else opacity.animateTo(1f, AsterMotion.fastEffectsSpec)
-    }
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-        key(current, retainState) {
-            CompositionLocalProvider(LocalRootHandlesBack provides true) {
-                val page: @Composable () -> Unit = {
-                    Box(Modifier.fillMaxSize().graphicsLayer {
-                        val fraction = if (reduceMotion) 0f else progress.value
-                        alpha = opacity.value
-                        scaleX = 1f - AsterMotion.BackScaleReduction * fraction
-                        scaleY = scaleX
-                        translationX = AsterMotion.BackTranslation.toPx() * fraction *
-                            if (edge == BackEventCompat.EDGE_LEFT) 1f else -1f
-                        shape = RoundedCornerShape(AsterMotion.BackCornerRadius * fraction)
-                        clip = fraction > 0f
-                    }.background(MaterialTheme.colorScheme.surface)) { content(current) }
+
+    // 单栈根页面处于批量选择等临时模式时，补充处理 Back 退出该模式。
+    BackHandler(enabled = enabled && activeStack.size <= 1, onBack = onBack)
+
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    AsterSharedTransitionLayout(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(surfaceColor)
+    ) { sharedScope ->
+        val entries = activeStack.map { frame ->
+            val isTopFrame = frame == current
+            val shouldRetainFrame = retainState || !isTopFrame
+            NavEntry(
+                key = frame,
+                contentKey = frame.stateKey,
+                metadata = mapOf(FRAME_META_KEY to frame)
+            ) { navFrame ->
+                val animatedScope = LocalNavAnimatedContentScope.current
+                ProvideAsterAnimatedScope(animatedScope) {
+                    CompositionLocalProvider(LocalRootHandlesBack provides isTopFrame) {
+                        val page: @Composable () -> Unit = {
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(surfaceColor)
+                            ) {
+                                content(navFrame)
+                            }
+                        }
+                        if (shouldRetainFrame && retainState) {
+                            holder.SaveableStateProvider(navFrame.stateKey, page)
+                        } else {
+                            CompositionLocalProvider(LocalSaveableStateRegistry provides null) {
+                                page()
+                            }
+                        }
+                    }
                 }
-                if (retainState) holder.SaveableStateProvider(current.stateKey, page)
-                else CompositionLocalProvider(LocalSaveableStateRegistry provides null) { page() }
             }
         }
+
+        NavDisplay(
+            entries = entries,
+            modifier = Modifier.fillMaxSize(),
+            sharedTransitionScope = sharedScope,
+            onBack = {
+                if (enabled) onBack()
+            },
+            transitionSpec = {
+                val initialFrame = initialState.entries.lastOrNull()?.metadata?.get(FRAME_META_KEY) as? NavigationFrame
+                val targetFrame = targetState.entries.lastOrNull()?.metadata?.get(FRAME_META_KEY) as? NavigationFrame
+                when {
+                    targetFrame?.screen is SubScreen.Reader ->
+                        AsterMotion.readerEnterTransition(reduceMotion)
+                    initialFrame?.screen is SubScreen.Reader && targetFrame?.screen !is SubScreen.Reader ->
+                        AsterMotion.readerExitTransition(reduceMotion)
+                    initialFrame?.screen == null && targetFrame?.screen == null -> {
+                        val initialIdx = MainNavDestination.entries.indexOf(initialFrame?.tab ?: MainNavDestination.LIBRARY)
+                        val targetIdx = MainNavDestination.entries.indexOf(targetFrame?.tab ?: MainNavDestination.LIBRARY)
+                        AsterMotion.tabTransition(reduceMotion, direction = if (targetIdx >= initialIdx) 1 else -1)
+                    }
+                    else -> AsterMotion.pageTransition(
+                        reduceMotion = reduceMotion,
+                        forward = (targetFrame?.depth ?: 0) >= (initialFrame?.depth ?: 0)
+                    )
+                }
+            },
+            popTransitionSpec = {
+                val initialFrame = initialState.entries.lastOrNull()?.metadata?.get(FRAME_META_KEY) as? NavigationFrame
+                val targetFrame = targetState.entries.lastOrNull()?.metadata?.get(FRAME_META_KEY) as? NavigationFrame
+                when {
+                    initialFrame?.screen is SubScreen.Reader ->
+                        AsterMotion.readerExitTransition(reduceMotion)
+                    initialFrame?.screen == null && targetFrame?.screen == null -> {
+                        val initialIdx = MainNavDestination.entries.indexOf(initialFrame?.tab ?: MainNavDestination.LIBRARY)
+                        val targetIdx = MainNavDestination.entries.indexOf(targetFrame?.tab ?: MainNavDestination.LIBRARY)
+                        AsterMotion.tabTransition(reduceMotion, direction = if (targetIdx >= initialIdx) 1 else -1)
+                    }
+                    else -> AsterMotion.pageTransition(
+                        reduceMotion = reduceMotion,
+                        forward = false
+                    )
+                }
+            },
+            predictivePopTransitionSpec = { swipeEdge ->
+                if (!animateBack || reduceMotion) {
+                    EnterTransition.None togetherWith ExitTransition.None
+                } else {
+                    AsterMotion.predictivePopTransition(
+                        reduceMotion = false,
+                        fromLeftEdge = swipeEdge == BackEventCompat.EDGE_LEFT
+                    )
+                }
+            }
+        )
     }
 }

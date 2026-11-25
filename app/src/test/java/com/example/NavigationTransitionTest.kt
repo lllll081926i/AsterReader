@@ -12,11 +12,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.asterreader.core.designsystem.LocalAsterReduceMotion
+import com.asterreader.core.designsystem.asterContentReveal
+import com.asterreader.core.designsystem.asterShimmer
+import com.asterreader.core.designsystem.rememberSystemReduceMotion
 import com.example.ui.SubScreen
 import com.example.ui.components.*
 import org.junit.Assert.*
@@ -193,5 +199,128 @@ class NavigationTransitionTest {
         compose.runOnIdle { current.value = home }
         compose.runOnIdle { current.value = editor }
         compose.runOnIdle { assertEquals("", draft!!.value) }
+    }
+
+    @Test fun tabSwitchingAndReaderRoundTripCompleteCleanly() {
+        val library = NavigationFrame(null, MainNavDestination.LIBRARY, 0)
+        val shelves = NavigationFrame(null, MainNavDestination.SHELVES, 0)
+        val detail = NavigationFrame(SubScreen.PublicationDetail("b1"), MainNavDestination.SHELVES, 1)
+        val reader = NavigationFrame(SubScreen.Reader("b1"), MainNavDestination.SHELVES, 2)
+        val stack = mutableStateOf(listOf(library))
+        var disposed = 0
+        compose.setContent {
+            MaterialTheme {
+                AsterNavigation(
+                    current = stack.value.last(),
+                    enabled = stack.value.size > 1,
+                    onBack = { if (stack.value.size > 1) stack.value = stack.value.dropLast(1) },
+                    backStack = stack.value
+                ) { frame ->
+                    DisposableEffect(frame) { onDispose { disposed++ } }
+                    Text("route:${frame.stateKey}")
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { stack.value = listOf(library, shelves) }
+        compose.waitForIdle()
+        compose.onNodeWithText("route:${shelves.stateKey}").assertExists()
+        compose.onNodeWithText("route:${library.stateKey}").assertDoesNotExist()
+
+        compose.runOnIdle { stack.value = listOf(library, shelves, detail) }
+        compose.waitForIdle()
+        compose.onNodeWithText("route:${detail.stateKey}").assertExists()
+
+        compose.runOnIdle { stack.value = listOf(library, shelves, detail, reader) }
+        compose.waitForIdle()
+        compose.onNodeWithText("route:${reader.stateKey}").assertExists()
+
+        compose.runOnIdle { stack.value = listOf(library, shelves, detail) }
+        compose.waitForIdle()
+        compose.onNodeWithText("route:${detail.stateKey}").assertExists()
+        compose.onNodeWithText("route:${reader.stateKey}").assertDoesNotExist()
+        compose.runOnIdle { assertTrue(disposed >= 4) }
+    }
+
+    @Test fun floatingBottomDockSwitchesTabsCleanlyWithAndWithoutReducedMotion() {
+        val currentTab = mutableStateOf(MainNavDestination.LIBRARY)
+        val reduceMotion = mutableStateOf(false)
+        compose.setContent {
+            CompositionLocalProvider(LocalAsterReduceMotion provides reduceMotion.value) {
+                MaterialTheme {
+                    AppleFloatingBottomDock(
+                        currentDestination = currentTab.value,
+                        onSelectDestination = { currentTab.value = it },
+                        isExpandedTablet = false,
+                        showStatsTab = true
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.onNodeWithTag("nav_dock_${MainNavDestination.LIBRARY.route}").assertIsSelected()
+        compose.onNodeWithTag("nav_dock_${MainNavDestination.SEARCH.route}").assertIsNotSelected()
+
+        compose.onNodeWithTag("nav_dock_${MainNavDestination.SEARCH.route}").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("nav_dock_${MainNavDestination.SEARCH.route}").assertIsSelected()
+        compose.onNodeWithTag("nav_dock_${MainNavDestination.LIBRARY.route}").assertIsNotSelected()
+
+        reduceMotion.value = true
+        compose.onNodeWithTag("nav_dock_${MainNavDestination.SHELVES.route}").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithTag("nav_dock_${MainNavDestination.SHELVES.route}").assertIsSelected()
+        compose.onNodeWithTag("nav_dock_${MainNavDestination.SEARCH.route}").assertIsNotSelected()
+    }
+
+    @Test fun contentRevealAndShimmerRespectReduceMotion() {
+        val query = mutableStateOf("init")
+        val ready = mutableStateOf(false)
+        val reduceMotion = mutableStateOf(false)
+        var sysReduce = false
+        compose.setContent {
+            sysReduce = rememberSystemReduceMotion()
+            CompositionLocalProvider(LocalAsterReduceMotion provides reduceMotion.value) {
+                MaterialTheme {
+                    androidx.compose.foundation.layout.Column {
+                        androidx.compose.foundation.layout.Box(
+                            modifier = Modifier
+                                .asterShimmer(
+                                    baseColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    enabled = !ready.value
+                                )
+                                .testTag("shimmer_box")
+                        ) {
+                            Text("加载占位")
+                        }
+                        Text(
+                            text = "result:${query.value}",
+                            modifier = Modifier
+                                .asterContentReveal(
+                                    contentKey = query.value,
+                                    ready = ready.value
+                                )
+                                .testTag("reveal_text")
+                        )
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        assertFalse(sysReduce)
+
+        compose.runOnIdle {
+            ready.value = true
+            query.value = "manga"
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("result:manga").assertExists()
+
+        compose.runOnIdle {
+            reduceMotion.value = true
+            query.value = "novel"
+        }
+        compose.waitForIdle()
+        compose.onNodeWithText("result:novel").assertExists()
     }
 }

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.ZoomOut
 import androidx.compose.material.icons.outlined.CenterFocusStrong
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import com.asterreader.core.designsystem.AsterMotion
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -182,8 +183,8 @@ private fun ReaderContent(
     val context = LocalContext.current
     // 阅读时长：进入开始计时，离开时结算一次
     DisposableEffect(book.id) {
-        viewModel.beginReadingSession()
-        onDispose { viewModel.endReadingSession() }
+        viewModel.beginReadingSession(book.id)
+        onDispose { viewModel.endReadingSession(book.id) }
     }
     // 沉浸式全屏处理：进入阅读器时隐藏系统状态栏与导航栏，退出时恢复
     DisposableEffect(Unit) {
@@ -367,10 +368,17 @@ private fun ReaderContent(
             }
 
             // High-Contrast Transient Top Bar Chrome (全屏模式不叠加系统栏边距，紧凑高度)
+            val reduceMotion = LocalAsterReduceMotion.current
             androidx.compose.animation.AnimatedVisibility(
                 visible = showChrome,
-                enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically { -it } + fadeIn(),
-                exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else slideOutVertically { -it } + fadeOut(),
+                enter = if (reduceMotion) androidx.compose.animation.EnterTransition.None else slideInVertically(
+                    animationSpec = AsterMotion.intOffsetSpatialSpec,
+                    initialOffsetY = { -it }
+                ) + fadeIn(AsterMotion.fastEffectsSpec),
+                exit = if (reduceMotion) androidx.compose.animation.ExitTransition.None else slideOutVertically(
+                    animationSpec = AsterMotion.intOffsetSpatialSpec,
+                    targetOffsetY = { -it }
+                ) + fadeOut(AsterMotion.fastEffectsSpec),
                 modifier = Modifier.align(Alignment.TopCenter)
             ) {
                 Surface(
@@ -477,8 +485,14 @@ private fun ReaderContent(
             // Unified Bottom Floating Island (Merged Progress Scrub Bar + Bottom Option Buttons)
             androidx.compose.animation.AnimatedVisibility(
                 visible = showChrome,
-                enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically { it } + fadeIn(),
-                exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else slideOutVertically { it } + fadeOut(),
+                enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically(
+                    animationSpec = AsterMotion.intOffsetSpatialSpec,
+                    initialOffsetY = { it }
+                ) + fadeIn(AsterMotion.fastEffectsSpec),
+                exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else slideOutVertically(
+                    animationSpec = AsterMotion.intOffsetSpatialSpec,
+                    targetOffsetY = { it }
+                ) + fadeOut(AsterMotion.fastEffectsSpec),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
@@ -632,8 +646,8 @@ private fun ReaderContent(
             // Compact Non-intrusive Floating Status Bar at Bottom-Right Corner (完美垂直水平居中，无偏移)
             androidx.compose.animation.AnimatedVisibility(
                 visible = showMiniStatusPill,
-                enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else fadeIn(),
-                exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else fadeOut(),
+                enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else fadeIn(AsterMotion.fastEffectsSpec),
+                exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else fadeOut(AsterMotion.fastEffectsSpec),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .displayCutoutPadding().navigationBarsPadding().padding(end = 2.dp, bottom = 2.dp)
@@ -668,8 +682,14 @@ private fun ReaderContent(
         // Tablet Collapsible Right-Hand Supporting Drawer
         AnimatedVisibility(
             visible = isExpandedTablet && tabletSideDrawerOpen,
-            enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInHorizontally { it } + fadeIn(),
-            exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else slideOutHorizontally { it } + fadeOut()
+            enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInHorizontally(
+                animationSpec = AsterMotion.intOffsetSpatialSpec,
+                initialOffsetX = { it }
+            ) + fadeIn(AsterMotion.fastEffectsSpec),
+            exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else slideOutHorizontally(
+                animationSpec = AsterMotion.intOffsetSpatialSpec,
+                targetOffsetX = { it }
+            ) + fadeOut(AsterMotion.fastEffectsSpec)
         ) {
             TabletReaderSidePanel(
                 chapters = chapters,

@@ -1,5 +1,9 @@
 package com.example.ui.screens
 import com.asterreader.core.designsystem.AsterHeaderRow
+import com.asterreader.core.designsystem.AsterMotion
+import com.asterreader.core.designsystem.asterCardInteraction
+import com.asterreader.core.designsystem.asterSharedElement
+import com.asterreader.core.designsystem.rememberAsterSharedScopes
 import com.asterreader.core.designsystem.AsterHeaderTitleStyle
 import com.asterreader.core.designsystem.asterHeaderAction
 
@@ -608,7 +612,6 @@ private fun QuickCategoryTile(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        onClick = onClick,
         shape = MaterialTheme.shapes.medium,
         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
         border = BorderStroke(
@@ -617,6 +620,8 @@ private fun QuickCategoryTile(
         ),
         modifier = modifier
             .height(58.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .asterCardInteraction(onClick = onClick)
             .testTag("quick_tile_${tile.key}")
     ) {
         Row(
@@ -670,7 +675,6 @@ private fun ShelfCollageGridCard(
     onDeleteShelf: () -> Unit
 ) {
     Surface(
-        onClick = onOpenShelf,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(
@@ -680,6 +684,8 @@ private fun ShelfCollageGridCard(
         ),
         modifier = Modifier
             .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .asterCardInteraction(onClick = onOpenShelf)
             .testTag("shelf_card_${shelf.id}")
     ) {
         Column(
@@ -837,12 +843,13 @@ private fun ShelfCompactGridCard(
     onDeleteShelf: () -> Unit
 ) {
     Surface(
-        onClick = onOpenShelf,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
         modifier = Modifier
             .fillMaxWidth()
+            .clip(MaterialTheme.shapes.large)
+            .asterCardInteraction(onClick = onOpenShelf)
             .testTag("shelf_card_${shelf.id}")
     ) {
         Column(
@@ -1196,6 +1203,7 @@ fun ShelfDetailScreen(
 ) {
     BackHandler(enabled = !com.example.ui.components.LocalRootHandlesBack.current, onBack = onBack)
 
+    val sharedScopes = rememberAsterSharedScopes()
     val booksInShelf = remember(allBooks, shelfDetail) {
         allBooks.filter { shelfDetail.shelfId in it.shelfIdsCsv.split(',').map(String::trim) }
     }
@@ -1271,6 +1279,13 @@ fun ShelfDetailScreen(
                                     modifier = Modifier
                                         .width(56.dp)
                                         .aspectRatio(0.71f)
+                                        .asterSharedElement(
+                                            key = "cover_${book.id}",
+                                            scopes = sharedScopes,
+                                            enabled = !book.isVaultProtected && !book.isVaultEncrypted && book.sourceStatus != "MISSING",
+                                            visibleOnly = true,
+                                            clipShape = MaterialTheme.shapes.small
+                                        )
                                         .clip(MaterialTheme.shapes.small)
                                 )
                                 Column(
@@ -1303,11 +1318,20 @@ fun ShelfDetailScreen(
                         }
                     } else {
                         val isCompact3Col = uiState.libraryLayoutMode == LibraryLayoutMode.GRID_3
+                        val cardShape = RoundedCornerShape(if (isCompact3Col) 14.dp else 18.dp)
+                        val coverShape = RoundedCornerShape(if (isCompact3Col) 10.dp else 12.dp)
                         Surface(
-                            onClick = { viewModel.openBookDetail(book.id) },
-                            shape = RoundedCornerShape(if (isCompact3Col) 14.dp else 18.dp),
+                            shape = cardShape,
                             color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                            modifier = Modifier
+                                .animateItem(
+                                    fadeInSpec = null,
+                                    fadeOutSpec = null,
+                                    placementSpec = if (sharedScopes.reduceMotion) null else AsterMotion.intOffsetSpatialSpec
+                                )
+                                .clip(cardShape)
+                                .asterCardInteraction(onClick = { viewModel.openBookDetail(book.id) })
                         ) {
                             Column(modifier = Modifier.padding(if (isCompact3Col) 8.dp else 12.dp)) {
                                 AsterBookCover(
@@ -1317,7 +1341,14 @@ fun ShelfDetailScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .aspectRatio(0.71f)
-                                        .clip(RoundedCornerShape(if (isCompact3Col) 10.dp else 12.dp))
+                                        .asterSharedElement(
+                                            key = "cover_${book.id}",
+                                            scopes = sharedScopes,
+                                            enabled = !book.isVaultProtected && !book.isVaultEncrypted && book.sourceStatus != "MISSING",
+                                            visibleOnly = true,
+                                            clipShape = coverShape
+                                        )
+                                        .clip(coverShape)
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(

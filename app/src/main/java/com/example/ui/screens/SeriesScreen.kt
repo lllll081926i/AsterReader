@@ -3,6 +3,16 @@ package com.example.ui.screens
 import com.example.ui.components.AsterSubScreenHeader
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import com.asterreader.core.designsystem.AsterMotion
+import com.asterreader.core.designsystem.LocalAsterReduceMotion
+import com.asterreader.core.designsystem.asterSharedElement
+import com.asterreader.core.designsystem.rememberAsterSharedScopes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -76,6 +86,8 @@ fun SeriesScreen(
     }
 
     var expanded by remember { mutableStateOf<String?>(series.firstOrNull()?.first) }
+    val reduceMotion = LocalAsterReduceMotion.current
+    val sharedScopes = rememberAsterSharedScopes()
 
     Column(
         modifier = Modifier
@@ -127,6 +139,13 @@ fun SeriesScreen(
                                         modifier = Modifier
                                             .width(48.dp)
                                             .aspectRatio(0.68f)
+                                            .asterSharedElement(
+                                                key = "cover_${book.id}",
+                                                scopes = sharedScopes,
+                                                enabled = !book.isVaultProtected && !book.isVaultEncrypted && book.sourceStatus != "MISSING",
+                                                visibleOnly = true,
+                                                clipShape = RoundedCornerShape(8.dp)
+                                            )
                                             .clip(RoundedCornerShape(8.dp))
                                     )
                                 }
@@ -159,7 +178,11 @@ fun SeriesScreen(
                             )
                         }
 
-                        AnimatedVisibility(visible = isOpen) {
+                        AnimatedVisibility(
+                            visible = isOpen,
+                            enter = if (reduceMotion) EnterTransition.None else expandVertically(AsterMotion.intSizeSpatialSpec) + fadeIn(AsterMotion.fastEffectsSpec),
+                            exit = if (reduceMotion) ExitTransition.None else shrinkVertically(AsterMotion.intSizeSpatialSpec) + fadeOut(AsterMotion.fastEffectsSpec)
+                        ) {
                             Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
                                 volumes.forEach { book ->
                                     VolumeRow(

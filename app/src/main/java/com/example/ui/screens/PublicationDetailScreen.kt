@@ -5,7 +5,16 @@ import com.asterreader.core.designsystem.asterHeaderAction
 
 import androidx.compose.foundation.layout.heightIn
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.graphics.graphicsLayer
+import com.asterreader.core.designsystem.AsterMotion
+import com.asterreader.core.designsystem.AsterSharedScopes
+import com.asterreader.core.designsystem.LocalAsterReduceMotion
+import com.asterreader.core.designsystem.asterBounceClick
+import com.asterreader.core.designsystem.asterSharedElement
+import com.asterreader.core.designsystem.rememberAsterSharedScopes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -147,6 +156,17 @@ fun PublicationDetailScreen(
     var showOverflowMenu by remember { mutableStateOf(false) }
     var showFullTocSheet by remember { mutableStateOf(false) }
     var showAnnotationsSheet by remember { mutableStateOf(false) }
+    val sharedScopes = rememberAsterSharedScopes()
+    val reduceMotion = sharedScopes.reduceMotion
+    val favScale = remember { Animatable(1f) }
+    LaunchedEffect(book.isFavorite) {
+        if (book.isFavorite && !reduceMotion) {
+            favScale.animateTo(1.22f, AsterMotion.fastSpatialSpec)
+            favScale.animateTo(1f, AsterMotion.pressSpringSpec)
+        } else {
+            favScale.snapTo(1f)
+        }
+    }
     val openSection: (String) -> Unit = { viewModel.pushSubScreen(com.example.ui.SubScreen.PublicationDetail(book.id, it)) }
 
     Column(
@@ -192,11 +212,21 @@ fun PublicationDetailScreen(
                         onClick = { viewModel.toggleFavorite(book.id) },
                         modifier = Modifier.asterHeaderAction().testTag("detail_favorite_btn")
                     ) {
+                        val favTint by animateColorAsState(
+                            targetValue = if (book.isFavorite) colorScheme.primary else colorScheme.outline,
+                            animationSpec = AsterMotion.themeEffectsSpec(reduceMotion),
+                            label = "detail_fav_tint"
+                        )
                         Icon(
                             imageVector = if (book.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                             contentDescription = "收藏",
-                            modifier = Modifier.size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize),
-                            tint = if (book.isFavorite) colorScheme.primary else colorScheme.outline
+                            modifier = Modifier
+                                .size(com.asterreader.core.designsystem.AsterLayout.HeaderIconSize)
+                                .graphicsLayer {
+                                    scaleX = favScale.value
+                                    scaleY = favScale.value
+                                },
+                            tint = favTint
                         )
                     }
 
@@ -341,6 +371,7 @@ fun PublicationDetailScreen(
                         ) {
                             DetailCoverCard(
                                 book = book,
+                                sharedScopes = sharedScopes,
                                 modifier = Modifier.width(190.dp)
                             )
                             DetailMetadataColumn(
@@ -356,6 +387,7 @@ fun PublicationDetailScreen(
                         ) {
                             DetailCoverCard(
                                 book = book,
+                                sharedScopes = sharedScopes,
                                 modifier = Modifier.width(144.dp)
                             )
                             DetailMetadataColumn(
@@ -724,7 +756,7 @@ fun PublicationDetailScreen(
                                 .weight(1f)
                                 .heightIn(min = com.asterreader.core.designsystem.AsterLayout.TouchTarget)
                                 .clip(CircleShape)
-                                .clickable { onStartReading(null) }
+                                .asterBounceClick(targetScale = 0.965f, onClick = { onStartReading(null) })
                                 .testTag("detail_start_reading_cta")
                         ) {
                             Row(
@@ -947,14 +979,23 @@ fun PublicationDetailScreen(
 @Composable
 private fun DetailCoverCard(
     book: BookEntity,
+    sharedScopes: AsterSharedScopes,
     modifier: Modifier = Modifier
 ) {
     val asterColors = LocalAsterColors.current
     val colorScheme = MaterialTheme.colorScheme
+    val canShareCover = !book.isVaultProtected && !book.isVaultEncrypted && book.sourceStatus != "MISSING"
 
     Box(
         modifier = modifier
             .aspectRatio(2f / 3f)
+            .asterSharedElement(
+                key = "cover_${book.id}",
+                scopes = sharedScopes,
+                enabled = canShareCover,
+                visibleOnly = false,
+                clipShape = MaterialTheme.shapes.medium
+            )
             .clip(MaterialTheme.shapes.medium)
             .background(asterColors.surfaceContainerHigh)
     ) {

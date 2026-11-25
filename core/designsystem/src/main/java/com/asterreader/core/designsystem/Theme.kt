@@ -3,7 +3,9 @@ package com.asterreader.core.designsystem
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -92,6 +94,7 @@ object AsterThemeTokens {
         get() = LocalAsterColors.current
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AsterReaderTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -126,6 +129,7 @@ fun AsterReaderTheme(
     CompositionLocalProvider(LocalAsterColors provides extendedColors) {
         MaterialTheme(
             colorScheme = colorScheme,
+            motionScheme = MotionScheme.expressive(),
             typography = AsterTypography,
             shapes = AsterShapes,
             content = content

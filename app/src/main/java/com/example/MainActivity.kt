@@ -30,6 +30,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -140,7 +142,8 @@ class MainActivity : ComponentActivity() {
             AsterReaderTheme(
                 darkTheme = darkTheme
             ) {
-                CompositionLocalProvider(LocalAsterReduceMotion provides (uiState.reduceMotion || !android.animation.ValueAnimator.areAnimatorsEnabled())) {
+                val systemReduceMotion = com.asterreader.core.designsystem.rememberSystemReduceMotion()
+                CompositionLocalProvider(LocalAsterReduceMotion provides (uiState.reduceMotion || systemReduceMotion)) {
                     AsterReaderAppRoot(viewModel = viewModel, uiState = uiState)
                 }
             }
@@ -208,6 +211,8 @@ class MainActivity : ComponentActivity() {
     }
 
 }
+
+private enum class RootGateState { LOADING, FAILED, LOCKED, QUICK_AUTH, READY }
 
 @Composable
 fun AsterReaderAppRoot(
@@ -288,329 +293,367 @@ fun AsterReaderAppRoot(
     val allShelves by viewModel.allShelves.collectAsStateWithLifecycle()
     val mainContentReady by viewModel.mainContentReady.collectAsStateWithLifecycle()
     val libraryLoadFailed by viewModel.libraryLoadFailed.collectAsStateWithLifecycle()
-    if (!uiState.settingsLoaded || (!uiState.isAppLockedNow && (!mainContentReady || libraryLoadFailed)) || uiState.isAppLockedNow || uiState.showQuickAuthSheet) {
-        val colorScheme = MaterialTheme.colorScheme
-        Surface(modifier = Modifier.fillMaxSize(), color = colorScheme.surface) {
-            when {
-                uiState.settingsLoaded && !uiState.isAppLockedNow && libraryLoadFailed -> Column(
-                    Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center) {
-                    Text("书库读取失败", style = MaterialTheme.typography.bodyMedium)
-                    Button(onClick = viewModel::retryLibraryLoad) {
-                        Icon(Icons.Default.Refresh, null)
-                        Text("重试")
+
+    val gateState = when {
+        !uiState.settingsLoaded || (!uiState.isAppLockedNow && !mainContentReady && !libraryLoadFailed) -> RootGateState.LOADING
+        uiState.settingsLoaded && !uiState.isAppLockedNow && libraryLoadFailed -> RootGateState.FAILED
+        uiState.isAppLockedNow -> RootGateState.LOCKED
+        uiState.showQuickAuthSheet -> RootGateState.QUICK_AUTH
+        else -> RootGateState.READY
+    }
+
+    AnimatedContent(
+        targetState = gateState,
+        transitionSpec = {
+            if (targetState == RootGateState.READY && initialState == RootGateState.LOCKED) {
+                AsterMotion.authUnlockTransition(reduceMotion)
+            } else if (reduceMotion) {
+                EnterTransition.None togetherWith ExitTransition.None
+            } else {
+                fadeIn(AsterMotion.fastEffectsSpec) togetherWith fadeOut(AsterMotion.fastEffectsSpec)
+            }
+        },
+        label = "aster_root_gate"
+    ) { state ->
+        if (state != RootGateState.READY) {
+            val colorScheme = MaterialTheme.colorScheme
+            Surface(modifier = Modifier.fillMaxSize(), color = colorScheme.surface) {
+                when (state) {
+                    RootGateState.FAILED -> Column(
+                        Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center) {
+                        Text("书库读取失败", style = MaterialTheme.typography.bodyMedium)
+                        Button(onClick = viewModel::retryLibraryLoad) {
+                            Icon(Icons.Default.Refresh, null)
+                            Text("重试")
+                        }
                     }
-                }
-                !uiState.settingsLoaded || (!uiState.isAppLockedNow && !mainContentReady) -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    RootGateState.LOADING -> Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Surface(
-                            shape = androidx.compose.foundation.shape.CircleShape,
-                            color = colorScheme.primaryContainer.copy(alpha = 0.55f),
-                            modifier = Modifier.size(76.dp)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.MenuBook,
-                                    contentDescription = null,
-                                    tint = colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(34.dp)
-                                )
+                            Surface(
+                                shape = androidx.compose.foundation.shape.CircleShape,
+                                color = colorScheme.primaryContainer.copy(alpha = 0.55f),
+                                modifier = Modifier.size(76.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.MenuBook,
+                                        contentDescription = null,
+                                        tint = colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(34.dp)
+                                    )
+                                }
                             }
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.dp,
+                                color = colorScheme.primary
+                            )
+                            Text(
+                                text = "正在打开",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant
+                            )
                         }
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.dp,
-                            color = colorScheme.primary
-                        )
-                        Text(
-                            text = "正在打开",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
-                        )
                     }
+                    RootGateState.LOCKED -> AppLockScreen(viewModel = viewModel, uiState = uiState)
+                    else -> Box(modifier = Modifier.fillMaxSize())
                 }
-                uiState.isAppLockedNow -> AppLockScreen(viewModel = viewModel, uiState = uiState)
-                else -> Box(modifier = Modifier.fillMaxSize())
             }
-        }
-        if (uiState.settingsLoaded && uiState.showQuickAuthSheet && !uiState.isAppLockedNow) {
-            SystemSecurityAuthPromptSheet(
-                viewModel = viewModel,
-                onDismiss = viewModel::dismissQuickAuthSheet
-            )
-        }
-        return
-    }
-    com.example.ui.components.AppUpdatePrompt(viewModel,
-        enabled = uiState.activeSubScreen !is SubScreen.Reader &&
-            uiState.activeSubScreen !is SubScreen.PublicationDetail && !uiState.isScanning)
-    val needsAnnotations = uiState.activeSubScreen is SubScreen.Search ||
-        uiState.activeSubScreen == null && uiState.currentTab in setOf(MainNavDestination.SEARCH, MainNavDestination.STATS, MainNavDestination.SHELVES)
-    val allAnnotations = if (needsAnnotations) {
-        val notes by viewModel.allAnnotations.collectAsStateWithLifecycle()
-        notes
-    } else emptyList()
-    val allRepositories = if (uiState.activeSubScreen == SubScreen.Settings || uiState.activeSubScreen is SubScreen.SettingsSection) {
-        val repositories by viewModel.allRepositories.collectAsStateWithLifecycle()
-        repositories
-    } else emptyList()
-    val pendingRemoval by viewModel.pendingRemoval.collectAsStateWithLifecycle()
-    if (pendingRemoval.isNotEmpty()) androidx.compose.material3.AlertDialog(
-        onDismissRequest = viewModel::cancelBookRemoval,
-        title = { Text("移除 ${pendingRemoval.size} 本") },
-        text = { Text("移除索引、进度与笔记。原文件保留。") },
-        confirmButton = { androidx.compose.material3.TextButton(onClick = viewModel::confirmBookRemoval) { Text("移除") } },
-        dismissButton = { androidx.compose.material3.TextButton(onClick = viewModel::cancelBookRemoval) { Text("取消") } }
-    )
-
-    LaunchedEffect(snackbar?.id) {
-        val event = snackbar
-        if (event != null) {
-            snackbarHost.showSnackbar(event.message, withDismissAction = true,
-                duration = if (event.tone == SnackbarTone.ERROR) androidx.compose.material3.SnackbarDuration.Long
-                    else androidx.compose.material3.SnackbarDuration.Short)
-            if (viewModel.snackbar.value?.id == event.id) viewModel.consumeSnackbar()
+            if (uiState.settingsLoaded && state == RootGateState.QUICK_AUTH) {
+                SystemSecurityAuthPromptSheet(
+                    viewModel = viewModel,
+                    onDismiss = viewModel::dismissQuickAuthSheet
+                )
+            }
         } else {
-            snackbarHost.currentSnackbarData?.dismiss()
-        }
-    }
+            com.example.ui.components.AppUpdatePrompt(viewModel,
+                enabled = uiState.activeSubScreen !is SubScreen.Reader &&
+                    uiState.activeSubScreen !is SubScreen.PublicationDetail && !uiState.isScanning)
+            val needsAnnotations = uiState.activeSubScreen is SubScreen.Search ||
+                uiState.activeSubScreen == null && uiState.currentTab in setOf(MainNavDestination.SEARCH, MainNavDestination.STATS, MainNavDestination.SHELVES)
+            val allAnnotations = if (needsAnnotations) {
+                val notes by viewModel.allAnnotations.collectAsStateWithLifecycle()
+                notes
+            } else emptyList()
+            val allRepositories = if (uiState.activeSubScreen == SubScreen.Settings || uiState.activeSubScreen is SubScreen.SettingsSection) {
+                val repositories by viewModel.allRepositories.collectAsStateWithLifecycle()
+                repositories
+            } else emptyList()
+            val pendingRemoval by viewModel.pendingRemoval.collectAsStateWithLifecycle()
+            if (pendingRemoval.isNotEmpty()) androidx.compose.material3.AlertDialog(
+                onDismissRequest = viewModel::cancelBookRemoval,
+                title = { Text("移除 ${pendingRemoval.size} 本") },
+                text = { Text("移除索引、进度与笔记。原文件保留。") },
+                confirmButton = { androidx.compose.material3.TextButton(onClick = viewModel::confirmBookRemoval) { Text("移除") } },
+                dismissButton = { androidx.compose.material3.TextButton(onClick = viewModel::cancelBookRemoval) { Text("取消") } }
+            )
 
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-        val useNavigationRail = maxWidth >= com.asterreader.core.designsystem.AsterLayout.NavigationRailBreakpoint
-        val isExpandedTablet = maxWidth >= com.asterreader.core.designsystem.AsterLayout.SupportingPaneBreakpoint
-        val activeSub = uiState.activeSubScreen
-        val showAppleBottomDock = activeSub == null && !uiState.isBatchSelectionMode
-
-        AsterNavigationLayout(reserveNavigation = showAppleBottomDock, useRail = useNavigationRail, content = {
-            com.example.ui.components.AsterNavigation(
-                current = com.example.ui.components.NavigationFrame(activeSub, uiState.currentTab, uiState.subScreenStack.size),
-                enabled = uiState.isBatchSelectionMode || uiState.subScreenStack.isNotEmpty() ||
-                    uiState.currentTab != MainNavDestination.LIBRARY,
-                onBack = { viewModel.popSubScreen() },
-                backStack = MainNavDestination.entries.map {
-                    com.example.ui.components.NavigationFrame(null, it, 0)
-                } + uiState.subScreenStack.mapIndexed { index, screen ->
-                    com.example.ui.components.NavigationFrame(screen, uiState.currentTab, index + 1)
-                },
-                retainState = !uiState.isVaultUnlocked && !uiState.fileVaultOpen && activeSub != SubScreen.HiddenBooks,
-                animateBack = !uiState.isBatchSelectionMode
-            ) { (subScreen, currentTab) ->
-                if (subScreen != null) {
-                    when (subScreen) {
-                        is SubScreen.Search -> {
-                            SearchAndFilterScreen(
-                                uiState = uiState,
-                                books = allBooks,
-                                annotations = allAnnotations,
-                                openFilterInitially = subScreen.openFilterSheetInitially,
-                                initialScope = subScreen.initialScope,
-                                viewModel = viewModel,
-                                onBack = { viewModel.popSubScreen() }
-                            )
-                        }
-
-                        is SubScreen.PublicationDetail -> {
-                            val targetBook = booksById[subScreen.bookId]
-                                ?.takeIf { !it.isVaultEncrypted || uiState.fileVaultOpen }
-
-                            if (targetBook != null) {
-                                PublicationDetailScreen(
-                                    book = targetBook,
-                                    section = subScreen.section,
-                                    uiState = uiState,
-                                    isExpandedTablet = isExpandedTablet,
-                                    viewModel = viewModel,
-                                    onBack = { viewModel.popSubScreen() },
-                                    onStartReading = { startPage ->
-                                        viewModel.openBookReader(
-                                            bookId = targetBook.id,
-                                            initialPage = startPage,
-                                            preferDualPageOnTablet = isExpandedTablet
-                                        )
-                                    }
-                                )
-                            } else {
-                                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
-                                    horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("作品不可用，请返回书库检查来源")
-                                    Button(onClick = { viewModel.popSubScreen() }) { Text("返回") }
-                                }
-                            }
-                        }
-
-                        is SubScreen.Reader -> {
-                            val targetBook = booksById[subScreen.bookId]
-                                ?.takeIf { !it.isVaultEncrypted || uiState.fileVaultOpen }
-
-                            if (targetBook != null) {
-                                ReaderScreen(
-                                    book = targetBook,
-                                    initialPage = subScreen.initialPage,
-                                    uiState = uiState,
-                                    isExpandedTablet = isExpandedTablet,
-                                    viewModel = viewModel,
-                                    onBack = { viewModel.popSubScreen() }
-                                )
-                            } else {
-                                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
-                                    horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("作品不可用，请返回书库检查来源")
-                                    Button(onClick = { viewModel.popSubScreen() }) { Text("返回") }
-                                }
-                            }
-                        }
-
-                        is SubScreen.ShelfDetail -> {
-                            ShelfDetailScreen(
-                                shelfDetail = subScreen,
-                                allBooks = allBooks,
-                                uiState = uiState,
-                                isExpandedTablet = isExpandedTablet,
-                                viewModel = viewModel,
-                                onBack = { viewModel.popSubScreen() }
-                            )
-                        }
-
-                        SubScreen.Settings -> {
-                            SettingsScreen(
-                                uiState = uiState,
-                                repositories = allRepositories,
-                                booksCount = allBooks.size,
-                                viewModel = viewModel,
-                                onTriggerImportFile = triggerSystemFilePicker,
-                                onBack = { viewModel.popSubScreen() }
-                            )
-                        }
-
-                        is SubScreen.SettingsSection -> {
-                            SettingsScreen(uiState = uiState, repositories = allRepositories,
-                                booksCount = allBooks.size, viewModel = viewModel,
-                                onTriggerImportFile = triggerSystemFilePicker,
-                                onBack = { viewModel.popSubScreen() }, section = subScreen.section)
-                        }
-
-                        is SubScreen.SecuritySection -> {
-                            PrivacySecuritySettingsScreen(uiState, viewModel,
-                                onBack = { viewModel.popSubScreen() }, section = subScreen.section)
-                        }
-
-                        SubScreen.HiddenBooks -> {
-                            HiddenBooksScreen(
-                                viewModel = viewModel,
-                                onBack = { viewModel.popSubScreen() }
-                            )
-                        }
-
-                        SubScreen.ReadingStats -> {
-                            if (uiState.showReadingStats) {
-                                ReadingStatsScreen(
-                                    viewModel = viewModel,
-                                    finishedBooks = allBooks.count { it.statusBadge == "已读完" },
-                                    totalBooks = allBooks.size,
-                                    onBack = { viewModel.popSubScreen() }
-                                )
-                            } else {
-                                LaunchedEffect(Unit) { viewModel.popSubScreen() }
-                            }
-                        }
-
-                        SubScreen.SeriesList -> {
-                            SeriesScreen(
-                                allBooks = allBooks,
-                                uiState = uiState,
-                                isExpandedTablet = isExpandedTablet,
-                                viewModel = viewModel,
-                                onBack = { viewModel.popSubScreen() }
-                            )
-                        }
-
-                        SubScreen.PrivacySecuritySettings -> {
-                            PrivacySecuritySettingsScreen(
-                                uiState = uiState,
-                                viewModel = viewModel,
-                                onBack = { viewModel.popSubScreen() }
-                            )
-                        }
-
-                        SubScreen.Onboarding -> {
-                            OnboardingScreen(
-                                onImportFileClick = triggerSystemFilePicker,
-                                onCreateRepoClick = {
-                                    viewModel.addRepositoryAndScan("本地漫画库", com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE)
-                                },
-                                onOpenSecuritySettings = {
-                                    viewModel.popSubScreen()
-                                    viewModel.pushSubScreen(SubScreen.PrivacySecuritySettings)
-                                },
-                                onFinish = { viewModel.popSubScreen() }
-                            )
-                        }
-                    }
+            LaunchedEffect(snackbar?.id) {
+                val event = snackbar
+                if (event != null) {
+                    snackbarHost.showSnackbar(event.message, withDismissAction = true,
+                        duration = if (event.tone == SnackbarTone.ERROR) androidx.compose.material3.SnackbarDuration.Long
+                            else androidx.compose.material3.SnackbarDuration.Short)
+                    if (viewModel.snackbar.value?.id == event.id) viewModel.consumeSnackbar()
                 } else {
-                    // Primary Top-Level Destinations switched via compact AppleFloatingBottomDock
-                    when (currentTab) {
-                        MainNavDestination.LIBRARY -> {
-                            LibraryHomeScreen(
-                                uiState = uiState,
-                                books = allBooks,
-                                shelves = allShelves,
-                                isExpandedTablet = isExpandedTablet,
-                                viewModel = viewModel,
-                                onTriggerSystemFilePicker = triggerSystemFilePicker
-                            )
-                        }
-
-                        MainNavDestination.SHELVES -> {
-                            ShelvesScreen(
-                                shelves = allShelves,
-                                allBooks = allBooks,
-                                annotationsCount = allAnnotations.size,
-                                uiState = uiState,
-                                isExpandedTablet = isExpandedTablet,
-                                viewModel = viewModel
-                            )
-                        }
-
-                        MainNavDestination.STATS -> ReadingStatsScreen(viewModel,
-                            allBooks.count { it.statusBadge == "已读完" }, allBooks.size)
-                        MainNavDestination.SEARCH -> {
-                            SearchAndFilterScreen(
-                                uiState = uiState,
-                                books = allBooks,
-                                annotations = allAnnotations,
-                                openFilterInitially = false,
-                                viewModel = viewModel,
-                                onBack = { viewModel.selectMainTab(MainNavDestination.LIBRARY) }
-                            )
-                        }
-                    }
+                    snackbarHost.currentSnackbarData?.dismiss()
                 }
             }
 
-        }, navigation = {
-            // Compact Apple-style Floating Bottom Dock (Icon on Top, Title Below: 书库 / 书架 / 搜索)
-            AnimatedVisibility(
-                visible = showAppleBottomDock,
-                enter = if (LocalAsterReduceMotion.current) androidx.compose.animation.EnterTransition.None else slideInVertically { it } + fadeIn(),
-                exit = if (LocalAsterReduceMotion.current) androidx.compose.animation.ExitTransition.None else slideOutVertically { it } + fadeOut(),
-            ) {
-                AsterMainNavigation(useNavigationRail, uiState.currentTab, viewModel::selectMainTab,
-                    showStatsTab = uiState.showStatsTab)
-            }
+            BoxWithConstraints(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+                val useNavigationRail = maxWidth >= com.asterreader.core.designsystem.AsterLayout.NavigationRailBreakpoint
+                val isExpandedTablet = maxWidth >= com.asterreader.core.designsystem.AsterLayout.SupportingPaneBreakpoint
+                val activeSub = uiState.activeSubScreen
+                val showAppleBottomDock = activeSub == null && !uiState.isBatchSelectionMode
 
-        }, overlay = {
-            Box(Modifier.fillMaxSize()) { androidx.compose.material3.SnackbarHost(
-                hostState = snackbarHost,
-                modifier = Modifier.align(Alignment.BottomCenter)
-                    .then(if (showAppleBottomDock) Modifier else Modifier.navigationBarsPadding())
-                    .padding(horizontal = 12.dp)
-            ) }
-        })
+                AsterNavigationLayout(reserveNavigation = showAppleBottomDock, useRail = useNavigationRail, content = {
+                    val activeNavStack = remember(uiState.currentTab, uiState.subScreenStack) {
+                        val base = if (uiState.currentTab == MainNavDestination.LIBRARY) {
+                            listOf(com.example.ui.components.NavigationFrame(null, MainNavDestination.LIBRARY, 0))
+                        } else {
+                            listOf(
+                                com.example.ui.components.NavigationFrame(null, MainNavDestination.LIBRARY, 0),
+                                com.example.ui.components.NavigationFrame(null, uiState.currentTab, 0)
+                            )
+                        }
+                        base + uiState.subScreenStack.mapIndexed { index, screen ->
+                            com.example.ui.components.NavigationFrame(screen, uiState.currentTab, index + 1)
+                        }
+                    }
+                    com.example.ui.components.AsterNavigation(
+                        current = activeNavStack.last(),
+                        enabled = uiState.isBatchSelectionMode || uiState.subScreenStack.isNotEmpty() ||
+                            uiState.currentTab != MainNavDestination.LIBRARY,
+                        onBack = { viewModel.popSubScreen() },
+                        backStack = activeNavStack,
+                        retainState = !uiState.isVaultUnlocked && !uiState.fileVaultOpen && activeSub != SubScreen.HiddenBooks,
+                        animateBack = !uiState.isBatchSelectionMode
+                    ) { (subScreen, currentTab) ->
+                        if (subScreen != null) {
+                            when (subScreen) {
+                                is SubScreen.Search -> {
+                                    SearchAndFilterScreen(
+                                        uiState = uiState,
+                                        books = allBooks,
+                                        annotations = allAnnotations,
+                                        openFilterInitially = subScreen.openFilterSheetInitially,
+                                        initialScope = subScreen.initialScope,
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popSubScreen() }
+                                    )
+                                }
+
+                                is SubScreen.PublicationDetail -> {
+                                    val targetBook = booksById[subScreen.bookId]
+                                        ?.takeIf { !it.isVaultEncrypted || uiState.fileVaultOpen }
+
+                                    if (targetBook != null) {
+                                        PublicationDetailScreen(
+                                            book = targetBook,
+                                            section = subScreen.section,
+                                            uiState = uiState,
+                                            isExpandedTablet = isExpandedTablet,
+                                            viewModel = viewModel,
+                                            onBack = { viewModel.popSubScreen() },
+                                            onStartReading = { startPage ->
+                                                viewModel.openBookReader(
+                                                    bookId = targetBook.id,
+                                                    initialPage = startPage,
+                                                    preferDualPageOnTablet = isExpandedTablet
+                                                )
+                                            }
+                                        )
+                                    } else {
+                                        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
+                                            horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("作品不可用，请返回书库检查来源")
+                                            Button(onClick = { viewModel.popSubScreen() }) { Text("返回") }
+                                        }
+                                    }
+                                }
+
+                                is SubScreen.Reader -> {
+                                    val targetBook = booksById[subScreen.bookId]
+                                        ?.takeIf { !it.isVaultEncrypted || uiState.fileVaultOpen }
+
+                                    if (targetBook != null) {
+                                        ReaderScreen(
+                                            book = targetBook,
+                                            initialPage = subScreen.initialPage,
+                                            uiState = uiState,
+                                            isExpandedTablet = isExpandedTablet,
+                                            viewModel = viewModel,
+                                            onBack = { viewModel.popSubScreen() }
+                                        )
+                                    } else {
+                                        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center,
+                                            horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("作品不可用，请返回书库检查来源")
+                                            Button(onClick = { viewModel.popSubScreen() }) { Text("返回") }
+                                        }
+                                    }
+                                }
+
+                                is SubScreen.ShelfDetail -> {
+                                    ShelfDetailScreen(
+                                        shelfDetail = subScreen,
+                                        allBooks = allBooks,
+                                        uiState = uiState,
+                                        isExpandedTablet = isExpandedTablet,
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popSubScreen() }
+                                    )
+                                }
+
+                                SubScreen.Settings -> {
+                                    SettingsScreen(
+                                        uiState = uiState,
+                                        repositories = allRepositories,
+                                        booksCount = allBooks.size,
+                                        viewModel = viewModel,
+                                        onTriggerImportFile = triggerSystemFilePicker,
+                                        onBack = { viewModel.popSubScreen() }
+                                    )
+                                }
+
+                                is SubScreen.SettingsSection -> {
+                                    SettingsScreen(uiState = uiState, repositories = allRepositories,
+                                        booksCount = allBooks.size, viewModel = viewModel,
+                                        onTriggerImportFile = triggerSystemFilePicker,
+                                        onBack = { viewModel.popSubScreen() }, section = subScreen.section)
+                                }
+
+                                is SubScreen.SecuritySection -> {
+                                    PrivacySecuritySettingsScreen(uiState, viewModel,
+                                        onBack = { viewModel.popSubScreen() }, section = subScreen.section)
+                                }
+
+                                SubScreen.HiddenBooks -> {
+                                    HiddenBooksScreen(
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popSubScreen() }
+                                    )
+                                }
+
+                                SubScreen.ReadingStats -> {
+                                    if (uiState.showReadingStats) {
+                                        ReadingStatsScreen(
+                                            viewModel = viewModel,
+                                            finishedBooks = allBooks.count { it.statusBadge == "已读完" },
+                                            totalBooks = allBooks.size,
+                                            onBack = { viewModel.popSubScreen() }
+                                        )
+                                    } else {
+                                        LaunchedEffect(Unit) { viewModel.popSubScreen() }
+                                    }
+                                }
+
+                                SubScreen.SeriesList -> {
+                                    SeriesScreen(
+                                        allBooks = allBooks,
+                                        uiState = uiState,
+                                        isExpandedTablet = isExpandedTablet,
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popSubScreen() }
+                                    )
+                                }
+
+                                SubScreen.PrivacySecuritySettings -> {
+                                    PrivacySecuritySettingsScreen(
+                                        uiState = uiState,
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popSubScreen() }
+                                    )
+                                }
+
+                                SubScreen.Onboarding -> {
+                                    OnboardingScreen(
+                                        onImportFileClick = triggerSystemFilePicker,
+                                        onCreateRepoClick = {
+                                            viewModel.addRepositoryAndScan("本地漫画库", com.example.data.local.LibraryRepository.DEFAULT_SCAN_RULE)
+                                        },
+                                        onOpenSecuritySettings = {
+                                            viewModel.popSubScreen()
+                                            viewModel.pushSubScreen(SubScreen.PrivacySecuritySettings)
+                                        },
+                                        onFinish = { viewModel.popSubScreen() }
+                                    )
+                                }
+                            }
+                        } else {
+                            // Primary Top-Level Destinations switched via compact AppleFloatingBottomDock
+                            when (currentTab) {
+                                MainNavDestination.LIBRARY -> {
+                                    LibraryHomeScreen(
+                                        uiState = uiState,
+                                        books = allBooks,
+                                        shelves = allShelves,
+                                        isExpandedTablet = isExpandedTablet,
+                                        viewModel = viewModel,
+                                        onTriggerSystemFilePicker = triggerSystemFilePicker
+                                    )
+                                }
+
+                                MainNavDestination.SHELVES -> {
+                                    ShelvesScreen(
+                                        shelves = allShelves,
+                                        allBooks = allBooks,
+                                        annotationsCount = allAnnotations.size,
+                                        uiState = uiState,
+                                        isExpandedTablet = isExpandedTablet,
+                                        viewModel = viewModel
+                                    )
+                                }
+
+                                MainNavDestination.STATS -> ReadingStatsScreen(viewModel,
+                                    allBooks.count { it.statusBadge == "已读完" }, allBooks.size)
+                                MainNavDestination.SEARCH -> {
+                                    SearchAndFilterScreen(
+                                        uiState = uiState,
+                                        books = allBooks,
+                                        annotations = allAnnotations,
+                                        openFilterInitially = false,
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.selectMainTab(MainNavDestination.LIBRARY) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                }, navigation = {
+                    // Compact Apple-style Floating Bottom Dock (Icon on Top, Title Below: 书库 / 书架 / 搜索)
+                    AnimatedVisibility(
+                        visible = showAppleBottomDock,
+                        enter = if (reduceMotion) EnterTransition.None else slideInVertically(
+                            animationSpec = AsterMotion.intOffsetSpatialSpec,
+                            initialOffsetY = { it }
+                        ) + fadeIn(AsterMotion.fastEffectsSpec),
+                        exit = if (reduceMotion) ExitTransition.None else slideOutVertically(
+                            animationSpec = AsterMotion.intOffsetSpatialSpec,
+                            targetOffsetY = { it }
+                        ) + fadeOut(AsterMotion.fastEffectsSpec),
+                    ) {
+                        AsterMainNavigation(useNavigationRail, uiState.currentTab, viewModel::selectMainTab,
+                            showStatsTab = uiState.showStatsTab)
+                    }
+
+                }, overlay = {
+                    Box(Modifier.fillMaxSize()) { androidx.compose.material3.SnackbarHost(
+                        hostState = snackbarHost,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                            .then(if (showAppleBottomDock) Modifier else Modifier.navigationBarsPadding())
+                            .padding(horizontal = 12.dp)
+                    ) }
+                })
+            }
+        }
     }
 }
