@@ -443,8 +443,10 @@ fun ShelvesScreen(
                 val isLockedPrivateShelf = shelf.isProtected && !uiState.isVaultUnlocked
                 val shelfBooks = booksByShelfId[shelf.id].orEmpty()
                 // 书架封面优先用手工配置，缺省时回落到成员作品封面
-                val collageUrls = shelf.coverUrlsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                    .ifEmpty { shelfBooks.map { it.coverUrl }.filter { it.isNotBlank() } }
+                val collageUrls = remember(shelf.coverUrlsCsv, shelfBooks) {
+                    shelf.coverUrlsCsv.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                        .ifEmpty { shelfBooks.map { it.coverUrl }.filter { it.isNotBlank() } }
+                }
                 val shelfBookCount = shelfBooks.size.coerceAtLeast(shelf.itemCountDisplay)
 
                 val openShelfAction = {

@@ -29,7 +29,7 @@ internal class VaultComicArchive(private val store: FileVaultStore, record: Vaul
             val available = when (record.book.format) {
                 "ZIP", "CBZ", "EPUB" -> {
                     zip = org.apache.commons.compress.archivers.zip.ZipFile.builder().setSeekableByteChannel(channel)
-                        .setCharset("GB18030").get()
+                        .setCharset("GB18030").setIgnoreLocalFileHeader(true).get()
                     zip!!.entries.asSequence().onEachIndexed { index, _ -> require(index < 100000) { "归档条目过多" } }
                         .filter { !it.isDirectory }.map { it.name }.toList()
                 }

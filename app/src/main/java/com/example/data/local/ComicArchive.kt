@@ -83,7 +83,7 @@ private class EpubComicArchive(file: File) : ComicArchive {
     } catch (failure: Throwable) { zip.close(); throw failure }
 
     override val pageCount get() = entries.size
-    override val pageNames get() = entries.map { it.name }
+    override val pageNames: List<String> = entries.map { it.name }
 
     override fun openPage(number: Int): InputStream {
         val entry = entries.getOrNull(number - 1) ?: throw IOException("页面不存在：$number")
@@ -232,7 +232,9 @@ private class ZipComicArchive(channel: java.nio.channels.SeekableByteChannel) : 
             .get()
     } catch (failure: Throwable) { channel.close(); throw failure }
     private val entries: List<org.apache.commons.compress.archivers.zip.ZipArchiveEntry> = try {
-        zip.entries.asSequence().filter { !it.isDirectory && ComicArchives.isImageEntry(it.name) }
+        zip.entries.asSequence()
+            .onEachIndexed { index, _ -> require(index < 100_000) { "归档条目过多" } }
+            .filter { !it.isDirectory && ComicArchives.isImageEntry(it.name) }
             .sortedWith { a, b -> LibraryRepository.naturalCompare(a.name, b.name) }.toList()
     } catch (failure: Throwable) { zip.close(); throw failure }
 
@@ -258,7 +260,7 @@ private class SevenZComicArchive(file: File) : ComicArchive {
     }
 
     override val pageCount get() = entries.size
-    override val pageNames get() = entries.map { it.name }
+    override val pageNames: List<String> = entries.map { it.name }
     override val concurrentReads get() = false
 
     override fun openPage(number: Int): InputStream {
@@ -285,7 +287,7 @@ private class RarComicArchive(file: File) : ComicArchive {
     }
 
     override val pageCount get() = headers.size
-    override val pageNames get() = headers.map { it.fileName }
+    override val pageNames: List<String> = headers.map { it.fileName }
     override val concurrentReads get() = false
 
     override fun openPage(number: Int): InputStream {
@@ -304,18 +306,14 @@ private class TarComicArchive(file: File) : ComicArchive {
     private val records: List<TarRecord> = index(file)
 
     override val pageCount get() = records.size
-    override val pageNames get() = records.map { it.name }
+    override val pageNames: List<String> = records.map { it.name }
 
     override fun openPage(number: Int): InputStream {
         val record = records.getOrNull(number - 1) ?: throw IOException("页面不存在：$number")
         val stream = FileInputStream(source)
         try {
-            var skipped = 0L
-            while (skipped < record.offset) {
-                val step = stream.skip(record.offset - skipped)
-                if (step <= 0) throw IOException("TAR 条目数据不完整")
-                skipped += step
-            }
+            if (record.offset > source.length()) throw IOException("TAR 条目数据不完整")
+            stream.channel.position(record.offset)
         } catch (failure: Throwable) {
             stream.close()
             throw failure

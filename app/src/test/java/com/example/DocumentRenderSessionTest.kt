@@ -682,4 +682,34 @@ class DocumentRenderSessionTest {
             file.delete()
         }
     }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun ultraTallStripIsDownsampledWithinTextureLimitAndSupportsRegionDecode() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val tall = android.graphics.Bitmap.createBitmap(16, 8192, android.graphics.Bitmap.Config.ARGB_8888)
+        val encoded = try {
+            tall.eraseColor(android.graphics.Color.BLUE)
+            java.io.ByteArrayOutputStream().also {
+                tall.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }.toByteArray()
+        } finally { tall.recycle() }
+        val session = DocumentRenderSession(app)
+        try {
+            val rendered = session.render("超长条漫", 1, 2_500_000) {
+                PageSource.Directory(1) { encoded.inputStream() }
+            }
+            assertTrue("单边解码尺寸不得超过纹理安全上限", rendered.height <= 4096)
+            assertEquals(16 to 8192, session.nativeSize(rendered))
+            val region = session.renderRegion("超长条漫", 1, 0.25f, 0.5f, 2_500_000) {
+                error("区域解码应复用已有会话")
+            }
+            assertNotNull(region)
+            assertTrue(region!!.height in 1..4096)
+            session.trimMemory()
+            assertEquals(0, session.cachedBytes())
+        } finally {
+            session.close()
+        }
+    }
 }

@@ -351,9 +351,12 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
         open.renderer!!.openPage(number - 1).use { page ->
             open.imageSizes[number] = page.width to page.height
             val nativePixels = page.width.toLong() * page.height
-            val scale = kotlin.math.sqrt(maxPixels.toDouble() / nativePixels).toFloat().coerceAtMost(3f)
-            val width = (page.width * scale).toInt().coerceIn(1, page.width * 3)
-            val height = (page.height * scale).toInt().coerceIn(1, page.height * 3)
+            val maxDim = maxOf(page.width, page.height).coerceAtLeast(1)
+            val dimCap = MAX_TEXTURE_DIM.toFloat() / maxDim
+            val scale = kotlin.math.sqrt(maxPixels.toDouble() / nativePixels).toFloat()
+                .coerceAtMost(minOf(3f, dimCap))
+            val width = (page.width * scale).toInt().coerceIn(1, MAX_TEXTURE_DIM.toInt())
+            val height = (page.height * scale).toInt().coerceIn(1, MAX_TEXTURE_DIM.toInt())
             Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { bitmap ->
                 dimensions[bitmap] = page.width to page.height
                 bitmap.eraseColor(android.graphics.Color.WHITE)
@@ -380,9 +383,12 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
                 try { input.reset() } catch (_: IOException) { input.close(); input = stream() }
                 (bounds.outWidth to bounds.outHeight).also { open.imageSizes[number] = it }
             }
-            val bitmap = BitmapFactory.decodeStream(input, null, BitmapFactory.Options().apply {
+            val options = BitmapFactory.Options().apply {
                 inSampleSize = sampleFor(original.first, original.second, maxPixels)
-            })
+                // 采样后的高分辨率漫画图同样受硬件纹理尺寸上限约束，按需要继续二次降采样
+                // 避免超长条漫解码出超过 GPU/Canvas 纹理限制的位图导致显示黑屏或崩溃。
+            }
+            val bitmap = BitmapFactory.decodeStream(input, null, options)
             cancellation.ensureActive()
             return (bitmap ?: error("图像无法解码")).also { dimensions[it] = original }
         } finally { input.close() }
@@ -399,13 +405,16 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
             return open.renderer.openPage(number - 1).use { page ->
                 val pageWidth = page.width
                 val pageHeight = page.height
-                val bandTop = (pageHeight * top).toInt()
-                val bandBottom = (pageHeight * bottom).toInt().coerceAtLeast(bandTop + 1)
+                val bandTop = (pageHeight * top).toInt().coerceIn(0, (pageHeight - 1).coerceAtLeast(0))
+                val bandBottom = (pageHeight * bottom).toInt().coerceIn(bandTop + 1, pageHeight.coerceAtLeast(1))
                 val bandHeight = bandBottom - bandTop
                 val pixels = pageWidth.toLong() * bandHeight
-                val scale = kotlin.math.sqrt(maxPixels.toDouble() / pixels).toFloat().coerceAtMost(3f)
-                val width = (pageWidth * scale).toInt().coerceAtLeast(1)
-                val height = (bandHeight * scale).toInt().coerceAtLeast(1)
+                val maxDim = maxOf(pageWidth, bandHeight).coerceAtLeast(1)
+                val dimCap = MAX_TEXTURE_DIM.toFloat() / maxDim
+                val scale = kotlin.math.sqrt(maxPixels.toDouble() / pixels).toFloat()
+                    .coerceAtMost(minOf(3f, dimCap))
+                val width = (pageWidth * scale).toInt().coerceIn(1, MAX_TEXTURE_DIM.toInt())
+                val height = (bandHeight * scale).toInt().coerceIn(1, MAX_TEXTURE_DIM.toInt())
                 Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { bitmap ->
                     bitmap.eraseColor(android.graphics.Color.WHITE)
                     val matrix = Matrix().apply {
@@ -422,18 +431,42 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
         }
 
         val cancellation = currentCoroutineContext()
-        return synchronized(open.regionGate) {
-            if (open.regionPage != number) {
-                open.regionDecoder?.recycle()
-                open.regionDecoder = null
-                open.regionPage = -1
+        val streamFactory = { CancellablePageInputStream(openStream(open, number), cancellation) }
+        val decoder = synchronized(open.regionGate) {
+            if (open.regionPage == number) open.regionDecoder else null
+        } ?: run {
+            @Suppress("DEPRECATION")
+            val created = streamFactory().use { BitmapRegionDecoder.newInstance(it, false) } ?: return null
+            try {
+                cancellation.ensureActive()
+            } catch (failure: Throwable) {
+                created.recycle()
+                throw failure
             }
-            val decoder = open.regionDecoder ?: CancellablePageInputStream(openStream(open, number), cancellation).use {
-                BitmapRegionDecoder.newInstance(it, false)
-            }?.also { open.regionDecoder = it; open.regionPage = number } ?: return@synchronized null
+            synchronized(open.regionGate) {
+                if (source !== open) {
+                    created.recycle()
+                    return null
+                }
+                if (open.regionPage == number && open.regionDecoder != null) {
+                    created.recycle()
+                    open.regionDecoder!!
+                } else {
+                    open.regionDecoder?.recycle()
+                    open.regionDecoder = created
+                    open.regionPage = number
+                    created
+                }
+            }
+        }
+        return synchronized(open.regionGate) {
+            if (open.regionDecoder !== decoder || decoder.isRecycled) return@synchronized null
             val width = decoder.width
             val height = decoder.height
-            val rect = Rect(0, (height * top).toInt(), width, (height * bottom).toInt().coerceAtLeast(1))
+            if (width <= 0 || height <= 0) return@synchronized null
+            val rectTop = (height * top).toInt().coerceIn(0, height - 1)
+            val rectBottom = (height * bottom).toInt().coerceIn(rectTop + 1, height)
+            val rect = Rect(0, rectTop, width, rectBottom)
             val sample = sampleFor(rect.width(), rect.height(), maxPixels)
             decoder.decodeRegion(rect, BitmapFactory.Options().apply { inSampleSize = sample })
         }
@@ -442,13 +475,17 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
     /**
      * 严格按像素预算选采样率，绝不允许为了「保住最小宽度」而突破预算：
      * 极长条漫（如 1000×100000）曾因宽度下限被钳制而解码出 25M 像素。
+     * 同时约束单边采样尺寸不超过常见 GPU 纹理上限，避免极宽/极长图在硬件加速下绘制失败。
      * 整页位图只是占位，放大后的清晰度由 renderRegion 的高清条带补齐。
      */
     private fun sampleFor(width: Int, height: Int, maxPixels: Int): Int {
         var sample = 1
+        val budget = maxPixels.coerceAtLeast(1).toLong()
         while (sample < (1 shl 30)) {
-            val pixels = (width / sample).toLong() * (height / sample)
-            if (pixels <= maxPixels.coerceAtLeast(1)) break
+            val sampledWidth = ((width.toLong() + sample - 1) / sample).coerceAtLeast(1)
+            val sampledHeight = ((height.toLong() + sample - 1) / sample).coerceAtLeast(1)
+            val pixels = sampledWidth * sampledHeight
+            if (pixels <= budget && sampledWidth <= MAX_TEXTURE_DIM && sampledHeight <= MAX_TEXTURE_DIM) break
             sample *= 2
         }
         return sample.coerceAtLeast(1)
@@ -460,7 +497,16 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
         throw IOException("该作品没有可读取的图片页")
     }
 
-    fun trimMemory() { pages.evictAll() }
+    fun trimMemory() {
+        pages.evictAll()
+        source?.let { open ->
+            synchronized(open.regionGate) {
+                open.regionDecoder?.recycle()
+                open.regionDecoder = null
+                open.regionPage = -1
+            }
+        }
+    }
 
     /** 关闭会话：拒绝新解码，等在途解码结束，再释放归档与临时文件；之后仍可重新打开。 */
     suspend fun close(expectedKey: String? = null) = withContext(Dispatchers.IO) {
@@ -483,6 +529,7 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
         synchronized(open.regionGate) {
             open.regionDecoder?.recycle()
             open.regionDecoder = null
+            open.regionPage = -1
         }
         try {
             open.renderer?.close()
@@ -528,6 +575,8 @@ internal class DocumentRenderSession(context: Context, cacheBudgetBytes: Int = b
     }
 
     companion object {
+        private const val MAX_TEXTURE_DIM = 4096L
+
         private fun budget(context: Context): Int = minOf(
             96L * 1024 * 1024,
             Runtime.getRuntime().maxMemory() / 6,

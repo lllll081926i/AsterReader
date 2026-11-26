@@ -20,6 +20,7 @@ object VaultCryptography {
     const val CHUNK_SIZE = 1024 * 1024
     const val MAX_LENGTH = 16L * 1024 * 1024 * 1024
     const val HEADER_SIZE = 120
+    private const val MAX_CACHED_CHUNKS = 2
     private val magic = "ASTERV02".toByteArray(Charsets.US_ASCII)
     private val random = SecureRandom()
 
@@ -104,7 +105,7 @@ object VaultCryptography {
         private val header = ByteArray(104)
         private var dek = byteArrayOf()
         private var closed = false
-        private val chunks = LinkedHashMap<Int, ByteArray>(2, 0.75f, true)
+        private val chunks = LinkedHashMap<Int, ByteArray>(MAX_CACHED_CHUNKS, 0.75f, true)
         internal var authenticatedChunkReads = 0L
             private set
         @Synchronized internal fun cachedPlainBytes() = chunks.values.sumOf { it.size }
@@ -170,7 +171,7 @@ object VaultCryptography {
             val plain = crypt(Cipher.DECRYPT_MODE, dek, nonce(header, index), aad(header, index, plainLength), ciphertext)
             try { checkActive() } catch (failure: Throwable) { plain.fill(0); throw failure }
             authenticatedChunkReads++
-            if (chunks.size == 2) {
+            if (chunks.size >= MAX_CACHED_CHUNKS) {
                 val oldest = chunks.entries.iterator()
                 oldest.next().value.fill(0)
                 oldest.remove()

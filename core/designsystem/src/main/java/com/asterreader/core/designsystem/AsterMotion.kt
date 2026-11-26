@@ -123,6 +123,7 @@ object AsterMotion {
     val fastEffectsSpec = tween<Float>(durationMillis = 160, easing = EmphasizedDecelerateEasing)
     val defaultEffectsSpec = tween<Float>(durationMillis = 240, easing = EmphasizedDecelerateEasing)
     val slowEffectsSpec = tween<Float>(durationMillis = 320, easing = EmphasizedDecelerateEasing)
+    val errorShakeSpec = tween<Float>(durationMillis = 45, easing = LinearEasing)
 
     fun <T> effectsSpec(reduceMotion: Boolean): FiniteAnimationSpec<T> =
         if (reduceMotion) snap() else tween(durationMillis = 180, easing = EmphasizedDecelerateEasing)

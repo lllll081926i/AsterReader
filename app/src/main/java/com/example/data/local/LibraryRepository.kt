@@ -298,6 +298,32 @@ class LibraryRepository(
             "IMAGE" -> withTemporaryCopy(uri) { file ->
                 Triple(1, emptyList<Pair<String, Int>>(), writeCover({ file.inputStream() }, coverFile))
             }
+            "ZIP", "CBZ" -> {
+                val direct = openLocalZip(uri)
+                if (direct != null) {
+                    direct.use { archive ->
+                        val count = archive.pageCount
+                        require(count > 0) { "归档内没有可读取的图片页面" }
+                        val cover = writeCover(
+                            { archive.openPage(selectedCover.coerceIn(1, count.coerceAtLeast(1))) },
+                            coverFile
+                        )
+                        Triple(count, chapterSpans(archive.pageNames), cover)
+                    }
+                } else {
+                    withTemporaryCopy(uri) { file ->
+                        ComicArchives.open(file, format).use { archive ->
+                            val count = archive.pageCount
+                            require(count > 0) { "归档内没有可读取的图片页面" }
+                            val cover = writeCover(
+                                { archive.openPage(selectedCover.coerceIn(1, count.coerceAtLeast(1))) },
+                                coverFile
+                            )
+                            Triple(count, chapterSpans(archive.pageNames), cover)
+                        }
+                    }
+                }
+            }
             else -> withTemporaryCopy(uri) { file ->
                 ComicArchives.open(file, format).use { archive ->
                     val count = archive.pageCount
@@ -642,13 +668,24 @@ class LibraryRepository(
             PageSource.Directory(record.pageSizes.size) { number ->
                 require(number in 1..record.pageSizes.size)
                 val reader = fileVault.openReader(book.id)
-                object : java.io.FilterInputStream(reader.stream(offsets[number - 1], record.pageSizes[number - 1])) {
-                    override fun close() { try { super.close() } finally { fileVault.release(reader) } }
+                try {
+                    object : java.io.FilterInputStream(reader.stream(offsets[number - 1], record.pageSizes[number - 1])) {
+                        override fun close() { try { super.close() } finally { fileVault.release(reader) } }
+                    }
+                } catch (failure: Throwable) {
+                    fileVault.release(reader)
+                    throw failure
                 }
             }
         } else if (book.format == "PDF") {
             val proxy = com.example.data.local.vault.VaultProxySource(context, fileVault, book.id)
-            PageSource.SecurePdf(ParcelFileDescriptor.dup(proxy.descriptor.fileDescriptor), proxy::close)
+            val dup = try {
+                ParcelFileDescriptor.dup(proxy.descriptor.fileDescriptor)
+            } catch (failure: Throwable) {
+                proxy.close()
+                throw failure
+            }
+            PageSource.SecurePdf(dup, proxy::close)
         } else PageSource.SecureArchive(com.example.data.local.vault.VaultComicArchive(fileVault, record))
     } else if (book.format == "IMAGE_DIR") {
         val pages = dao.getComicPages(book.id).associateBy { it.number }
@@ -694,7 +731,7 @@ class LibraryRepository(
     suspend fun renderPage(id: String, page: Int, maxPixels: Int = DEFAULT_PAGE_PIXELS): Bitmap =
         withContext(Dispatchers.IO) {
             val token = fileVault.sessionToken()
-            val book = ensureReadingIndex(id)
+            val book = getBookById(id)?.takeIf { it.totalPages > 0 } ?: ensureReadingIndex(id)
             require(page in 1..book.totalPages) { "页码超出范围" }
             renderSession.render(sourceKey(book), page, maxPixels) { prepareSource(book) }.also {
                 if (book.isVaultEncrypted) check(fileVault.isSessionValid(token)) { "保险库已锁定" }
@@ -932,7 +969,12 @@ class LibraryRepository(
                 if (book.format == "IMAGE_DIR") regenerateDirectoryCover(book, target)
                 else generateCover(Uri.parse(book.filePath), book.format, book.coverPage, target)
             }.getOrNull()
-            if (path != null && dao.saveGeneratedCover(book, path)) refreshed++
+            if (path != null && dao.saveGeneratedCover(book, path)) {
+                deleteOldCoverFile(book.coverUrl, path)
+                refreshed++
+            } else if (path != null) {
+                target.delete()
+            }
         }
         refreshed
     }
@@ -959,7 +1001,10 @@ class LibraryRepository(
                 else generateCover(Uri.parse(book.filePath), book.format, book.coverPage, target)
             }.getOrNull() ?: return@forEach
             currentCoroutineContext().ensureActive()
-            if (dao.saveGeneratedCover(book, path)) refreshed++ else target.delete()
+            if (dao.saveGeneratedCover(book, path)) {
+                deleteOldCoverFile(book.coverUrl, path)
+                refreshed++
+            } else target.delete()
         }
         refreshed
     }
@@ -982,6 +1027,7 @@ class LibraryRepository(
         val book = dao.getBookById(bookId) ?: return@withContext false
         if (page !in 1..book.totalPages) return@withContext false
         val target = newCoverFile(book.id)
+        val oldCover = book.coverUrl
         val path = if (book.format == "IMAGE_DIR") {
             val pages = dao.getComicPages(book.id).associateBy { it.number }
             val uri = pages[page]?.uri ?: return@withContext false
@@ -990,6 +1036,7 @@ class LibraryRepository(
             generateCover(Uri.parse(book.filePath), book.format, page, target)
         } ?: return@withContext false
         dao.updateCover(book.id, path, page)
+        deleteOldCoverFile(oldCover, path)
         true
     }
 
@@ -1378,6 +1425,13 @@ class LibraryRepository(
         } finally {
             bitmap.recycle()
         }
+    }
+
+    private fun deleteOldCoverFile(oldPath: String, newPath: String) {
+        if (oldPath.isBlank() || oldPath == newPath) return
+        val coversRoot = File(context.cacheDir, "covers").canonicalFile
+        val candidate = runCatching { File(oldPath.removePrefix("file://")).canonicalFile }.getOrNull() ?: return
+        if (candidate.parentFile == coversRoot && candidate.isFile) candidate.delete()
     }
 
     private fun newCoverFile(id: String): File {

@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.rememberScrollState
@@ -12,7 +13,9 @@ import com.asterreader.core.designsystem.AsterLayout
 @Composable
 fun AsterMainNavigation(expanded: Boolean, current: MainNavDestination,
     onSelect: (MainNavDestination) -> Unit, modifier: Modifier = Modifier, showStatsTab: Boolean = true) {
-    val destinations = MainNavDestination.entries.filter { showStatsTab || it != MainNavDestination.STATS }
+    val destinations = remember(showStatsTab) {
+        MainNavDestination.entries.filter { showStatsTab || it != MainNavDestination.STATS }
+    }
     if (expanded) NavigationRail(modifier.verticalScroll(rememberScrollState()).testTag("main_navigation_rail"), containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         destinations.forEach { destination ->
             NavigationRailItem(selected = destination == current, onClick = { onSelect(destination) },

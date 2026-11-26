@@ -414,7 +414,8 @@ fun AsterReaderAppRoot(
                 val showAppleBottomDock = activeSub == null && !uiState.isBatchSelectionMode
 
                 AsterNavigationLayout(reserveNavigation = showAppleBottomDock, useRail = useNavigationRail, content = {
-                    val activeNavStack = remember(uiState.currentTab, uiState.subScreenStack) {
+            val finishedBooksCount = remember(allBooks) { allBooks.count { it.statusBadge == "已读完" } }
+            val activeNavStack = remember(uiState.currentTab, uiState.subScreenStack) {
                         val base = if (uiState.currentTab == MainNavDestination.LIBRARY) {
                             listOf(com.example.ui.components.NavigationFrame(null, MainNavDestination.LIBRARY, 0))
                         } else {
@@ -546,7 +547,7 @@ fun AsterReaderAppRoot(
                                     if (uiState.showReadingStats) {
                                         ReadingStatsScreen(
                                             viewModel = viewModel,
-                                            finishedBooks = allBooks.count { it.statusBadge == "已读完" },
+                                            finishedBooks = finishedBooksCount,
                                             totalBooks = allBooks.size,
                                             onBack = { viewModel.popSubScreen() }
                                         )
@@ -613,7 +614,7 @@ fun AsterReaderAppRoot(
                                 }
 
                                 MainNavDestination.STATS -> ReadingStatsScreen(viewModel,
-                                    allBooks.count { it.statusBadge == "已读完" }, allBooks.size)
+                                    finishedBooksCount, allBooks.size)
                                 MainNavDestination.SEARCH -> {
                                     SearchAndFilterScreen(
                                         uiState = uiState,

@@ -538,11 +538,16 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // 书库搜索输入走节流，避免高频打字每次触发 IO 与偏好写入。
+    private var navSessionJob: kotlinx.coroutines.Job? = null
+
     /** 记录导航快照，供进程重建后恢复。 */
-    private fun recordNavSession() {
+    private fun recordNavSession(delayMs: Long = 0L) {
         navigationRevision.incrementAndGet()
-        val state = _uiState.value
-        viewModelScope.launch {
+        navSessionJob?.cancel()
+        navSessionJob = viewModelScope.launch {
+            if (delayMs > 0L) kotlinx.coroutines.delay(delayMs)
+            val state = _uiState.value
             runCatching {
                 preferences.saveSession(
                     tab = state.currentTab.name,
@@ -1556,7 +1561,7 @@ class AsterViewModel(application: Application) : AndroidViewModel(application) {
     // ========================================================================
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
-        recordNavSession()
+        recordNavSession(delayMs = 300L)
     }
 
     fun commitSearchHistory(query: String) {

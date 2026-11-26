@@ -468,7 +468,7 @@ private fun PinErrorShake(token: Int, reduceMotion: Boolean, content: @Composabl
     LaunchedEffect(token) {
         if (token == 0 || reduceMotion) return@LaunchedEffect
         listOf(10f, -10f, 8f, -8f, 4f, -4f, 0f).forEach { value ->
-            offset.animateTo(value, tween(45))
+            offset.animateTo(value, com.asterreader.core.designsystem.AsterMotion.errorShakeSpec)
         }
     }
     Box(modifier = Modifier.graphicsLayer { translationX = offset.value }) {

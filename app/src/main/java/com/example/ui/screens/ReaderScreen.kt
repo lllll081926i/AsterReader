@@ -308,6 +308,18 @@ private fun ReaderContent(
                 .fillMaxHeight()
         ) {
 
+                val loadPageCallback: suspend (Int, Int) -> android.graphics.Bitmap = remember(book.id, viewModel) {
+                    { targetPage, maxPixels -> viewModel.renderPage(book.id, targetPage, maxPixels) }
+                }
+                val cachedPageCallback: (Int, Int) -> android.graphics.Bitmap? = remember(book, viewModel) {
+                    { targetPage, maxPixels -> viewModel.cachedPage(book, targetPage, maxPixels) }
+                }
+                val cachedPageSizeCallback: (Int) -> Pair<Int, Int>? = remember(book, viewModel) {
+                    { targetPage -> viewModel.cachedPageSize(book, targetPage) }
+                }
+                val loadRegionCallback: suspend (Int, Float, Float, Int) -> android.graphics.Bitmap? = remember(book.id, viewModel) {
+                    { targetPage, top, bottom, pixels -> viewModel.renderPageRegion(book.id, targetPage, top, bottom, pixels) }
+                }
                 if (!stateLoaded) {
                     Box(Modifier.fillMaxSize().background(ComicPaper))
                 } else PublicationPageCanvas(
@@ -328,12 +340,10 @@ private fun ReaderContent(
                     initialOffsetFraction = if (restored?.page == currentPage && initialPage == null) restored?.offsetFraction ?: 0f else 0f,
                     nativeSize = viewModel::nativePageSize,
                     zoomCommand = zoomCommand,
-                    loadPage = { targetPage, maxPixels -> viewModel.renderPage(book.id, targetPage, maxPixels) },
-                    cachedPage = { targetPage, maxPixels -> viewModel.cachedPage(book, targetPage, maxPixels) },
-                    cachedPageSize = { targetPage -> viewModel.cachedPageSize(book, targetPage) },
-                    loadRegion = { targetPage, top, bottom, pixels ->
-                        viewModel.renderPageRegion(book.id, targetPage, top, bottom, pixels)
-                    },
+                    loadPage = loadPageCallback,
+                    cachedPage = cachedPageCallback,
+                    cachedPageSize = cachedPageSizeCallback,
+                    loadRegion = loadRegionCallback,
                     onPrefetch = { pages -> viewModel.prefetchPages(book.id, pages, currentPage) },
                     onPageChanged = { currentPage = it },
                     onReachedEnd = { end ->
@@ -528,6 +538,7 @@ private fun ReaderContent(
                                     } else {
                                         currentPage = (currentPage - 10).coerceAtLeast(1)
                                     }
+                                    seekSequence++
                                 },
                                 modifier = Modifier.weight(1f),
                                 enabled = currentPage > 1,
@@ -547,15 +558,17 @@ private fun ReaderContent(
                                     maxLines = 3
                                 )                            }
 
-                            Text(
-                                text = "$currentPage / $totalPages · ${((currentPage.toFloat() / totalPages) * 100).roundToInt()}%",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontFamily = RobotoMonoFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.weight(1.4f),
-                                textAlign = TextAlign.Center
-                            )
+        val displayPage = sliderPreview?.roundToInt()?.coerceIn(1, totalPages) ?: currentPage
+        val displayPercent = ((displayPage.toFloat() / totalPages) * 100).roundToInt()
+        Text(
+            text = "$displayPage / $totalPages · $displayPercent%",
+            style = MaterialTheme.typography.labelMedium,
+            fontFamily = RobotoMonoFontFamily,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1.4f),
+            textAlign = TextAlign.Center
+        )
 
                             TextButton(
                                 onClick = {
@@ -565,6 +578,7 @@ private fun ReaderContent(
                                     } else {
                                         currentPage = (currentPage + 10).coerceAtMost(totalPages)
                                     }
+                                    seekSequence++
                                 },
                                 modifier = Modifier.weight(1f),
                                 enabled = currentPage < totalPages,
@@ -715,6 +729,7 @@ private fun ReaderContent(
                 onSelectChapter = { idx, chapter ->
                     currentChapterIndex = idx
                     currentPage = chapter.startPage
+                    seekSequence++
                 }
             )
         }
@@ -773,16 +788,21 @@ private fun ReaderContent(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
+                val tocListState = androidx.compose.foundation.lazy.rememberLazyListState(
+                    initialFirstVisibleItemIndex = (currentChapterIndex - 2).coerceIn(0, (chapters.size - 1).coerceAtLeast(0))
+                )
                 LazyColumn(
+                    state = tocListState,
                     modifier = Modifier.weight(1f, fill = false),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    itemsIndexed(chapters) { index, ch ->
+                    itemsIndexed(chapters, key = { _, ch -> ch.id }) { index, ch ->
                         val isCurrent = index == currentChapterIndex
                         Surface(
                             onClick = {
                                 currentChapterIndex = index
                                 currentPage = ch.startPage
+                                seekSequence++
                                 showTocSheet = false
                             },
                             shape = MaterialTheme.shapes.medium,
@@ -945,13 +965,17 @@ private fun TabletReaderSidePanel(
                         showStatus, onShowStatus)
                 }
             } else {
+                val sideTocState = androidx.compose.foundation.lazy.rememberLazyListState(
+                    initialFirstVisibleItemIndex = (currentChapterIndex - 2).coerceIn(0, (chapters.size - 1).coerceAtLeast(0))
+                )
                 LazyColumn(
+                    state = sideTocState,
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    itemsIndexed(chapters) { idx, ch ->
+                    itemsIndexed(chapters, key = { _, ch -> ch.id }) { idx, ch ->
                         val active = idx == currentChapterIndex
                         Surface(
                             onClick = { onSelectChapter(idx, ch) },

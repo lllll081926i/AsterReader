@@ -177,7 +177,10 @@ private fun SettingsScreenBody(
                     }
                 }
                 "tags" -> {
-                    val tags = books.flatMap { it.tagsCsv.split(',') }.map(String::trim).filter(String::isNotEmpty).distinct().sorted()
+                    val tags = remember(books) {
+                        books.flatMap { it.tagsCsv.split(',', '，') }
+                            .map(String::trim).filter(String::isNotEmpty).distinct().sorted()
+                    }
                     if (tags.isEmpty()) Text("没有标签", style = MaterialTheme.typography.bodyMedium)
                     else AsterSettingsGroup {
                         tags.forEachIndexed { index, tag ->

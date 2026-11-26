@@ -291,8 +291,12 @@ fun PublicationPageCanvas(
         }
         val scope = rememberCoroutineScope()
         var lastReported by remember(publicationId, spreads) { mutableIntStateOf(page) }
-        LaunchedEffect(page, spreads) {
-            if (page != lastReported) pager.scrollToPage(spreads.indexOf(page))
+        var consumedSeek by remember(publicationId, spreads) { mutableIntStateOf(seekSequence) }
+        LaunchedEffect(page, seekSequence, spreads) {
+            if (page != lastReported || consumedSeek != seekSequence) {
+                consumedSeek = seekSequence
+                pager.scrollToPage(spreads.indexOf(page))
+            }
         }
         LaunchedEffect(pager, spreads) {
             var reportedPage: Int? = null
@@ -490,7 +494,7 @@ private fun DocumentPage(
     val owner = LocalLifecycleOwner.current
     val currentCachedPage by rememberUpdatedState(cachedPage)
     val currentLoad by rememberUpdatedState(load)
-    val initialBitmap = remember(publicationId, page, maxPixels, owner, cachedPage) { cachedPage(page, maxPixels) }
+    val initialBitmap = remember(publicationId, page, maxPixels, owner) { currentCachedPage(page, maxPixels) }
     val result by produceState<Result<Bitmap>?>(initialBitmap?.let { Result.success(it) }, publicationId, page, attempt, maxPixels, owner) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             try {
@@ -636,11 +640,13 @@ private fun DocumentPage(
                         )
                     }
                 ) {
+                    val bitmapQuality = if (scale > 1.05f) androidx.compose.ui.graphics.FilterQuality.Medium
+                        else androidx.compose.ui.graphics.FilterQuality.Low
                     drawImage(
                         image = pageImage,
                         dstOffset = IntOffset(fitted.left.roundToInt(), fitted.top.roundToInt()),
                         dstSize = IntSize(fitted.width.roundToInt(), fitted.height.roundToInt()),
-                        filterQuality = androidx.compose.ui.graphics.FilterQuality.Low
+                        filterQuality = bitmapQuality
                     )
                     detail?.let { band ->
                         drawImage(
@@ -650,7 +656,7 @@ private fun DocumentPage(
                                 regionRect.width.roundToInt(),
                                 (regionRect.height * (band.bottom - band.top)).roundToInt().coerceAtLeast(1)
                             ),
-                            filterQuality = androidx.compose.ui.graphics.FilterQuality.Low
+                            filterQuality = androidx.compose.ui.graphics.FilterQuality.Medium
                         )
                     }
                 }
